@@ -1,0 +1,12 @@
+# Runtime dependencies
+pyyaml
+
+# Linting
+ruff
+
+# Testing
+pytest
+pytest-cov
+
+# Dependency management
+pip-tools

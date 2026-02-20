@@ -13,16 +13,15 @@ from simulation.schools.shiba_school import ShibaBushiSchool
 
 
 def get_school(name):
-  if not isinstance(name, str):
-    raise ValueError('get_school name parameter must be str')
-  if name == 'Akodo Bushi School':
-    return AkodoBushiSchool()
-  elif name == 'Bayushi Bushi School':
-    return BayushiBushiSchool()
-  elif name == 'Kakita Bushi School':
-    return KakitaBushiSchool()
-  elif name == 'Shiba Bushi School':
-    return ShibaBushiSchool()
-  else:
-    raise ValueError('Unsupported school: {}'.format(name))
-
+    if not isinstance(name, str):
+        raise ValueError("get_school name parameter must be str")
+    if name == "Akodo Bushi School":
+        return AkodoBushiSchool()
+    elif name == "Bayushi Bushi School":
+        return BayushiBushiSchool()
+    elif name == "Kakita Bushi School":
+        return KakitaBushiSchool()
+    elif name == "Shiba Bushi School":
+        return ShibaBushiSchool()
+    else:
+        raise ValueError(f"Unsupported school: {name}")

@@ -17,50 +17,52 @@ from simulation.events import TakeAttackActionEvent, TakeParryActionEvent
 
 
 class TakeActionEventFactory(ABC):
-  '''
-  Factory class to provide TakeActionEvents.
+    """
+    Factory class to provide TakeActionEvents.
 
-  Used to enable special abilities that alter the way events work.
+    Used to enable special abilities that alter the way events work.
 
-  Encapsulates logic around special TakeActionEvents so we don't have to
-  contaminate Strategy implementations with these features.
-  '''
-  @abstractmethod
-  def get_take_attack_action_event(self, action):
-    pass
+    Encapsulates logic around special TakeActionEvents so we don't have to
+    contaminate Strategy implementations with these features.
+    """
 
-  @abstractmethod
-  def get_take_parry_action_event(self, action):
-    pass
+    @abstractmethod
+    def get_take_attack_action_event(self, action):
+        pass
+
+    @abstractmethod
+    def get_take_parry_action_event(self, action):
+        pass
 
 
 class DefaultTakeActionEventFactory(TakeActionEventFactory):
-  '''
-  Provider for standard TakeAttackActionEvent and TakeParryActionEvent.
-  '''
-  def get_take_attack_action_event(self, action):
-    '''
-    get_take_attack_action_event(action) -> TakeAttackActionEvent
-      action (Action): an AttackAction
+    """
+    Provider for standard TakeAttackActionEvent and TakeParryActionEvent.
+    """
 
-    Returns a TakeAttackActionEvent to run an attack.
-    '''
-    if isinstance(action, AttackAction):
-      return TakeAttackActionEvent(action)
-    else:
-      raise ValueError('get_take_attack_action_event only supports TakeAttackAction')
+    def get_take_attack_action_event(self, action):
+        """
+        get_take_attack_action_event(action) -> TakeAttackActionEvent
+          action (Action): an AttackAction
 
-  def get_take_parry_action_event(self, action):
-    '''
-    get_take_parry_action_event(action) -> TakeParryActionEvent
-      action (Action): a ParryAction
+        Returns a TakeAttackActionEvent to run an attack.
+        """
+        if isinstance(action, AttackAction):
+            return TakeAttackActionEvent(action)
+        else:
+            raise ValueError("get_take_attack_action_event only supports TakeAttackAction")
 
-    Returns a TakeParryActionEvent to run a parry.
-    '''
-    if isinstance(action, ParryAction):
-      return TakeParryActionEvent(action)
-    else:
-      raise ValueError('get_take_parry_action_event only supports TakeParryAction')
+    def get_take_parry_action_event(self, action):
+        """
+        get_take_parry_action_event(action) -> TakeParryActionEvent
+          action (Action): a ParryAction
+
+        Returns a TakeParryActionEvent to run a parry.
+        """
+        if isinstance(action, ParryAction):
+            return TakeParryActionEvent(action)
+        else:
+            raise ValueError("get_take_parry_action_event only supports TakeParryAction")
+
 
 DEFAULT_TAKE_ACTION_EVENT_FACTORY = DefaultTakeActionEventFactory()
-
