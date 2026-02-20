@@ -13,8 +13,8 @@ from abc import ABC, abstractmethod
 
 from simulation.events import AttackFailedEvent, AttackSucceededEvent, EndOfRoundEvent, LightWoundsDamageEvent, RemoveModifierEvent
 from simulation.log import logger
-from simulation.modifiers import Modifier
-from simulation.skills import ATTACK_SKILLS
+from simulation.mechanics.modifiers import Modifier
+from simulation.mechanics.skills import ATTACK_SKILLS
 
 
 class ModifierListener(ABC):

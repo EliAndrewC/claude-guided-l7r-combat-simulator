@@ -7,7 +7,7 @@
 #
 
 from simulation.events import SeriousWoundsDamageEvent
-from simulation.initiative_actions import InitiativeAction
+from simulation.mechanics.initiative_actions import InitiativeAction
 
 class Action(object):
   '''

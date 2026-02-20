@@ -10,7 +10,7 @@
 import csv
 
 from simulation import events
-from simulation.skills import ATTACK_SKILLS
+from simulation.mechanics.skills import ATTACK_SKILLS
 
 FIELDNAMES = [
   'winner',

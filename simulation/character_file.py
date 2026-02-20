@@ -12,14 +12,14 @@
 import os
 import yaml
 
-from simulation.advantages import Advantage
+from simulation.mechanics.advantages import Advantage
 from simulation.character import Character
 from simulation.character_builder import CharacterBuilder
-from simulation.disadvantages import Disadvantage
+from simulation.mechanics.disadvantages import Disadvantage
 from simulation.professions import Profession
-from simulation.school_factory import get_school
-from simulation.skills import Skill
-from simulation.strategy_factory import get_strategy
+from simulation.schools.factory import get_school
+from simulation.mechanics.skills import Skill
+from simulation.strategies.factory import get_strategy
 
 
 class CharacterReader(object):

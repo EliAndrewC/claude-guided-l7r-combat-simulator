@@ -12,7 +12,7 @@ import os
 import shutil
 import sys
 
-from simulation.bayushi_school import BayushiBushiSchool
+from simulation.schools.bayushi_school import BayushiBushiSchool
 from simulation.character import Character
 from simulation.character_file import CharacterReader
 from simulation.context import EngineContext

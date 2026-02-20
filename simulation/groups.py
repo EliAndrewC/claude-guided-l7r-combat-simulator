@@ -3,7 +3,7 @@
 from collections.abc import MutableSet
 
 from simulation.character import Character
-from simulation.knowledge import Knowledge
+from simulation.mechanics.knowledge import Knowledge
 
 
 class Group(MutableSet):

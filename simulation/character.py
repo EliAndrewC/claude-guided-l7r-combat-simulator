@@ -9,25 +9,27 @@
 import math
 import uuid
 
-from simulation import actions, kakita_school, listeners, strategies
-from simulation.attack_optimizer_factory import AttackOptimizerFactory, DEFAULT_ATTACK_OPTIMIZER_FACTORY
-from simulation.action_factory import ActionFactory, DEFAULT_ACTION_FACTORY
-from simulation.knowledge import Knowledge
+from simulation import actions, listeners
+from simulation.schools import kakita_school
+from simulation.strategies import base as strategies
+from simulation.optimizers.attack_optimizer_factory import AttackOptimizerFactory, DEFAULT_ATTACK_OPTIMIZER_FACTORY
+from simulation.strategies.action_factory import ActionFactory, DEFAULT_ACTION_FACTORY
+from simulation.mechanics.knowledge import Knowledge
 from simulation.log import logger
-from simulation.modifiers import FreeRaise
+from simulation.mechanics.modifiers import FreeRaise
 from simulation.professions import Profession
-from simulation.roll import normalize_roll_params
-from simulation.roll_params import DEFAULT_ROLL_PARAMETER_PROVIDER, RollParameterProvider
-from simulation.roll_provider import DEFAULT_ROLL_PROVIDER, RollProvider
-from simulation.schools import School
-from simulation.strategies import Strategy
-from simulation.take_action_event_factory import DEFAULT_TAKE_ACTION_EVENT_FACTORY, TakeActionEventFactory
-from simulation.target_finders import EasiestTargetFinder, TargetFinder
-from simulation.weapons import KATANA, Weapon
-from simulation.wound_check_optimizers import WoundCheckOptimizer
-from simulation.wound_check_optimizer_factory import DEFAULT_WOUND_CHECK_OPTIMIZER_FACTORY, WoundCheckOptimizerFactory
-from simulation.wound_check_provider import DEFAULT_WOUND_CHECK_PROVIDER, WoundCheckProvider
-from simulation.void_point_manager import VoidPointManager
+from simulation.mechanics.roll import normalize_roll_params
+from simulation.mechanics.roll_params import DEFAULT_ROLL_PARAMETER_PROVIDER, RollParameterProvider
+from simulation.mechanics.roll_provider import DEFAULT_ROLL_PROVIDER, RollProvider
+from simulation.schools.base import School
+from simulation.strategies.base import Strategy
+from simulation.strategies.take_action_event_factory import DEFAULT_TAKE_ACTION_EVENT_FACTORY, TakeActionEventFactory
+from simulation.strategies.target_finders import EasiestTargetFinder, TargetFinder
+from simulation.mechanics.weapons import KATANA, Weapon
+from simulation.optimizers.wound_check_optimizers import WoundCheckOptimizer
+from simulation.optimizers.wound_check_optimizer_factory import DEFAULT_WOUND_CHECK_OPTIMIZER_FACTORY, WoundCheckOptimizerFactory
+from simulation.optimizers.wound_check_provider import DEFAULT_WOUND_CHECK_PROVIDER, WoundCheckProvider
+from simulation.mechanics.void_point_manager import VoidPointManager
 
 
 RING_NAMES = ['air', 'earth', 'fire', 'water', 'void']

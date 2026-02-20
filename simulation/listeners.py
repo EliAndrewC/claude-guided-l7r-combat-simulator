@@ -8,7 +8,8 @@
 
 from abc import ABC, abstractmethod
 
-from simulation import events, modifiers, modifier_listeners
+from simulation import events, modifier_listeners
+from simulation.mechanics import modifiers
 from simulation.log import logger
 
 

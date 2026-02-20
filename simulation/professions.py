@@ -8,16 +8,16 @@
 
 from abc import ABC, abstractmethod
 
-from simulation.action_factory import DefaultActionFactory
+from simulation.strategies.action_factory import DefaultActionFactory
 from simulation.actions import AttackAction
 from simulation.events import AddModifierEvent, AttackSucceededEvent, LightWoundsDamageEvent, TakeAttackActionEvent
 from simulation.listeners import Listener
-from simulation.modifiers import Modifier
+from simulation.mechanics.modifiers import Modifier
 from simulation.modifier_listeners import ExpireAfterNextDamageByCharacterListener
-from simulation.roll import BaseRoll
-from simulation.roll_params import DefaultRollParameterProvider, normalize_roll_params
-from simulation.roll_provider import DefaultRollProvider
-from simulation.take_action_event_factory import DefaultTakeActionEventFactory
+from simulation.mechanics.roll import BaseRoll
+from simulation.mechanics.roll_params import DefaultRollParameterProvider, normalize_roll_params
+from simulation.mechanics.roll_provider import DefaultRollProvider
+from simulation.strategies.take_action_event_factory import DefaultTakeActionEventFactory
 
 
 # supported ability names

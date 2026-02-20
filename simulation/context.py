@@ -15,7 +15,7 @@
 from simulation import events
 from simulation.exceptions import CombatEnded
 from simulation.features import TrialFeatures
-from simulation.probability_provider import DefaultProbabilityProvider
+from simulation.optimizers.probability_provider import DefaultProbabilityProvider
 
 
 class EngineContext(object):

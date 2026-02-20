@@ -10,12 +10,12 @@ import os
 import uuid
 import yaml
 
-from simulation.advantages import Advantage
+from simulation.mechanics.advantages import Advantage
 from simulation.character import Character
-from simulation.disadvantages import Disadvantage
+from simulation.mechanics.disadvantages import Disadvantage
 from simulation.professions import Profession, get_profession_ability
-from simulation.skills import Skill
-from simulation.strategies import Strategy
+from simulation.mechanics.skills import Skill
+from simulation.strategies.base import Strategy
 
 
 class CharacterBuilder(object):
