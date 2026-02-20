@@ -1,0 +1,29 @@
+name: Mighty Kyō'ude
+profession: Wave Man
+xp: 9001
+rings:
+  air: 3
+  earth: 5
+  fire: 5
+  water: 5
+  void: 5
+skills:
+  attack: 5
+  parry: 5
+abilities:
+  crippled bonus: 2
+  failed parry damage bonus: 2
+  initiative bonus: 2
+  missed attack bonus: 2
+  parry penalty: 2
+  rolled damage bonus: 2
+  weapon damage bonus: 2
+  wound check bonus: 2
+advantages:
+  - fierce
+  - great destiny
+  - strength of the earth
+disadvantages:
+  - contrary
+  - proud
+  - short temper

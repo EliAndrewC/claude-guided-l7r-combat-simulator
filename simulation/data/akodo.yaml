@@ -1,0 +1,16 @@
+name: Akodo
+school: Akodo Bushi School
+xp: 370
+rings:
+  air: 3
+  earth: 5
+  fire: 5
+  water: 6
+  void: 5
+skills:
+  attack: 5
+  double attack: 5
+  feint: 5
+  iaijutsu: 5
+  parry: 5
+
