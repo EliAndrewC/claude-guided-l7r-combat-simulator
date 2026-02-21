@@ -35,6 +35,7 @@ class BatchResult:
 @dataclass
 class SingleCombatResult:
     play_by_play: list[str] = field(default_factory=list)
+    group_names: dict[str, int] = field(default_factory=dict)
     winner: int = 0
     features: dict[str, int] = field(default_factory=dict)
     duration_rounds: int = 0

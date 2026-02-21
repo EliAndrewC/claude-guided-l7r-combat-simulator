@@ -7,6 +7,19 @@ from simulation.schools.kakita_school import (
     TakeContestedIaijutsuAttackAction,
 )
 
+
+def _format_dice(dice: list, kept: int) -> str:
+    """Format a dice list with kept dice **bold** and dropped dice ~~strikethrough~~."""
+    if not dice:
+        return "[]"
+    parts = []
+    for i, d in enumerate(dice):
+        if i < kept:
+            parts.append(f"**{d}**")
+        else:
+            parts.append(f"~~{d}~~")
+    return "[" + ", ".join(parts) + "]"
+
 # Event types that are silently skipped in format_history (info merged elsewhere)
 _SKIP_EVENTS = (
     events.AttackDeclaredEvent,
@@ -37,6 +50,7 @@ class DetailedEventFormatter:
     def __init__(self):
         self._current_phase = 0
         self._current_round = 0
+        self._phase_shown: bool = False
         self._last_wc_passed: dict[str, bool] = {}
         self._last_take_sw_target: str | None = None
 
@@ -45,8 +59,12 @@ class DetailedEventFormatter:
         lines = []
         shown_opening_status = False
         last_status = None
+        consumed: set[int] = set()
 
-        for event in history:
+        for i, event in enumerate(history):
+            if i in consumed:
+                continue
+
             if isinstance(event, _SKIP_EVENTS):
                 continue
 
@@ -58,6 +76,7 @@ class DetailedEventFormatter:
 
             elif isinstance(event, events.NewPhaseEvent):
                 self._current_phase = event.phase
+                self._phase_shown = False
                 if hasattr(event, "_detail_status"):
                     last_status = event._detail_status
                 if hasattr(event, "_detail_initiative"):
@@ -74,7 +93,23 @@ class DetailedEventFormatter:
                     lines.append("  ─────")
                     lines.extend(self._format_status_block(status))
                     lines.append("  ─────")
-                lines.extend(self._format_take_attack(event))
+                    self._phase_shown = False
+                # Lookahead for matching AttackRolledEvent
+                rolled_idx = self._find_attack_rolled(history, i + 1, event.action)
+                if rolled_idx is not None:
+                    # Collect VP events between, and consume them
+                    vp_events: list = []
+                    for j in range(i + 1, rolled_idx):
+                        if j in consumed:
+                            continue
+                        if isinstance(history[j], events.SpendVoidPointsEvent):
+                            vp_events.append(history[j])
+                            consumed.add(j)
+                    vp_infix = self._build_vp_infix(vp_events)
+                    lines.extend(self._format_combined_attack(event, history[rolled_idx], vp_infix=vp_infix))
+                    consumed.add(rolled_idx)
+                else:
+                    lines.extend(self._format_take_attack(event))
 
             elif isinstance(event, events.AttackRolledEvent):
                 lines.extend(self._format_attack_rolled(event))
@@ -83,7 +118,12 @@ class DetailedEventFormatter:
                 lines.extend(self._format_contested_iaijutsu_rolled(event))
 
             elif isinstance(event, events.TakeParryActionEvent):
-                lines.extend(self._format_take_parry(event))
+                rolled_idx = self._find_parry_rolled(history, i + 1, event.action)
+                if rolled_idx is not None:
+                    lines.extend(self._format_combined_parry(event, history[rolled_idx]))
+                    consumed.add(rolled_idx)
+                else:
+                    lines.extend(self._format_take_parry(event))
 
             elif isinstance(event, events.ParryRolledEvent):
                 lines.extend(self._format_parry_rolled(event))
@@ -100,11 +140,16 @@ class DetailedEventFormatter:
                 lines.extend(self._format_sw_damage(event))
 
             elif isinstance(event, events.WoundCheckRolledEvent):
-                passed = event.roll >= event.tn
-                self._last_wc_passed[event.subject.name()] = passed
-                lines.extend(self._format_wound_check_rolled(event))
+                lines.extend(self._process_wound_check(history, i, consumed))
 
             elif isinstance(event, events.SpendVoidPointsEvent):
+                if event.skill == "wound check":
+                    wc_idx = self._find_wound_check_rolled(history, i + 1, event.subject.name())
+                    if wc_idx is not None:
+                        vp_infix = self._build_vp_infix([event])
+                        lines.extend(self._process_wound_check(history, wc_idx, consumed, vp_infix))
+                        consumed.add(wc_idx)
+                        continue
                 lines.extend(self._format_spend_vp(event))
 
             elif isinstance(event, events.KeepLightWoundsEvent):
@@ -129,8 +174,11 @@ class DetailedEventFormatter:
         return lines
 
     def _phase_prefix(self, char_name: str) -> str:
-        """Returns 'Phase X | Name |' prefix."""
-        return f"Phase {self._current_phase} | {char_name} |"
+        """Returns 'Phase X | Name |' on first call per phase, then 'Name |'."""
+        if not self._phase_shown:
+            self._phase_shown = True
+            return f"Phase {self._current_phase} | {char_name} |"
+        return f"{char_name} |"
 
     def _format_status_block(self, status: dict) -> list[str]:
         """Format a status snapshot as a block of lines."""
@@ -149,7 +197,8 @@ class DetailedEventFormatter:
             rolled, kept = data["roll_params"]
             all_dice = data["all_dice"]
             actions = data["actions"]
-            lines.append(f"  {name}: {rolled}k{kept} rolled {all_dice} → Actions: {actions}")
+            dice_str = _format_dice(all_dice, kept)
+            lines.append(f"  {name}: {rolled}k{kept} rolled {dice_str} → Actions: {actions}")
         return lines
 
     def _format_take_attack(self, event) -> list[str]:
@@ -177,7 +226,7 @@ class DetailedEventFormatter:
         total = kept_sum + mod
 
         # Build roll description
-        roll_str = f"{rolled}k{kept} {dice} → {kept_sum}"
+        roll_str = f"{rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum}"
         if mod > 0:
             roll_str += f", +{mod} = {total}"
         elif mod < 0:
@@ -202,7 +251,7 @@ class DetailedEventFormatter:
             if margin > 0:
                 extras.append(f"+{margin} over TN")
             if extra_dice > 0:
-                extras.append(f"{extra_dice} extra damage dice")
+                extras.append(f"{extra_dice} extra damage {'die' if extra_dice == 1 else 'dice'}")
             if damage_params:
                 dr, dk, dm = damage_params
                 extras.append(f"damage will be {dr}k{dk}")
@@ -243,7 +292,7 @@ class DetailedEventFormatter:
             kept_sum = sum(dice[:kept]) if dice else skill_roll
             effective_mod = skill_roll - kept_sum
 
-            roll_str = f"{rolled}k{kept} {dice} → {kept_sum}"
+            roll_str = f"{rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum}"
             if effective_mod > 0:
                 roll_str += f", +{effective_mod} = {skill_roll}"
             elif effective_mod < 0:
@@ -256,7 +305,7 @@ class DetailedEventFormatter:
             label = "⚔️ Contested Iaijutsu (5th Dan)"
             extras = [f"+{margin}" if margin > 0 else ""]
             if result == "WON" and extra_dice > 0:
-                extras.append(f"{extra_dice} extra damage dice")
+                extras.append(f"{extra_dice} extra damage {'die' if extra_dice == 1 else 'dice'}")
             elif result == "LOST" and extra_dice < 0:
                 extras.append(f"{abs(extra_dice)} fewer damage dice")
             extras = [e for e in extras if e]
@@ -286,7 +335,7 @@ class DetailedEventFormatter:
         kept_sum = sum(dice[:kept]) if dice else event.roll
         total = kept_sum + mod
 
-        roll_str = f"{rolled}k{kept} {dice} → {kept_sum}"
+        roll_str = f"{rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum}"
         if mod > 0:
             roll_str += f", +{mod} = {total}"
         elif mod < 0:
@@ -311,33 +360,33 @@ class DetailedEventFormatter:
         total_str = f" (total: {lw_after})" if lw_after is not None else ""
 
         return [
-            f"{self._phase_prefix(attacker)} 💥 Damage: {rolled}k{kept} {dice} → {kept_sum}",
-            f"{self._phase_prefix(name)} 💥 takes {event.damage} light wounds{total_str}",
+            f"{self._phase_prefix(attacker)} 💥 Damage: {rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum}"
+            f" → {name} takes {event.damage} light wounds{total_str}",
         ]
 
     def _format_sw_damage(self, event) -> list[str]:
         name = event.target.name()
-        hearts = "🖤" * event.damage
-        return [f"{self._phase_prefix(name)} {hearts} {name} takes {event.damage} serious wounds"]
+        hearts = "💔" * event.damage
+        noun = "wound" if event.damage == 1 else "wounds"
+        return [f"{self._phase_prefix(name)} {hearts} {name} takes {event.damage} serious {noun}"]
 
-    def _format_wound_check_rolled(self, event) -> list[str]:
+    def _format_wound_check_rolled(self, event, emoji: str | None = None, vp_infix: str = "") -> list[str]:
         """Combine wound check roll with pass/fail."""
         name = event.subject.name()
 
-        if not hasattr(event, "_detail_dice"):
-            passed = event.roll >= event.tn
+        passed = event.roll >= event.tn
+        if emoji is None:
             emoji = "💔" if passed else "🖤"
-            result = "PASSED" if passed else "FAILED"
-            return [f"{self._phase_prefix(name)} {emoji} Wound Check: rolled {event.roll} vs TN {event.tn} — {result}"]
+        result = "PASSED" if passed else "FAILED"
+
+        if not hasattr(event, "_detail_dice"):
+            return [f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: rolled {event.roll} vs TN {event.tn} — {result}"]
 
         dice = event._detail_dice
         rolled, kept = event._detail_params
         kept_sum = sum(dice[:kept]) if dice else event.roll
 
-        passed = event.roll >= event.tn
-        emoji = "💔" if passed else "🖤"
-        result = "PASSED" if passed else "FAILED"
-        return [f"{self._phase_prefix(name)} {emoji} Wound Check: {rolled}k{kept} {dice} → {kept_sum} vs TN {event.tn} — {result}"]
+        return [f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: {rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum} vs TN {event.tn} — {result}"]
 
     def _format_spend_vp(self, event) -> list[str]:
         name = event.subject.name()
@@ -347,11 +396,269 @@ class DetailedEventFormatter:
     def _format_keep_lw(self, event) -> list[str]:
         name = event.subject.name()
         lw_total = getattr(event, "_detail_lw_total", event.damage)
-        return [f"{self._phase_prefix(name)} 💔 keeping {lw_total} light wounds"]
+        return [f"{self._phase_prefix(name)} 🖤 keeping {lw_total} light wounds"]
 
     def _format_take_sw(self, event) -> list[str]:
         name = event.subject.name()
         voluntary = self._last_wc_passed.get(name, False)
         if voluntary:
-            return [f"{self._phase_prefix(name)} 🖤 chooses to take 1 serious wound"]
-        return [f"{self._phase_prefix(name)} 🖤 takes 1 serious wound"]
+            return [f"{self._phase_prefix(name)} 💔 chooses to take 1 serious wound"]
+        return [f"{self._phase_prefix(name)} 💔 takes 1 serious wound"]
+
+    # ── Lookahead helpers ──────────────────────────────────────────────
+
+    def _find_attack_rolled(
+        self, history: list, start: int, action: object,
+    ) -> int | None:
+        """Scan forward up to 5 events for a matching AttackRolledEvent."""
+        limit = min(start + 5, len(history))
+        for j in range(start, limit):
+            evt = history[j]
+            if isinstance(evt, events.AttackRolledEvent) and evt.action is action:
+                return j
+            if isinstance(evt, _SKIP_EVENTS) or isinstance(evt, events.SpendVoidPointsEvent):
+                continue
+            break
+        return None
+
+    def _find_parry_rolled(
+        self, history: list, start: int, action: object,
+    ) -> int | None:
+        """Scan forward up to 5 events for a matching ParryRolledEvent."""
+        limit = min(start + 5, len(history))
+        for j in range(start, limit):
+            evt = history[j]
+            if isinstance(evt, events.ParryRolledEvent) and evt.action is action:
+                return j
+            if isinstance(evt, _SKIP_EVENTS) or isinstance(evt, events.SpendVoidPointsEvent):
+                continue
+            break
+        return None
+
+    def _find_take_sw(
+        self, history: list, start: int, subject_name: str,
+    ) -> int | None:
+        """Scan forward up to 5 events for a matching TakeSeriousWoundEvent."""
+        limit = min(start + 5, len(history))
+        for j in range(start, limit):
+            evt = history[j]
+            if isinstance(evt, events.TakeSeriousWoundEvent) and evt.subject.name() == subject_name:
+                return j
+            if isinstance(evt, events.KeepLightWoundsEvent):
+                return None
+            if isinstance(evt, _SKIP_EVENTS):
+                continue
+            break
+        return None
+
+    def _find_sw_damage(
+        self, history: list, start: int, subject_name: str,
+    ) -> int | None:
+        """Scan forward up to 5 events for a matching SeriousWoundsDamageEvent."""
+        limit = min(start + 5, len(history))
+        for j in range(start, limit):
+            evt = history[j]
+            if isinstance(evt, events.SeriousWoundsDamageEvent) and evt.target.name() == subject_name:
+                return j
+            if isinstance(evt, _SKIP_EVENTS):
+                continue
+            break
+        return None
+
+    def _find_keep_lw(
+        self, history: list, start: int, subject_name: str,
+    ) -> int | None:
+        """Scan forward up to 5 events for a matching KeepLightWoundsEvent."""
+        limit = min(start + 5, len(history))
+        for j in range(start, limit):
+            evt = history[j]
+            if isinstance(evt, events.KeepLightWoundsEvent) and evt.subject.name() == subject_name:
+                return j
+            if isinstance(evt, events.TakeSeriousWoundEvent):
+                return None
+            if isinstance(evt, _SKIP_EVENTS):
+                continue
+            break
+        return None
+
+    def _find_wound_check_rolled(
+        self, history: list, start: int, subject_name: str,
+    ) -> int | None:
+        """Scan forward up to 5 events for a matching WoundCheckRolledEvent."""
+        limit = min(start + 5, len(history))
+        for j in range(start, limit):
+            evt = history[j]
+            if isinstance(evt, events.WoundCheckRolledEvent) and evt.subject.name() == subject_name:
+                return j
+            if isinstance(evt, _SKIP_EVENTS):
+                continue
+            break
+        return None
+
+    def _process_wound_check(
+        self, history: list, wc_idx: int, consumed: set[int], vp_infix: str = "",
+    ) -> list[str]:
+        """Process a WoundCheckRolledEvent with lookahead for TakeSW/KeepLW."""
+        event = history[wc_idx]
+        passed = event.roll >= event.tn
+        self._last_wc_passed[event.subject.name()] = passed
+        # Lookahead for matching TakeSeriousWoundEvent
+        sw_idx = self._find_take_sw(history, wc_idx + 1, event.subject.name())
+        if sw_idx is not None:
+            self._last_take_sw_target = event.subject.name()
+            consumed.add(sw_idx)
+            # Also consume the following SeriousWoundsDamageEvent to get the count
+            sw_count = 1
+            sw_dmg_idx = self._find_sw_damage(history, sw_idx + 1, event.subject.name())
+            if sw_dmg_idx is not None:
+                sw_count = history[sw_dmg_idx].damage
+                consumed.add(sw_dmg_idx)
+            return self._format_combined_wound_check_sw(event, history[sw_idx], sw_count=sw_count, vp_infix=vp_infix)
+        # Peek for KeepLW to combine onto one line
+        keep_idx = self._find_keep_lw(history, wc_idx + 1, event.subject.name())
+        if keep_idx is not None:
+            consumed.add(keep_idx)
+            return self._format_combined_wound_check_lw(event, history[keep_idx], vp_infix=vp_infix)
+        return self._format_wound_check_rolled(event, vp_infix=vp_infix)
+
+    # ── Combined-line formatters ───────────────────────────────────────
+
+    @staticmethod
+    def _build_roll_str(dice: list, rolled: int, kept: int, mod: int, fallback_total: int = 0) -> tuple[str, int]:
+        """Build a roll description string and compute the total.
+
+        Returns (roll_str, total) where *roll_str* looks like
+        ``'10k6 [...] → 24'`` or ``'10k6 [...] → 24, +5 = 29'``.
+        """
+        kept_sum = sum(dice[:kept]) if dice else fallback_total
+        total = kept_sum + mod
+        roll_str = f"{rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum}"
+        if mod > 0:
+            roll_str += f", +{mod} = {total}"
+        elif mod < 0:
+            roll_str += f", {mod} = {total}"
+        return roll_str, total
+
+    @staticmethod
+    def _build_vp_infix(vp_events: list) -> str:
+        """Build a VP prefix like '⬛ spends 1 VP on attack → ' (or '' if empty)."""
+        if not vp_events:
+            return ""
+        total = sum(e.amount for e in vp_events)
+        squares = "⬛" * total
+        skill = vp_events[0].skill
+        return f"{squares} spends {total} VP on {skill} → "
+
+    def _format_combined_attack(self, take_event: object, rolled_event: object, vp_infix: str = "") -> list[str]:
+        """Build a combined 'attacks … — emoji roll vs TN — RESULT' line."""
+        action = take_event.action
+        subj = action.subject().name()
+        tgt = action.target().name()
+        skill = action.skill()
+
+        if not hasattr(rolled_event, "_detail_dice"):
+            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ attacks {tgt} ({skill}) — Roll: {rolled_event.roll}"]
+
+        dice = rolled_event._detail_dice
+        rolled, kept, mod = rolled_event._detail_params
+        tn = rolled_event._detail_tn
+
+        roll_str, total = self._build_roll_str(dice, rolled, kept, mod, rolled_event.roll)
+
+        hit = action.is_hit() and not action.parried()
+        if hit:
+            result = "HIT!"
+            extra_dice = action.calculate_extra_damage_dice(tn=tn)
+            subject = action.subject()
+            target = action.target()
+            damage_params = subject.get_damage_roll_params(
+                target, action.skill(), extra_dice, action.vp()
+            )
+            extras = []
+            margin = total - tn
+            if margin > 0:
+                extras.append(f"+{margin} over TN")
+            if extra_dice > 0:
+                extras.append(f"{extra_dice} extra damage {'die' if extra_dice == 1 else 'dice'}")
+            if damage_params:
+                dr, dk, _dm = damage_params
+                extras.append(f"damage will be {dr}k{dk}")
+            extra_str = f" ({', '.join(extras)})" if extras else ""
+            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ attacks {tgt} ({skill}) — {roll_str} vs TN {tn} — {result}{extra_str}"]
+        else:
+            result = "MISS"
+            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ attacks {tgt} ({skill}) — {roll_str} vs TN {tn} — {result}"]
+
+    def _format_combined_parry(self, take_event: object, rolled_event: object) -> list[str]:
+        """Build a combined 'parries TARGET — roll vs TN — RESULT' line."""
+        action = take_event.action
+        subj = action.subject().name()
+        tgt = action.target().name()
+
+        if not hasattr(rolled_event, "_detail_dice"):
+            return [f"{self._phase_prefix(subj)} 🛡️ parries {tgt} — Roll: {rolled_event.roll}"]
+
+        dice = rolled_event._detail_dice
+        rolled, kept, mod = rolled_event._detail_params
+        tn = rolled_event._detail_tn
+
+        kept_sum = sum(dice[:kept]) if dice else rolled_event.roll
+        total = kept_sum + mod
+
+        roll_str = f"{rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum}"
+        if mod > 0:
+            roll_str += f", +{mod} = {total}"
+        elif mod < 0:
+            roll_str += f", {mod} = {total}"
+
+        succeeded = action.is_success()
+        result = "SUCCEEDED" if succeeded else "FAILED"
+        return [f"{self._phase_prefix(subj)} 🛡️ parries {tgt} — {roll_str} vs TN {tn} — {result}"]
+
+    def _format_combined_wound_check_lw(self, wc_event: object, lw_event: object, vp_infix: str = "") -> list[str]:
+        """Build a combined 'Wound Check … — PASSED → keeping N light wounds' line."""
+        name = wc_event.subject.name()
+        emoji = "🖤"
+
+        if not hasattr(wc_event, "_detail_dice"):
+            passed = wc_event.roll >= wc_event.tn
+            result = "PASSED" if passed else "FAILED"
+            wc_str = f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: rolled {wc_event.roll} vs TN {wc_event.tn} — {result}"
+        else:
+            dice = wc_event._detail_dice
+            rolled, kept = wc_event._detail_params
+            kept_sum = sum(dice[:kept]) if dice else wc_event.roll
+            passed = wc_event.roll >= wc_event.tn
+            result = "PASSED" if passed else "FAILED"
+            wc_str = f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: {rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum} vs TN {wc_event.tn} — {result}"
+
+        lw_total = getattr(lw_event, "_detail_lw_total", lw_event.damage)
+        return [f"{wc_str} → keeping {lw_total} light wounds"]
+
+    def _format_combined_wound_check_sw(self, wc_event: object, sw_event: object, sw_count: int = 1, vp_infix: str = "") -> list[str]:
+        """Build a combined 'Wound Check … — RESULT → SW text' line."""
+        name = wc_event.subject.name()
+
+        # Build wound check portion — 💔 repeated per serious wound
+        emoji = "💔" * sw_count
+        if not hasattr(wc_event, "_detail_dice"):
+            passed = wc_event.roll >= wc_event.tn
+            result = "PASSED" if passed else "FAILED"
+            wc_str = f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: rolled {wc_event.roll} vs TN {wc_event.tn} — {result}"
+        else:
+            dice = wc_event._detail_dice
+            rolled, kept = wc_event._detail_params
+            kept_sum = sum(dice[:kept]) if dice else wc_event.roll
+            passed = wc_event.roll >= wc_event.tn
+            result = "PASSED" if passed else "FAILED"
+            wc_str = f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: {rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum} vs TN {wc_event.tn} — {result}"
+
+        # Build serious wound suffix
+        noun = "wound" if sw_count == 1 else "wounds"
+        voluntary = self._last_wc_passed.get(name, False)
+        if voluntary:
+            sw_str = f"chooses to take {sw_count} serious {noun}"
+        else:
+            sw_str = f"takes {sw_count} serious {noun}"
+
+        return [f"{wc_str} → {sw_str}"]

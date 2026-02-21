@@ -11,9 +11,8 @@ import io
 import logging
 import sys
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-from simulation import events
 from simulation.character import Character
 from simulation.context import EngineContext
 from simulation.engine import CombatEngine
@@ -39,7 +38,6 @@ from simulation.events import (
 from simulation.features import FIELDNAMES, SummaryFeatures, TrialFeatures, write_feature_file_header
 from simulation.groups import Group
 from simulation.log import logger
-from simulation.mechanics.initiative_actions import InitiativeAction
 from simulation.mechanics.roll_provider import DefaultRollProvider, TestRollProvider
 from simulation.optimizers.wound_check_optimizers import (
     DefaultKeepLightWoundsOptimizer,

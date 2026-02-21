@@ -1,8 +1,4 @@
 import os
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 import streamlit as st
 
@@ -11,6 +7,7 @@ from simulation.mechanics.disadvantages import DISADVANTAGES
 from simulation.mechanics.skills import ADVANCED_SKILLS, BASIC_SKILLS
 from web.adapters.character_adapter import config_to_character, load_data_directory
 from web.models import CharacterConfig
+from web.state import save_state
 
 SCHOOL_NAMES = ["Akodo Bushi School", "Bayushi Bushi School", "Kakita Bushi School", "Shiba Bushi School"]
 WEAPON_NAMES = ["katana", "wakizashi", "tanto", "yari", "club", "unarmed", "gongfu"]
@@ -29,10 +26,6 @@ STRATEGY_NAMES = [
 ]
 STRATEGY_EVENTS = ["your_move", "attack_rolled", "parry_rolled", "wound_check", "lw_damage"]
 
-# Initialize session state
-if "characters" not in st.session_state:
-    st.session_state.characters = {}
-
 st.title("Characters")
 
 # --- Load existing characters ---
@@ -43,6 +36,7 @@ if st.button("Load from simulation/data/"):
         configs = load_data_directory(data_dir)
         for config in configs:
             st.session_state.characters[config.name] = config
+        save_state()
         st.success(f"Loaded {len(configs)} characters")
     except Exception as e:
         st.error(f"Error loading characters: {e}")
@@ -123,6 +117,7 @@ with st.form("new_character_form"):
             try:
                 config_to_character(config)
                 st.session_state.characters[name] = config
+                save_state()
                 st.success(f"Created character: {name}")
             except Exception as e:
                 st.error(f"Invalid character: {e}")
@@ -144,6 +139,7 @@ if st.session_state.characters:
                 st.write(f"**Abilities:** {config.abilities}")
             if st.button(f"Delete {config.name}", key=f"del_{config.name}"):
                 del st.session_state.characters[config.name]
+                save_state()
                 st.rerun()
 else:
     st.info("No characters loaded. Load from data directory or create a new one.")

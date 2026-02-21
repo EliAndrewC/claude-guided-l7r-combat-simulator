@@ -98,8 +98,16 @@ def run_single(characters: list[CharacterConfig], groups: list[GroupConfig]) -> 
     duration_rounds = features.data().get("duration_rounds", 0)
     duration_phases = features.data().get("duration_phases", 0)
 
+    # Build character-name → group-index mapping (control=0, test=1)
+    sorted_groups = sorted(groups, key=lambda g: 0 if g.is_control else 1)
+    group_names: dict[str, int] = {}
+    for idx, g in enumerate(sorted_groups):
+        for name in g.character_names:
+            group_names[name] = idx
+
     return SingleCombatResult(
         play_by_play=play_by_play,
+        group_names=group_names,
         winner=winner,
         features=dict(features.data()),
         duration_rounds=duration_rounds,

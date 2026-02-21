@@ -330,7 +330,9 @@ class TestEndToEndPlayByPlay(unittest.TestCase):
     def test_no_empty_dice_in_attack_lines(self):
         """Attack lines should show actual dice, not empty []."""
         play_by_play, _ = self._build_and_run()
-        attack_lines = [line for line in play_by_play if "Attack:" in line]
+        # Combined format: "attacks ... — 10k6 [...] vs TN ..."
+        # Standalone format: "Attack: 10k6 [...] vs TN ..."
+        attack_lines = [line for line in play_by_play if "vs TN" in line and ("attacks" in line or "Attack:" in line)]
         self.assertTrue(len(attack_lines) > 0, "Should have at least one attack line")
         for line in attack_lines:
             self.assertNotIn("[]", line, f"Empty dice in attack line: {line}")

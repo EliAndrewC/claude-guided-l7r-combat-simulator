@@ -53,7 +53,6 @@ from simulation.strategies.factory import get_strategy
 from simulation.strategies.take_action_event_factory import DefaultTakeActionEventFactory
 from simulation.strategies.target_finders import TargetFinder
 
-
 # ---------------------------------------------------------------------------
 # 1. simulation/groups.py
 # ---------------------------------------------------------------------------

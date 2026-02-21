@@ -21,16 +21,13 @@ from simulation.character_file import (
 from simulation.groups import Group
 from simulation.mechanics.floating_bonuses import FloatingBonus
 from simulation.mechanics.modifiers import FreeRaise, Modifier
-from simulation.mechanics.weapons import KATANA, WAKIZASHI, Weapon
+from simulation.mechanics.weapons import WAKIZASHI
 from simulation.professions import Profession
 from simulation.schools.akodo_school import AkodoBushiSchool
-from simulation.schools.base import School
 from simulation.strategies.base import (
     AlwaysAttackActionStrategy,
     HoldOneActionStrategy,
-    Strategy,
 )
-
 
 # =========================================================================
 # Tests for simulation/character.py
@@ -113,7 +110,7 @@ class TestCharacterFriends(unittest.TestCase):
 
     def test_friends_returns_group(self):
         c = Character("Test")
-        group = Group("Team", [c])
+        Group("Team", [c])
         self.assertEqual(c.group(), c.friends())
 
 

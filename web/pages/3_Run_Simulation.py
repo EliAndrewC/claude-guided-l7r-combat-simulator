@@ -1,19 +1,7 @@
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-
 import streamlit as st
 
 from web.adapters.engine_adapter import run_batch, run_single
-
-# Initialize session state
-if "characters" not in st.session_state:
-    st.session_state.characters = {}
-if "control_group" not in st.session_state:
-    st.session_state.control_group = None
-if "test_group" not in st.session_state:
-    st.session_state.test_group = None
+from web.adapters.html_renderer import render_play_by_play_html
 
 st.title("Run Simulation")
 
@@ -85,7 +73,8 @@ else:
 
                 # Play-by-play
                 with st.expander("Play-by-Play Log", expanded=True):
-                    st.text("\n".join(result.play_by_play))
+                    html = render_play_by_play_html(result.play_by_play, result.group_names)
+                    st.markdown(html, unsafe_allow_html=True)
 
                 # Features
                 with st.expander("Trial Statistics"):

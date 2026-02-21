@@ -25,7 +25,6 @@ from simulation.context import EngineContext
 from simulation.events import (
     AddModifierEvent,
     AttackDeclaredEvent,
-    AttackFailedEvent,
     AttackSucceededEvent,
     CrippledEvent,
     DamageEvent,
@@ -51,7 +50,6 @@ from simulation.groups import Group
 from simulation.listeners import (
     AddModifierListener,
     AttackDeclaredListener,
-    AttackRolledListener,
     FeintSucceededListener,
     GainTemporaryVoidPointsListener,
     Listener,

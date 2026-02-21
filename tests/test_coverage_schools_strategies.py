@@ -21,16 +21,13 @@ from simulation.mechanics.initiative_actions import InitiativeAction
 from simulation.mechanics.knowledge import Knowledge, TheoreticalCharacter
 from simulation.mechanics.modifiers import Modifier
 from simulation.mechanics.roll_provider import TestRollProvider
-from simulation.schools import akodo_school, bayushi_school
 from simulation.schools.akodo_school import (
     AkodoBushiSchool,
-    AkodoFifthDanStrategy,
     AkodoLightWoundsDamageListener,
     AkodoWoundCheckDeclaredListener,
     AkodoWoundCheckRolledStrategy,
     AkodoWoundCheckSucceededListener,
 )
-from simulation.schools.base import BaseSchool
 from simulation.schools.bayushi_school import (
     BayushiAttackFailedListener,
     BayushiAttackSucceededListener,
@@ -281,7 +278,7 @@ class TestAkodoLightWoundsDamageListener(unittest.TestCase):
         # For akodo: event.subject (bayushi) != character (akodo) -> observes damage
         # event.target is also not akodo -> no wound check
         event = events.LightWoundsDamageEvent(self.bayushi, self.bayushi, 15)
-        responses = list(listener.handle(self.akodo, event, self.context))
+        list(listener.handle(self.akodo, event, self.context))
         # akodo should not take LW (not the target)
         self.assertEqual(0, self.akodo.lw())
         # akodo should have observed the damage roll on bayushi
@@ -296,7 +293,7 @@ class TestAkodoLightWoundsDamageListener(unittest.TestCase):
         groups = [Group("Lion", self.akodo), Group("Scorpion", [self.bayushi, other])]
         context = EngineContext(groups)
         event = events.LightWoundsDamageEvent(self.akodo, self.bayushi, 10)
-        responses = list(listener.handle(self.akodo, event, context))
+        list(listener.handle(self.akodo, event, context))
         # no LW taken, no 5th dan response since akodo is not target
         self.assertEqual(0, self.akodo.lw())
 
@@ -1138,7 +1135,7 @@ class TestKnowledgeClear(unittest.TestCase):
     def test_clear_resets_all_state(self):
         knowledge = Knowledge()
         akodo = Character("Akodo")
-        bayushi = Character("Bayushi")
+        Character("Bayushi")
         # populate knowledge
         knowledge.observe_action(akodo)
         knowledge.observe_action(akodo)

@@ -1,19 +1,7 @@
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
-
 import streamlit as st
 
 from web.models import GroupConfig
-
-# Initialize session state
-if "characters" not in st.session_state:
-    st.session_state.characters = {}
-if "control_group" not in st.session_state:
-    st.session_state.control_group = None
-if "test_group" not in st.session_state:
-    st.session_state.test_group = None
+from web.state import save_state
 
 st.title("Combat Setup")
 
@@ -44,6 +32,7 @@ else:
         if st.button("Confirm Groups"):
             st.session_state.control_group = GroupConfig(name="control", is_control=True, character_names=control_names)
             st.session_state.test_group = GroupConfig(name="test", is_control=False, character_names=test_names)
+            save_state()
             st.success("Groups configured!")
 
     # Show current configuration

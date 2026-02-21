@@ -5,9 +5,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import streamlit as st
 
+from web.state import clear_state, restore_state
+
 st.set_page_config(page_title="L7R Combat Simulator", page_icon="⚔️", layout="wide")
 
-# Initialize session state
+# Full-width CSS so content expands when sidebar is collapsed
+_FULL_WIDTH_CSS = """
+<style>
+.stMainBlockContainer { max-width: 100%; }
+</style>
+"""
+st.markdown(_FULL_WIDTH_CSS, unsafe_allow_html=True)
+
+# Restore persisted state before setting defaults
+restore_state()
+
+# Initialize session state defaults (only sets if not already present)
 if "characters" not in st.session_state:
     st.session_state.characters = {}
 if "control_group" not in st.session_state:
@@ -15,14 +28,17 @@ if "control_group" not in st.session_state:
 if "test_group" not in st.session_state:
     st.session_state.test_group = None
 
-st.title("L7R Combat Simulator")
-st.markdown("""
-Welcome to the L7R Tabletop RPG Combat Simulator.
+# Sidebar clear button
+with st.sidebar:
+    if st.button("Clear All Data"):
+        clear_state()
+        st.rerun()
 
-Use the sidebar to navigate between pages:
-1. **Characters** - Create, load, and edit characters
-2. **Combat Setup** - Assign characters to groups
-3. **Run Simulation** - Run batch simulations or single combats
-""")
-
-st.sidebar.success("Select a page above.")
+# Navigation — Characters is the default landing page
+pages = [
+    st.Page("pages/1_Characters.py", title="Characters", default=True),
+    st.Page("pages/2_Combat_Setup.py", title="Combat Setup"),
+    st.Page("pages/3_Run_Simulation.py", title="Run Simulation"),
+]
+nav = st.navigation(pages)
+nav.run()
