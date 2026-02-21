@@ -74,7 +74,11 @@ class HoldOneActionStrategy(Strategy):
             # try to hold an action in reserve until Phase 10
             if character.has_action(context):
                 available_actions = [action for action in character.actions() if action <= context.phase()]
-                if len(available_actions) > 1 or context.phase() == 10:
+                # Phase 0 action dice are bonus actions (e.g. Kakita school)
+                # that should never be held in reserve
+                has_phase_zero_actions = any(a == 0 for a in available_actions)
+                normal_available = sum(1 for a in available_actions if a > 0)
+                if normal_available > 1 or context.phase() == 10 or has_phase_zero_actions:
                     yield from character.attack_strategy().recommend(character, event, context)
                 else:
                     logger.debug(f"{character.name()} is holding an action")

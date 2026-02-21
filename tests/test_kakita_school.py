@@ -308,6 +308,8 @@ class TestTakeContestedIaijutsuAttackAction(unittest.TestCase):
         self.assertEqual(self.kakita, damage_event.subject)
         self.assertEqual(self.target, damage_event.target)
         self.assertEqual(challenger_damage_roll + 5, damage_event.damage)
+        # wound check TN should equal the damage dealt, not the defender's skill roll
+        self.assertEqual(damage_event.wound_check_tn, damage_event.damage)
         #  8. WoundCheckDeclaredEvent
         #  9. WoundCheckRolledEvent
         # 10. KeepLightWoundsEvent

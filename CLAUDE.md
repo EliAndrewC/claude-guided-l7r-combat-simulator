@@ -23,10 +23,15 @@ a TDD philosophy.
 - Style: PEP 8, Type Hints (Strict)
 
 ## Architecture
-1. **Core Engine**: Pure logic (no web dependencies), implemented based on `./rules`, which has the human-readable rules
+1. **Core Engine**: Pure logic, implemented based on `./rules`, which has the human-readable rules
 2. **API/UI**: Streamlit interface to visualize the dice rolls and outcomes.
 
 ## Project Rules
-- **TDD First**: Always write a failing test in `tests/` before implementing logic in `src/`.
+- **TDD First**: Always write a failing test in `tests/` before writing the code (linting should also always pass).
 - **Logic Isolation**: Keep the rules engine 100% separate from the UI code.
 - **Coverage**: Maintain >90% code coverage.
+
+## Development Commands
+- **Run unit tests**: `env/bin/pytest tests/ -v`
+- **Run linting**: `env/bin/ruff check .`
+- **Start web server**: `env/bin/streamlit run web/app.py`  (this should be restarted after every change)

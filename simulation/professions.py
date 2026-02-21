@@ -402,6 +402,10 @@ class WaveManRoll(BaseRoll):
         if always_explode > 2:
             raise ValueError("WaveManRoll may not reroll more than two tens when crippled")
         self.always_explode = always_explode
+        self._dice = []
+
+    def dice(self):
+        return self._dice
 
     def roll(self):
         dice = [self.roll_die(faces=self.faces(), explode=self.explode()) for n in range(self._rolled)]
@@ -412,6 +416,7 @@ class WaveManRoll(BaseRoll):
                     rerolled = 10 + self.roll_die(faces=self.faces(), explode=True)
                     dice.append(rerolled)
         dice.sort(reverse=True)
+        self._dice = dice
         return sum(dice[: self._kept]) + self._bonus
 
 
@@ -469,7 +474,11 @@ class WaveManRollProvider(DefaultRollProvider):
         Return a skill roll using the specified number of rolled and kept dice.
         """
         always_explode = self.ability("crippled bonus")
-        return WaveManRoll(rolled, kept, die_provider=self.die_provider(), explode=explode, always_explode=always_explode).roll()
+        roll = WaveManRoll(rolled, kept, die_provider=self.die_provider(), explode=explode, always_explode=always_explode)
+        result = roll.roll()
+        self._last_skill_roll = roll
+        self._last_skill_info = {"rolled": rolled, "kept": kept, "dice": list(roll.dice())}
+        return result
 
 
 class WaveManTakeAttackActionEvent(TakeAttackActionEvent):

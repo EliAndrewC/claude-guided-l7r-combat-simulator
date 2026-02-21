@@ -20,6 +20,7 @@ from simulation.mechanics.roll_provider import DefaultRollProvider
 from simulation.schools.base import BaseSchool
 from simulation.strategies import target_finders
 from simulation.strategies.action_factory import DefaultActionFactory
+from simulation.strategies.base import UniversalAttackStrategy
 
 
 class KakitaBushiSchool(BaseSchool):
@@ -38,6 +39,7 @@ class KakitaBushiSchool(BaseSchool):
 
     def apply_special_ability(self, character):
         character.set_roll_provider(KAKITA_ROLL_PROVIDER)
+        character.set_attack_strategy(KAKITA_ATTACK_STRATEGY)
         character.add_interrupt_skill("iaijutsu")
 
     def extra_rolled(self):
@@ -200,7 +202,7 @@ class TakeContestedIaijutsuAttackAction(Event):
 
     def roll_damage(self):
         damage_roll = self.challenger_action().roll_damage()
-        yield LightWoundsDamageEvent(self.challenger(), self.defender(), damage_roll, tn=self.defender_action().skill_roll())
+        yield LightWoundsDamageEvent(self.challenger(), self.defender(), damage_roll)
 
     def roll_skill(self, context):
         # challenger rolls
@@ -317,7 +319,7 @@ class KakitaDoubleAttackAction(DoubleAttackAction):
         target_tempo = 11
         if len(self.target().actions()) > 0:
             target_tempo = min(self.target().actions())
-        tempo_diff = min(0, target_tempo - subject_tempo)
+        tempo_diff = max(0, target_tempo - subject_tempo)
         tempo_bonus = self.subject().skill("attack") * tempo_diff
         return (rolled, kept, modifier + tempo_bonus)
 
@@ -335,9 +337,36 @@ class KakitaLungeAction(LungeAction):
         target_tempo = 11
         if len(self.target().actions()) > 0:
             target_tempo = min(self.target().actions())
-        tempo_diff = min(0, target_tempo - subject_tempo)
+        tempo_diff = max(0, target_tempo - subject_tempo)
         tempo_bonus = self.subject().skill("attack") * tempo_diff
         return (rolled, kept, modifier + tempo_bonus)
+
+
+class KakitaAttackStrategy(UniversalAttackStrategy):
+    """
+    Attack strategy for the Kakita Bushi School.
+
+    Per the Kakita Special Ability: "any Phase 0 attacks must use
+    iaijutsu as their attack skill." In non-Phase 0 phases, the
+    normal UniversalAttackStrategy behavior is used.
+    """
+
+    def recommend(self, character, event, context):
+        if isinstance(event, events.YourMoveEvent) and character.has_action(context) and context.phase() == 0:
+            # Phase 0 attacks must use iaijutsu
+            initiative_action = self.choose_action(character, "iaijutsu", context)
+            iaijutsu_event = self.try_skill(character, "iaijutsu", initiative_action, 0.01, context)
+            if iaijutsu_event is not None:
+                yield from self.spend_action(character, "iaijutsu", initiative_action)
+                yield iaijutsu_event
+                return
+            yield events.HoldActionEvent(character)
+        else:
+            yield from super().recommend(character, event, context)
+
+
+# singleton instance
+KAKITA_ATTACK_STRATEGY = KakitaAttackStrategy()
 
 
 class KakitaActionFactory(DefaultActionFactory):
@@ -457,7 +486,11 @@ class KakitaRollProvider(DefaultRollProvider):
     """
 
     def get_initiative_roll(self, rolled, kept):
-        return InitiativeRoll(rolled, kept, die_provider=KAKITA_INITIATIVE_DIE_PROVIDER).roll()
+        roll = InitiativeRoll(rolled, kept, die_provider=KAKITA_INITIATIVE_DIE_PROVIDER)
+        result = roll.roll()
+        self._last_initiative_roll = roll
+        self._last_initiative_info = {"rolled": rolled, "kept": kept, "all_dice": list(roll.all_dice())}
+        return result
 
 
 # singleton instance

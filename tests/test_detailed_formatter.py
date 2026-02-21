@@ -1,0 +1,1022 @@
+"""Tests for DetailedEventFormatter with emoji, phase prefixes, and combined events."""
+
+import unittest
+from unittest.mock import MagicMock
+
+from simulation import events
+from simulation.schools.kakita_school import (
+    ContestedIaijutsuAttackDeclaredEvent,
+    ContestedIaijutsuAttackRolledEvent,
+    TakeContestedIaijutsuAttackAction,
+)
+from web.adapters.detailed_formatter import DetailedEventFormatter
+
+
+def _make_action(subject_name="Akodo", target_name="Bayushi", skill="attack"):
+    action = MagicMock()
+    subject = MagicMock()
+    subject.name.return_value = subject_name
+    subject.get_damage_roll_params.return_value = (6, 2, 0)
+    target = MagicMock()
+    target.name.return_value = target_name
+    action.subject.return_value = subject
+    action.target.return_value = target
+    action.skill.return_value = skill
+    action.skill_roll.return_value = 29
+    action.vp.return_value = 0
+    action.parry_attempted.return_value = False
+    action.is_hit.return_value = True
+    action.parried.return_value = False
+    return action
+
+
+def _make_status(name1="Akodo", name2="Bayushi", **overrides):
+    """Create a default two-character status dict."""
+    defaults = {
+        name1: {"lw": 0, "sw": 0, "max_sw": 4, "vp": 3, "max_vp": 3, "actions": [4, 7], "crippled": False},
+        name2: {"lw": 0, "sw": 0, "max_sw": 4, "vp": 2, "max_vp": 2, "actions": [5, 6], "crippled": False},
+    }
+    for key, val in overrides.items():
+        if key in defaults:
+            defaults[key].update(val)
+    return defaults
+
+
+class TestFormatterRoundHeader(unittest.TestCase):
+    def test_round_zero_displays_as_round_1(self):
+        fmt = DetailedEventFormatter()
+        event = events.NewRoundEvent(0)
+        lines = fmt.format_history([event])
+        header = [ln for ln in lines if "Round" in ln][0]
+        self.assertIn("Round 1", header)
+
+    def test_round_header_uses_unicode_box_chars(self):
+        fmt = DetailedEventFormatter()
+        event = events.NewRoundEvent(1)
+        lines = fmt.format_history([event])
+        header = [ln for ln in lines if "Round 2" in ln][0]
+        self.assertIn("═══", header)
+
+    def test_round_header_blank_line_before(self):
+        fmt = DetailedEventFormatter()
+        e1 = events.NewRoundEvent(1)
+        e2 = events.NewRoundEvent(2)
+        lines = fmt.format_history([e1, e2])
+        # Second round header should have blank line before it
+        idx = next(i for i, ln in enumerate(lines) if "Round 3" in ln)
+        self.assertEqual("", lines[idx - 1])
+
+
+class TestFormatterInitiative(unittest.TestCase):
+    def test_initiative_block_with_emoji_and_dice(self):
+        fmt = DetailedEventFormatter()
+        phase = events.NewPhaseEvent(0)
+        phase._detail_initiative = {
+            "Akodo Bushi": {
+                "all_dice": [2, 4, 7],
+                "actions": [4, 7],
+                "roll_params": (3, 2),
+            },
+            "Bayushi Bushi": {
+                "all_dice": [1, 5, 6],
+                "actions": [5, 6],
+                "roll_params": (3, 2),
+            },
+        }
+        phase._detail_status = _make_status("Akodo Bushi", "Bayushi Bushi")
+        lines = fmt.format_history([phase])
+        # Should have dice emoji
+        init_header = [ln for ln in lines if "Initiative" in ln][0]
+        self.assertIn("🎲", init_header)
+        # Should have dice info
+        akodo_line = [ln for ln in lines if "Akodo Bushi" in ln and "3k2" in ln][0]
+        self.assertIn("[2, 4, 7]", akodo_line)
+        self.assertIn("Actions: [4, 7]", akodo_line)
+
+
+class TestFormatterOpeningStatus(unittest.TestCase):
+    def test_opening_status_block_format(self):
+        fmt = DetailedEventFormatter()
+        phase = events.NewPhaseEvent(0)
+        phase._detail_status = {
+            "Akodo": {"lw": 0, "sw": 0, "max_sw": 4, "vp": 3, "max_vp": 3, "actions": [4, 7], "crippled": False},
+            "Bayushi": {"lw": 5, "sw": 1, "max_sw": 4, "vp": 1, "max_vp": 2, "actions": [5, 6], "crippled": True},
+        }
+        lines = fmt.format_history([phase])
+        akodo_line = [ln for ln in lines if "Akodo" in ln and "Light" in ln][0]
+        self.assertIn("Light 0", akodo_line)
+        self.assertIn("Serious 0/4", akodo_line)
+        self.assertIn("Void 3/3", akodo_line)
+        self.assertIn("Actions: [4, 7]", akodo_line)
+        bayushi_line = [ln for ln in lines if "Bayushi" in ln and "Light" in ln][0]
+        self.assertIn("Light 5", bayushi_line)
+        self.assertIn("Serious 1/4", bayushi_line)
+        self.assertIn("Void 1/2", bayushi_line)
+        self.assertIn("Actions: [5, 6]", bayushi_line)
+        self.assertIn("CRIPPLED", bayushi_line)
+
+    def test_opening_status_has_separator_lines(self):
+        fmt = DetailedEventFormatter()
+        phase = events.NewPhaseEvent(0)
+        phase._detail_status = _make_status()
+        lines = fmt.format_history([phase])
+        # Find separator lines
+        sep_indices = [i for i, ln in enumerate(lines) if "─────" in ln]
+        self.assertEqual(2, len(sep_indices), f"Expected 2 separator lines, got {sep_indices} in {lines}")
+        # Status lines should be between separators
+        status_indices = [i for i, ln in enumerate(lines) if "Light" in ln and "Serious" in ln]
+        for si in status_indices:
+            self.assertGreater(si, sep_indices[0])
+            self.assertLess(si, sep_indices[1])
+
+    def test_opening_status_shown_once(self):
+        fmt = DetailedEventFormatter()
+        status = _make_status()
+        p0 = events.NewPhaseEvent(0)
+        p0._detail_status = status
+        p1 = events.NewPhaseEvent(1)
+        p1._detail_status = status
+        p2 = events.NewPhaseEvent(2)
+        p2._detail_status = status
+        lines = fmt.format_history([p0, p1, p2])
+        status_lines = [ln for ln in lines if "Light" in ln and "Serious" in ln]
+        # Only opening status = 2 lines (one per character)
+        self.assertEqual(2, len(status_lines))
+
+
+class TestFormatterAttackAction(unittest.TestCase):
+    def test_phase_prefix_on_attack_action(self):
+        fmt = DetailedEventFormatter()
+        status = _make_status()
+        phase = events.NewPhaseEvent(4)
+        phase._detail_status = status
+        action = _make_action("Akodo", "Bayushi", "attack")
+        attack = events.TakeAttackActionEvent(action)
+        attack._detail_status = status
+        lines = fmt.format_history([phase, attack])
+        attack_line = [ln for ln in lines if "attacks" in ln][0]
+        self.assertIn("Phase 4", attack_line)
+        self.assertIn("Akodo", attack_line)
+        self.assertIn("⚔️", attack_line)
+
+    def test_attack_action_shows_target_and_skill(self):
+        fmt = DetailedEventFormatter()
+        status = _make_status()
+        phase = events.NewPhaseEvent(4)
+        phase._detail_status = status
+        action = _make_action("Akodo", "Bayushi", "attack")
+        attack = events.TakeAttackActionEvent(action)
+        attack._detail_status = status
+        lines = fmt.format_history([phase, attack])
+        attack_line = [ln for ln in lines if "attacks" in ln][0]
+        self.assertIn("Bayushi", attack_line)
+        self.assertIn("attack", attack_line)
+
+
+class TestFormatterAttackRolledHit(unittest.TestCase):
+    def test_attack_hit_combined_line(self):
+        fmt = DetailedEventFormatter()
+        action = _make_action()
+        action.is_hit.return_value = True
+        action.parried.return_value = False
+        action.calculate_extra_damage_dice.return_value = 2
+        action.damage_roll_params.return_value = (6, 2, 0)
+        event = events.AttackRolledEvent(action, 29)
+        event._detail_dice = [9, 8, 7, 6, 4, 3, 2]
+        event._detail_params = (7, 3, 5)
+        event._detail_tn = 15
+
+        lines = fmt.format_history([event])
+        attack_line = [ln for ln in lines if "Attack:" in ln][0]
+        self.assertIn("🎯", attack_line)
+        self.assertIn("7k3", attack_line)
+        self.assertIn("[9, 8, 7, 6, 4, 3, 2]", attack_line)
+        self.assertIn("HIT", attack_line)
+        self.assertIn("TN 15", attack_line)
+
+    def test_attack_hit_shows_modifier(self):
+        fmt = DetailedEventFormatter()
+        action = _make_action()
+        action.is_hit.return_value = True
+        action.parried.return_value = False
+        action.calculate_extra_damage_dice.return_value = 2
+        action.damage_roll_params.return_value = (6, 2, 0)
+        event = events.AttackRolledEvent(action, 29)
+        event._detail_dice = [9, 8, 7, 6, 4, 3, 2]
+        event._detail_params = (7, 3, 5)
+        event._detail_tn = 15
+
+        lines = fmt.format_history([event])
+        attack_line = [ln for ln in lines if "Attack:" in ln][0]
+        self.assertIn("+5", attack_line)
+
+    def test_attack_hit_shows_damage_preview(self):
+        fmt = DetailedEventFormatter()
+        action = _make_action()
+        action.is_hit.return_value = True
+        action.parried.return_value = False
+        action.calculate_extra_damage_dice.return_value = 2
+        action.damage_roll_params.return_value = (6, 2, 0)
+        event = events.AttackRolledEvent(action, 29)
+        event._detail_dice = [9, 8, 7, 6, 4, 3, 2]
+        event._detail_params = (7, 3, 5)
+        event._detail_tn = 15
+
+        lines = fmt.format_history([event])
+        attack_line = [ln for ln in lines if "Attack:" in ln][0]
+        self.assertIn("damage will be 6k2", attack_line)
+
+    def test_attack_hit_shows_extra_dice_count(self):
+        fmt = DetailedEventFormatter()
+        action = _make_action()
+        action.is_hit.return_value = True
+        action.parried.return_value = False
+        action.calculate_extra_damage_dice.return_value = 2
+        action.damage_roll_params.return_value = (6, 2, 0)
+        event = events.AttackRolledEvent(action, 29)
+        event._detail_dice = [9, 8, 7, 6, 4, 3, 2]
+        event._detail_params = (7, 3, 5)
+        event._detail_tn = 15
+
+        lines = fmt.format_history([event])
+        attack_line = [ln for ln in lines if "Attack:" in ln][0]
+        self.assertIn("2 extra damage dice", attack_line)
+
+
+class TestFormatterAttackExtraDiceUseCapturedTN(unittest.TestCase):
+    def test_extra_dice_uses_captured_tn_not_dynamic(self):
+        """Extra damage dice must be computed from the captured TN at roll time,
+        not from the action's dynamic tn() which may change during combat."""
+        fmt = DetailedEventFormatter()
+        action = _make_action()
+        action.is_hit.return_value = True
+        action.parried.return_value = False
+        # Simulate: tn was 30 at roll time, but post-combat tn_to_hit() rose to 62.
+        # calculate_extra_damage_dice(tn=30) => (82-30)//5 = 10  (correct)
+        # calculate_extra_damage_dice()       => (82-62)//5 = 4   (wrong, uses dynamic tn)
+        action.calculate_extra_damage_dice.side_effect = (
+            lambda skill_roll=None, tn=None: (82 - (tn if tn is not None else 62)) // 5
+        )
+        subject = action.subject()
+        subject.get_damage_roll_params.return_value = (14, 4, 0)
+        action.damage_roll_params.return_value = (10, 5, 0)  # wrong (uses dynamic tn)
+
+        event = events.AttackRolledEvent(action, 82)
+        event._detail_dice = [18, 16, 14, 9, 9, 8, 8, 8, 4, 4]
+        event._detail_params = (10, 7, 0)
+        event._detail_tn = 30  # captured at roll time
+
+        lines = fmt.format_history([event])
+        attack_line = [ln for ln in lines if "Attack:" in ln][0]
+        # margin = 82 - 30 = 52, extra_dice = 52 // 5 = 10
+        self.assertIn("10 extra damage dice", attack_line)
+        self.assertNotIn("4 extra damage dice", attack_line)
+
+    def test_damage_preview_uses_correct_extra_dice(self):
+        """Damage preview should use the correctly computed extra dice."""
+        fmt = DetailedEventFormatter()
+        action = _make_action()
+        action.is_hit.return_value = True
+        action.parried.return_value = False
+        action.calculate_extra_damage_dice.side_effect = (
+            lambda skill_roll=None, tn=None: (82 - (tn if tn is not None else 62)) // 5
+        )
+        subject = action.subject()
+        subject.get_damage_roll_params.return_value = (14, 4, 0)
+        action.damage_roll_params.return_value = (10, 5, 0)
+
+        event = events.AttackRolledEvent(action, 82)
+        event._detail_dice = [18, 16, 14, 9, 9, 8, 8, 8, 4, 4]
+        event._detail_params = (10, 7, 0)
+        event._detail_tn = 30
+
+        lines = fmt.format_history([event])
+        attack_line = [ln for ln in lines if "Attack:" in ln][0]
+        # Should use damage params from subject.get_damage_roll_params with correct extra_dice
+        self.assertIn("damage will be 14k4", attack_line)
+        self.assertNotIn("damage will be 10k5", attack_line)
+
+
+class TestFormatterAttackRolledMiss(unittest.TestCase):
+    def test_attack_miss_combined_line(self):
+        fmt = DetailedEventFormatter()
+        action = _make_action()
+        action.is_hit.return_value = False
+        action.parried.return_value = False
+        event = events.AttackRolledEvent(action, 16)
+        event._detail_dice = [9, 4, 3, 2, 1, 1, 1]
+        event._detail_params = (7, 3, 0)
+        event._detail_tn = 20
+
+        lines = fmt.format_history([event])
+        attack_line = [ln for ln in lines if "Attack:" in ln][0]
+        self.assertIn("❌", attack_line)
+        self.assertIn("MISS", attack_line)
+        self.assertIn("TN 20", attack_line)
+
+
+class TestFormatterParryRolled(unittest.TestCase):
+    def test_parry_rolled_combined_with_result(self):
+        fmt = DetailedEventFormatter()
+        action = MagicMock()
+        subject = MagicMock()
+        subject.name.return_value = "Bayushi"
+        action.subject.return_value = subject
+        action.is_success.return_value = False
+        event = events.ParryRolledEvent(action, 18)
+        event._detail_dice = [8, 6, 4, 3, 1]
+        event._detail_params = (5, 3, 0)
+        event._detail_tn = 29
+
+        lines = fmt.format_history([event])
+        parry_line = [ln for ln in lines if "Parry:" in ln][0]
+        self.assertIn("🛡️", parry_line)
+        self.assertIn("5k3", parry_line)
+        self.assertIn("FAILED", parry_line)
+        self.assertIn("TN 29", parry_line)
+
+    def test_parry_rolled_succeeded(self):
+        fmt = DetailedEventFormatter()
+        action = MagicMock()
+        subject = MagicMock()
+        subject.name.return_value = "Bayushi"
+        action.subject.return_value = subject
+        action.is_success.return_value = True
+        event = events.ParryRolledEvent(action, 30)
+        event._detail_dice = [10, 9, 8, 5, 3]
+        event._detail_params = (5, 3, 0)
+        event._detail_tn = 29
+
+        lines = fmt.format_history([event])
+        parry_line = [ln for ln in lines if "Parry:" in ln][0]
+        self.assertIn("SUCCEEDED", parry_line)
+
+
+class TestFormatterDamage(unittest.TestCase):
+    def test_damage_line_with_emoji_and_dice(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Akodo"
+        target = MagicMock()
+        target.name.return_value = "Bayushi"
+        event = events.LightWoundsDamageEvent(subject, target, 15)
+        event._detail_dice = [8, 7, 5, 4, 3, 1]
+        event._detail_params = (6, 2)
+        event._detail_lw_after = 30
+
+        lines = fmt.format_history([event])
+        damage_line = [ln for ln in lines if "Damage:" in ln][0]
+        self.assertIn("💥", damage_line)
+        self.assertIn("6k2", damage_line)
+        self.assertIn("[8, 7, 5, 4, 3, 1]", damage_line)
+
+    def test_lw_taken_line_with_running_total(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Akodo"
+        target = MagicMock()
+        target.name.return_value = "Bayushi"
+        event = events.LightWoundsDamageEvent(subject, target, 15)
+        event._detail_dice = [8, 7, 5, 4, 3, 1]
+        event._detail_params = (6, 2)
+        event._detail_lw_after = 30
+
+        lines = fmt.format_history([event])
+        takes_line = [ln for ln in lines if "takes" in ln and "light wounds" in ln][0]
+        self.assertIn("💥", takes_line)
+        self.assertIn("total: 30", takes_line)
+
+    def test_lw_damage_without_annotations_graceful(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Akodo"
+        target = MagicMock()
+        target.name.return_value = "Bayushi"
+        event = events.LightWoundsDamageEvent(subject, target, 15)
+        # No _detail_* attributes
+        lines = fmt.format_history([event])
+        self.assertTrue(any("Bayushi" in ln and "15 light wounds" in ln for ln in lines))
+
+    def test_serious_wounds_damage(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Akodo"
+        target = MagicMock()
+        target.name.return_value = "Bayushi"
+        event = events.SeriousWoundsDamageEvent(subject, target, 1)
+        lines = fmt.format_history([event])
+        self.assertTrue(any("🖤" in ln and "Bayushi" in ln and "serious" in ln.lower() for ln in lines))
+
+
+class TestFormatterVoidPoints(unittest.TestCase):
+    def test_vp_spending_single_with_black_square(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Akodo"
+        event = events.SpendVoidPointsEvent(subject, "attack", 1)
+        lines = fmt.format_history([event])
+        vp_line = [ln for ln in lines if "VP" in ln][0]
+        self.assertIn("⬛", vp_line)
+        self.assertIn("Akodo", vp_line)
+        self.assertIn("1 VP", vp_line)
+        self.assertIn("attack", vp_line)
+
+    def test_vp_spending_multiple_shows_multiple_squares(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Akodo"
+        event = events.SpendVoidPointsEvent(subject, "wound check", 3)
+        lines = fmt.format_history([event])
+        vp_line = [ln for ln in lines if "VP" in ln][0]
+        self.assertIn("⬛⬛⬛", vp_line)
+        self.assertIn("3 VP", vp_line)
+
+
+class TestFormatterWoundCheckPassed(unittest.TestCase):
+    def test_wound_check_passed_combined_line(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Bayushi"
+        attacker = MagicMock()
+        # roll 20 >= tn 30 is False, but for this test we want pass: roll >= tn
+        event = events.WoundCheckRolledEvent(subject, attacker, 30, 35, tn=30)
+        event._detail_dice = [9, 6, 5, 2]
+        event._detail_params = (4, 3)
+
+        lines = fmt.format_history([event])
+        wc_line = [ln for ln in lines if "Wound Check:" in ln][0]
+        self.assertIn("💔", wc_line)
+        self.assertIn("PASSED", wc_line)
+        self.assertIn("TN 30", wc_line)
+        self.assertIn("4k3", wc_line)
+
+
+class TestFormatterWoundCheckFailed(unittest.TestCase):
+    def test_wound_check_failed_combined_line(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Bayushi"
+        attacker = MagicMock()
+        event = events.WoundCheckRolledEvent(subject, attacker, 30, 12, tn=30)
+        event._detail_dice = [5, 4, 3, 2]
+        event._detail_params = (4, 3)
+
+        lines = fmt.format_history([event])
+        wc_line = [ln for ln in lines if "Wound Check:" in ln][0]
+        self.assertIn("🖤", wc_line)
+        self.assertIn("FAILED", wc_line)
+        self.assertIn("TN 30", wc_line)
+
+
+class TestFormatterKeepLightWounds(unittest.TestCase):
+    def test_keep_lw_line_with_emoji(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Bayushi"
+        attacker = MagicMock()
+        event = events.KeepLightWoundsEvent(subject, attacker, 30)
+        event._detail_lw_total = 30
+
+        lines = fmt.format_history([event])
+        keep_line = [ln for ln in lines if "keeping" in ln][0]
+        self.assertIn("💔", keep_line)
+        self.assertIn("30", keep_line)
+        self.assertIn("light wounds", keep_line)
+
+
+class TestFormatterTakeSeriousWound(unittest.TestCase):
+    def test_take_sw_line_with_emoji(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Bayushi"
+        attacker = MagicMock()
+        event = events.TakeSeriousWoundEvent(subject, attacker, 30)
+        event._detail_lw_total = 30
+
+        lines = fmt.format_history([event])
+        sw_line = [ln for ln in lines if "serious wound" in ln.lower()][0]
+        self.assertIn("🖤", sw_line)
+        self.assertIn("Bayushi", sw_line)
+
+    def test_voluntary_sw_after_passed_wound_check(self):
+        """When wound check passed but character takes SW, say 'chooses to take'."""
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Kakita"
+        attacker = MagicMock()
+
+        wc = events.WoundCheckRolledEvent(subject, attacker, 28, 28, tn=28)
+        wc._detail_dice = [9, 7, 6, 6, 3]
+        wc._detail_params = (5, 4)
+
+        take_sw = events.TakeSeriousWoundEvent(subject, attacker, 28)
+        take_sw._detail_lw_total = 28
+
+        lines = fmt.format_history([wc, take_sw])
+        sw_line = [ln for ln in lines if "serious wound" in ln.lower()][0]
+        self.assertIn("chooses to take", sw_line)
+
+    def test_forced_sw_after_failed_wound_check(self):
+        """When wound check failed, just say 'takes'."""
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Kakita"
+        attacker = MagicMock()
+
+        wc = events.WoundCheckRolledEvent(subject, attacker, 30, 12, tn=30)
+        wc._detail_dice = [5, 4, 3, 2]
+        wc._detail_params = (4, 3)
+
+        take_sw = events.TakeSeriousWoundEvent(subject, attacker, 30)
+        take_sw._detail_lw_total = 30
+
+        lines = fmt.format_history([wc, take_sw])
+        sw_line = [ln for ln in lines if "serious wound" in ln.lower()][0]
+        self.assertNotIn("chooses", sw_line)
+
+    def test_sw_damage_merged_with_take_sw(self):
+        """SeriousWoundsDamageEvent should be skipped when preceded by TakeSeriousWoundEvent."""
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Kakita"
+        attacker = MagicMock()
+        attacker.name.return_value = "Akodo"
+
+        take_sw = events.TakeSeriousWoundEvent(subject, attacker, 30)
+        take_sw._detail_lw_total = 30
+
+        sw_dmg = events.SeriousWoundsDamageEvent(attacker, subject, 1)
+
+        lines = fmt.format_history([take_sw, sw_dmg])
+        # Should only have one serious wound line, not two
+        sw_lines = [ln for ln in lines if "serious wound" in ln.lower()]
+        self.assertEqual(1, len(sw_lines))
+
+    def test_standalone_sw_damage_not_skipped(self):
+        """SeriousWoundsDamageEvent without preceding TakeSeriousWoundEvent should show."""
+        fmt = DetailedEventFormatter()
+        attacker = MagicMock()
+        attacker.name.return_value = "Akodo"
+        target = MagicMock()
+        target.name.return_value = "Bayushi"
+
+        sw_dmg = events.SeriousWoundsDamageEvent(attacker, target, 1)
+
+        lines = fmt.format_history([sw_dmg])
+        self.assertTrue(any("serious wound" in ln.lower() for ln in lines))
+
+    def test_sw_damage_multiple_shows_multiple_hearts(self):
+        """Standalone SeriousWoundsDamageEvent with damage > 1 shows multiple 🖤."""
+        fmt = DetailedEventFormatter()
+        attacker = MagicMock()
+        attacker.name.return_value = "Akodo"
+        target = MagicMock()
+        target.name.return_value = "Bayushi"
+
+        sw_dmg = events.SeriousWoundsDamageEvent(attacker, target, 3)
+
+        lines = fmt.format_history([sw_dmg])
+        sw_line = [ln for ln in lines if "serious wound" in ln.lower()][0]
+        self.assertIn("🖤🖤🖤", sw_line)
+
+
+class TestFormatterDefeat(unittest.TestCase):
+    def test_death_with_emoji(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Bayushi"
+        event = events.DeathEvent(subject)
+        lines = fmt.format_history([event])
+        death_line = [ln for ln in lines if "killed" in ln.lower()][0]
+        self.assertIn("☠️", death_line)
+
+    def test_unconscious_with_emoji(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Bayushi"
+        event = events.UnconsciousEvent(subject)
+        lines = fmt.format_history([event])
+        line = [ln for ln in lines if "unconscious" in ln.lower()][0]
+        self.assertIn("💀", line)
+
+    def test_surrender_with_emoji(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Bayushi"
+        event = events.SurrenderEvent(subject)
+        lines = fmt.format_history([event])
+        line = [ln for ln in lines if "surrender" in ln.lower()][0]
+        self.assertIn("🏳️", line)
+
+
+class TestFormatterStatusBlock(unittest.TestCase):
+    def test_status_block_between_exchanges(self):
+        """Status block before attack actions should have separators."""
+        fmt = DetailedEventFormatter()
+        status = {
+            "Akodo": {"lw": 0, "sw": 0, "max_sw": 4, "vp": 2, "max_vp": 3, "actions": [7], "crippled": False},
+            "Bayushi": {"lw": 30, "sw": 1, "max_sw": 4, "vp": 0, "max_vp": 2, "actions": [], "crippled": True},
+        }
+        phase = events.NewPhaseEvent(0)
+        phase._detail_status = status
+        action = _make_action("Akodo", "Bayushi", "attack")
+        attack = events.TakeAttackActionEvent(action)
+        attack._detail_status = status
+
+        lines = fmt.format_history([phase, attack])
+        # Pre-attack status block should have separator
+        self.assertTrue(any("─────" in ln for ln in lines))
+        bayushi_status = [ln for ln in lines if "Bayushi" in ln and "Light" in ln]
+        # Opening status + pre-attack status = 2 bayushi status lines
+        self.assertEqual(2, len(bayushi_status))
+
+
+class TestFormatterSkippedEvents(unittest.TestCase):
+    def test_attack_succeeded_skipped(self):
+        fmt = DetailedEventFormatter()
+        action = _make_action()
+        event = events.AttackSucceededEvent(action)
+        lines = fmt.format_history([event])
+        self.assertEqual([], lines)
+
+    def test_attack_failed_skipped(self):
+        fmt = DetailedEventFormatter()
+        action = _make_action()
+        event = events.AttackFailedEvent(action)
+        lines = fmt.format_history([event])
+        self.assertEqual([], lines)
+
+    def test_wound_check_succeeded_skipped(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "A"
+        attacker = MagicMock()
+        event = events.WoundCheckSucceededEvent(subject, attacker, 15, 20)
+        lines = fmt.format_history([event])
+        self.assertEqual([], lines)
+
+    def test_wound_check_failed_skipped(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "A"
+        attacker = MagicMock()
+        event = events.WoundCheckFailedEvent(subject, attacker, 15, 10)
+        lines = fmt.format_history([event])
+        self.assertEqual([], lines)
+
+    def test_attack_declared_skipped(self):
+        fmt = DetailedEventFormatter()
+        action = _make_action()
+        event = events.AttackDeclaredEvent(action)
+        lines = fmt.format_history([event])
+        self.assertEqual([], lines)
+
+    def test_parry_declared_skipped(self):
+        fmt = DetailedEventFormatter()
+        action = _make_action()
+        event = events.ParryDeclaredEvent(action)
+        lines = fmt.format_history([event])
+        self.assertEqual([], lines)
+
+    def test_wound_check_declared_skipped(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "A"
+        attacker = MagicMock()
+        event = events.WoundCheckDeclaredEvent(subject, attacker, 15)
+        lines = fmt.format_history([event])
+        self.assertEqual([], lines)
+
+    def test_your_move_skipped(self):
+        fmt = DetailedEventFormatter()
+        event = events.YourMoveEvent(MagicMock())
+        lines = fmt.format_history([event])
+        self.assertEqual([], lines)
+
+    def test_hold_action_skipped(self):
+        fmt = DetailedEventFormatter()
+        event = events.HoldActionEvent(MagicMock())
+        lines = fmt.format_history([event])
+        self.assertEqual([], lines)
+
+    def test_no_action_skipped(self):
+        fmt = DetailedEventFormatter()
+        event = events.NoActionEvent(MagicMock())
+        lines = fmt.format_history([event])
+        self.assertEqual([], lines)
+
+    def test_end_of_phase_skipped(self):
+        fmt = DetailedEventFormatter()
+        event = events.EndOfPhaseEvent(0)
+        lines = fmt.format_history([event])
+        self.assertEqual([], lines)
+
+    def test_end_of_round_skipped(self):
+        fmt = DetailedEventFormatter()
+        event = events.EndOfRoundEvent(1)
+        lines = fmt.format_history([event])
+        self.assertEqual([], lines)
+
+
+class TestFormatterGracefulDegradation(unittest.TestCase):
+    def test_attack_rolled_without_detail_attributes(self):
+        """When _detail_* attributes are missing, should still produce output."""
+        fmt = DetailedEventFormatter()
+        action = _make_action()
+        event = events.AttackRolledEvent(action, 29)
+        # No _detail_dice, _detail_params, _detail_tn
+        lines = fmt.format_history([event])
+        self.assertTrue(len(lines) > 0)
+        self.assertTrue(any("29" in ln for ln in lines))
+
+    def test_wound_check_without_detail_attributes(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Bayushi"
+        attacker = MagicMock()
+        event = events.WoundCheckRolledEvent(subject, attacker, 15, 20, tn=15)
+        lines = fmt.format_history([event])
+        self.assertTrue(len(lines) > 0)
+
+    def test_parry_rolled_without_detail_attributes(self):
+        fmt = DetailedEventFormatter()
+        action = MagicMock()
+        subject = MagicMock()
+        subject.name.return_value = "Bayushi"
+        action.subject.return_value = subject
+        event = events.ParryRolledEvent(action, 18)
+        lines = fmt.format_history([event])
+        self.assertTrue(len(lines) > 0)
+
+    def test_keep_lw_without_detail_lw_total(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Bayushi"
+        attacker = MagicMock()
+        event = events.KeepLightWoundsEvent(subject, attacker, 30)
+        # No _detail_lw_total
+        lines = fmt.format_history([event])
+        self.assertTrue(any("keeping" in ln for ln in lines))
+
+    def test_take_sw_without_detail_lw_total(self):
+        fmt = DetailedEventFormatter()
+        subject = MagicMock()
+        subject.name.return_value = "Bayushi"
+        attacker = MagicMock()
+        event = events.TakeSeriousWoundEvent(subject, attacker, 30)
+        # No _detail_lw_total
+        lines = fmt.format_history([event])
+        self.assertTrue(any("serious wound" in ln.lower() for ln in lines))
+
+
+class TestFormatterTakeParryAction(unittest.TestCase):
+    def test_parry_action_with_emoji(self):
+        fmt = DetailedEventFormatter()
+        action = MagicMock()
+        subject = MagicMock()
+        subject.name.return_value = "Bayushi"
+        target = MagicMock()
+        target.name.return_value = "Akodo"
+        action.subject.return_value = subject
+        action.target.return_value = target
+        event = events.TakeParryActionEvent(action)
+        lines = fmt.format_history([event])
+        parry_line = [ln for ln in lines if "parr" in ln.lower()][0]
+        self.assertIn("🛡️", parry_line)
+        self.assertIn("Bayushi", parry_line)
+        self.assertIn("Akodo", parry_line)
+
+
+class TestFormatterPhaseTracking(unittest.TestCase):
+    def test_phase_prefix_updates_across_phases(self):
+        """Phase number should track correctly across multiple phases."""
+        fmt = DetailedEventFormatter()
+        status = _make_status()
+
+        p4 = events.NewPhaseEvent(4)
+        p4._detail_status = status
+        action1 = _make_action("Akodo", "Bayushi", "attack")
+        attack1 = events.TakeAttackActionEvent(action1)
+        attack1._detail_status = status
+
+        p7 = events.NewPhaseEvent(7)
+        p7._detail_status = status
+        action2 = _make_action("Bayushi", "Akodo", "attack")
+        attack2 = events.TakeAttackActionEvent(action2)
+        attack2._detail_status = status
+
+        lines = fmt.format_history([p4, attack1, p7, attack2])
+        attack_lines = [ln for ln in lines if "attacks" in ln]
+        self.assertIn("Phase 4", attack_lines[0])
+        self.assertIn("Phase 7", attack_lines[1])
+
+
+class TestFormatterHistory(unittest.TestCase):
+    def test_format_history_concatenates_rounds(self):
+        fmt = DetailedEventFormatter()
+        e1 = events.NewRoundEvent(1)
+        e2 = events.NewRoundEvent(2)
+        lines = fmt.format_history([e1, e2])
+        self.assertTrue(any("Round 2" in ln for ln in lines))
+        self.assertTrue(any("Round 3" in ln for ln in lines))
+
+    def test_no_phase_header_line_in_history(self):
+        """format_history should NOT produce '--- Phase N ---' lines."""
+        fmt = DetailedEventFormatter()
+        phase = events.NewPhaseEvent(4)
+        phase._detail_status = _make_status()
+        lines = fmt.format_history([phase])
+        self.assertFalse(any("--- Phase" in ln for ln in lines))
+
+
+def _make_contested_iaijutsu_action(
+    subject_name="Kakita",
+    target_name="Opponent",
+    is_challenger=True,
+    skill="iaijutsu",
+    skill_roll=45,
+    opponent_skill_roll=30,
+    extra_damage_dice=3,
+    skill_roll_params=(10, 6, 5),
+):
+    """Create a mock ContestedIaijutsuAttackAction."""
+    action = MagicMock()
+    subject = MagicMock()
+    subject.name.return_value = subject_name
+    target = MagicMock()
+    target.name.return_value = target_name
+    action.subject.return_value = subject
+    action.target.return_value = target
+    action.challenger.return_value = subject if is_challenger else target
+    action.skill.return_value = skill
+    action.skill_roll.return_value = skill_roll
+    action.opponent_skill_roll.return_value = opponent_skill_roll
+    action.calculate_extra_damage_dice.return_value = extra_damage_dice
+    action.skill_roll_params.return_value = skill_roll_params
+    return action
+
+
+class TestFormatterContestedIaijutsuSkipped(unittest.TestCase):
+    def test_declared_event_skipped(self):
+        fmt = DetailedEventFormatter()
+        action = _make_contested_iaijutsu_action()
+        event = ContestedIaijutsuAttackDeclaredEvent(action)
+        lines = fmt.format_history([event])
+        self.assertEqual([], lines)
+
+    def test_take_event_skipped(self):
+        fmt = DetailedEventFormatter()
+        event = TakeContestedIaijutsuAttackAction(
+            MagicMock(), MagicMock(), MagicMock(), MagicMock()
+        )
+        lines = fmt.format_history([event])
+        self.assertEqual([], lines)
+
+
+class TestFormatterContestedIaijutsuRolled(unittest.TestCase):
+    def test_challenger_won_shows_dice_and_result(self):
+        fmt = DetailedEventFormatter()
+        action = _make_contested_iaijutsu_action(
+            subject_name="Kakita",
+            target_name="Opponent",
+            is_challenger=True,
+            skill="iaijutsu",
+            skill_roll=45,
+            opponent_skill_roll=30,
+            extra_damage_dice=3,
+            skill_roll_params=(10, 6, 5),
+        )
+        event = ContestedIaijutsuAttackRolledEvent(action)
+        event._detail_dice = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]
+        event._detail_params = (10, 6, 5)
+
+        lines = fmt.format_history([event])
+        self.assertEqual(1, len(lines))
+        line = lines[0]
+        self.assertIn("Kakita", line)
+        self.assertIn("Contested Iaijutsu", line)
+        self.assertIn("5th Dan", line)
+        self.assertIn("10k6", line)
+        self.assertIn("WON", line)
+        self.assertIn("3 extra damage dice", line)
+
+    def test_challenger_lost_shows_result(self):
+        fmt = DetailedEventFormatter()
+        action = _make_contested_iaijutsu_action(
+            subject_name="Kakita",
+            is_challenger=True,
+            skill_roll=20,
+            opponent_skill_roll=35,
+            extra_damage_dice=-3,
+        )
+        event = ContestedIaijutsuAttackRolledEvent(action)
+        event._detail_dice = [8, 5, 4, 3, 2, 1]
+        event._detail_params = (10, 6, 0)
+
+        lines = fmt.format_history([event])
+        line = lines[0]
+        self.assertIn("LOST", line)
+
+    def test_defender_line_shows_skill_name(self):
+        fmt = DetailedEventFormatter()
+        action = _make_contested_iaijutsu_action(
+            subject_name="Opponent",
+            target_name="Kakita",
+            is_challenger=False,
+            skill="attack",
+            skill_roll=30,
+            opponent_skill_roll=45,
+            extra_damage_dice=-3,
+        )
+        event = ContestedIaijutsuAttackRolledEvent(action)
+        event._detail_dice = [9, 7, 5, 3, 2, 1]
+        event._detail_params = (7, 3, 0)
+
+        lines = fmt.format_history([event])
+        line = lines[0]
+        self.assertIn("Opponent", line)
+        self.assertIn("attack", line)
+        self.assertIn("LOST", line)
+
+    def test_totals_consistent_across_challenger_and_defender(self):
+        """Both lines should show the same comparison values.
+
+        The challenger's 'vs X' should match what the defender's line shows
+        as their total, and vice versa.
+        """
+        fmt = DetailedEventFormatter()
+        # Kakita (challenger): dice top 6 = 41, skill_roll = 46 (+5 from free raise)
+        kakita_action = _make_contested_iaijutsu_action(
+            subject_name="Kakita",
+            target_name="Opponent",
+            is_challenger=True,
+            skill="iaijutsu",
+            skill_roll=46,
+            opponent_skill_roll=40,
+            extra_damage_dice=1,
+            skill_roll_params=(10, 6, 5),
+        )
+        kakita_event = ContestedIaijutsuAttackRolledEvent(kakita_action)
+        kakita_event._detail_dice = [14, 7, 6, 6, 4, 4, 4, 3, 1, 1]
+        kakita_event._detail_params = (10, 6, 5)
+
+        # Opponent (defender): dice top 5 = 40, skill_roll = 40 (no char modifier)
+        # action.skill_roll_params returns -5 but that was never applied to roll
+        opponent_action = _make_contested_iaijutsu_action(
+            subject_name="Opponent",
+            target_name="Kakita",
+            is_challenger=False,
+            skill="attack",
+            skill_roll=40,
+            opponent_skill_roll=46,
+            extra_damage_dice=-1,
+            skill_roll_params=(10, 5, -5),
+        )
+        opponent_event = ContestedIaijutsuAttackRolledEvent(opponent_action)
+        opponent_event._detail_dice = [9, 9, 8, 7, 7, 6, 3, 3, 2, 2]
+        opponent_event._detail_params = (10, 5, -5)
+
+        kakita_lines = fmt.format_history([kakita_event])
+        fmt2 = DetailedEventFormatter()
+        opponent_lines = fmt2.format_history([opponent_event])
+
+        kakita_line = kakita_lines[0]
+        opponent_line = opponent_lines[0]
+
+        # Kakita's total should be 46, shown as "= 46" or just "46"
+        self.assertIn("46", kakita_line)
+        # Kakita's "vs" should be 40 (opponent's actual roll)
+        self.assertIn("vs 40", kakita_line)
+        # Opponent's total should be 40 (NOT 35)
+        self.assertIn("vs 46", opponent_line)
+        # The opponent's displayed total should match what Kakita sees as "vs 40"
+        # i.e., the "→ 40" part (kept_sum = 40, no effective modifier shown)
+        self.assertIn("→ 40 vs", opponent_line)
+
+    def test_without_detail_attributes_graceful(self):
+        fmt = DetailedEventFormatter()
+        action = _make_contested_iaijutsu_action()
+        event = ContestedIaijutsuAttackRolledEvent(action)
+        # No _detail_dice or _detail_params
+        lines = fmt.format_history([event])
+        self.assertTrue(len(lines) > 0)
+
+    def test_tied_shows_tied(self):
+        fmt = DetailedEventFormatter()
+        action = _make_contested_iaijutsu_action(
+            skill_roll=30,
+            opponent_skill_roll=30,
+            extra_damage_dice=0,
+            is_challenger=True,
+        )
+        event = ContestedIaijutsuAttackRolledEvent(action)
+        event._detail_dice = [8, 7, 6, 5, 4, 3]
+        event._detail_params = (10, 6, 0)
+
+        lines = fmt.format_history([event])
+        line = lines[0]
+        self.assertIn("TIED", line)
+
+
+if __name__ == "__main__":
+    unittest.main()

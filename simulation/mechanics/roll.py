@@ -160,17 +160,25 @@ class BaseRoll:
 class Roll(BaseRoll):
     def __init__(self, rolled, kept, faces=10, explode=True, die_provider=None):
         super().__init__(rolled, kept, faces, explode, die_provider)
+        self._dice = []
+
+    def dice(self):
+        return self._dice
 
     def roll(self):
-        dice = [self.die_provider().roll_die(faces=self.faces(), explode=self.explode()) for n in range(self._rolled)]
-        dice.sort(reverse=True)
-        return sum(dice[: self._kept]) + self._bonus
+        self._dice = [self.die_provider().roll_die(faces=self.faces(), explode=self.explode()) for n in range(self._rolled)]
+        self._dice.sort(reverse=True)
+        return sum(self._dice[: self._kept]) + self._bonus
 
 
 class InitiativeRoll(BaseRoll):
     def __init__(self, rolled, kept, faces=10, die_provider=None):
         super().__init__(rolled, kept, faces, False, die_provider)
+        self._all_dice = []
+
+    def all_dice(self):
+        return self._all_dice
 
     def roll(self):
-        dice = sorted([self.roll_die(faces=self.faces(), explode=False) for n in range(self._rolled)])
-        return dice[: self._kept]
+        self._all_dice = sorted([self.roll_die(faces=self.faces(), explode=False) for n in range(self._rolled)])
+        return self._all_dice[: self._kept]

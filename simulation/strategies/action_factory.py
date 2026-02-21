@@ -64,7 +64,7 @@ class DefaultActionFactory(ActionFactory):
     """
 
     def get_attack_action(self, subject, target, skill, initiative_action, context, vp=0):
-        if skill == "attack":
+        if skill in ("attack", "iaijutsu"):
             return actions.AttackAction(subject, target, skill, initiative_action, context, vp=vp)
         elif skill == "double attack":
             return actions.DoubleAttackAction(subject, target, skill, initiative_action, context, vp=vp)

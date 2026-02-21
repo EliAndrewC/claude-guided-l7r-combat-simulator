@@ -415,14 +415,15 @@ class TestDoubleAttackAction(unittest.TestCase):
         self.assertEqual(expected_tn, da.tn())
 
     def test_calculate_extra_damage_dice_no_parry(self):
-        """Lines 199-216: extra damage calculation with tn offset by 20"""
+        """Lines 199-216: extra damage uses base tn (tn_to_hit, not +20)"""
         da = DoubleAttackAction(
             self.attacker, self.target, "double attack", self.ia, self.context
         )
-        # tn_to_hit = 5 * (1 + 5) = 30, + 20 = 50
-        # If skill_roll = 55, extra dice = (55 - 50) // 5 = 1
+        # tn_to_hit = 5 * (1 + 5) = 30
+        # Extra dice use base TN (30), not double attack TN (50)
+        # If skill_roll = 55, extra dice = (55 - 30) // 5 = 5
         da.set_skill_roll(55)
-        self.assertEqual(1, da.calculate_extra_damage_dice())
+        self.assertEqual(5, da.calculate_extra_damage_dice())
 
     def test_calculate_extra_damage_dice_parried_by_target(self):
         """Lines 205-210: parry by target reduces damage dice by 4"""
@@ -430,16 +431,16 @@ class TestDoubleAttackAction(unittest.TestCase):
             self.attacker, self.target, "double attack", self.ia, self.context
         )
         da.set_skill_roll(75)
-        # Without parry: (75 - 50) // 5 = 5
-        self.assertEqual(5, da.calculate_extra_damage_dice())
+        # Without parry: (75 - 30) // 5 = 9
+        self.assertEqual(9, da.calculate_extra_damage_dice())
         # Simulate a parry by the target
         da.set_parry_attempted()
         mock_parry_event = MagicMock()
         mock_parry_event.action = MagicMock()
         mock_parry_event.action.subject.return_value = self.target
         da.add_parry_declared(mock_parry_event)
-        # (75 - 50) // 5 - 4 = 1
-        self.assertEqual(1, da.calculate_extra_damage_dice())
+        # (75 - 30) // 5 - 4 = 5
+        self.assertEqual(5, da.calculate_extra_damage_dice())
 
     def test_calculate_extra_damage_dice_parried_by_third_party(self):
         """Lines 212-215: parry by third party reduces damage dice by 2"""
@@ -448,14 +449,14 @@ class TestDoubleAttackAction(unittest.TestCase):
             self.attacker, self.target, "double attack", self.ia, self.context
         )
         da.set_skill_roll(75)
-        # Without parry: (75 - 50) // 5 = 5
+        # Without parry: (75 - 30) // 5 = 9
         da.set_parry_attempted()
         mock_parry_event = MagicMock()
         mock_parry_event.action = MagicMock()
         mock_parry_event.action.subject.return_value = third  # not the target
         da.add_parry_declared(mock_parry_event)
-        # (75 - 50) // 5 - 2 = 3
-        self.assertEqual(3, da.calculate_extra_damage_dice())
+        # (75 - 30) // 5 - 2 = 7
+        self.assertEqual(7, da.calculate_extra_damage_dice())
 
     def test_direct_damage(self):
         """Lines 218-219: direct_damage returns SeriousWoundsDamageEvent"""

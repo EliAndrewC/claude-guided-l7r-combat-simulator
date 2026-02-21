@@ -39,6 +39,7 @@ from simulation.schools.bayushi_school import (
 )
 from simulation.schools.kakita_school import (
     KakitaActionFactory,
+    KakitaAttackStrategy,
     KakitaBushiSchool,
     KakitaDoubleAttackAction,
     KakitaInitiativeDieProvider,
@@ -630,7 +631,7 @@ class TestKakitaDoubleAttackAction(unittest.TestCase):
         self.groups = [Group("Crane", self.kakita), Group("Enemy", self.target)]
 
     def test_tempo_bonus_earlier_target(self):
-        """When target has earlier actions, tempo diff is negative so bonus is 0 (via min(0, ...))."""
+        """When target has earlier actions, tempo diff is 0 (no penalty)."""
         self.kakita.set_actions([5, 6, 7])
         self.target.set_actions([1, 2, 3])
         context = EngineContext(self.groups, round=1, phase=5)
@@ -639,10 +640,9 @@ class TestKakitaDoubleAttackAction(unittest.TestCase):
             self.kakita, self.target, "double attack", initiative_action, context
         )
         (rolled, kept, modifier) = attack.skill_roll_params()
-        # tempo_diff = min(0, 1 - 5) = -4, bonus = skill("attack") * -4 = 3 * -4 = -12
-        # modifier should be base modifier + (-12)
-        self.assertIsInstance(rolled, int)
-        self.assertIsInstance(kept, int)
+        # tempo_diff = max(0, 1 - 5) = 0, bonus = 0
+        # base params for double attack: (8, 4, 0)
+        self.assertEqual((8, 4, 0), (rolled, kept, modifier))
 
     def test_no_target_actions(self):
         """When target has no actions, target_tempo defaults to 11."""
@@ -654,8 +654,21 @@ class TestKakitaDoubleAttackAction(unittest.TestCase):
             self.kakita, self.target, "double attack", initiative_action, context
         )
         (rolled, kept, modifier) = attack.skill_roll_params()
-        # min(0, 11 - 3) = 0, so bonus = 0
-        self.assertIsInstance(rolled, int)
+        # max(0, 11 - 3) = 8, bonus = 3 * 8 = 24
+        self.assertEqual((8, 4, 24), (rolled, kept, modifier))
+
+    def test_tempo_bonus_positive(self):
+        """Kakita acting before target gets positive tempo bonus."""
+        self.kakita.set_actions([1])
+        self.target.set_actions([5])
+        context = EngineContext(self.groups, round=1, phase=1)
+        initiative_action = InitiativeAction([1], 1)
+        attack = KakitaDoubleAttackAction(
+            self.kakita, self.target, "double attack", initiative_action, context
+        )
+        (rolled, kept, modifier) = attack.skill_roll_params()
+        # max(0, 5 - 1) = 4, bonus = 3 * 4 = 12
+        self.assertEqual((8, 4, 12), (rolled, kept, modifier))
 
 
 class TestKakitaLungeAction(unittest.TestCase):
@@ -677,8 +690,9 @@ class TestKakitaLungeAction(unittest.TestCase):
             self.kakita, self.target, "lunge", initiative_action, context
         )
         (rolled, kept, modifier) = attack.skill_roll_params()
-        # min(0, 5 - 1) = 0, bonus = 0 (lunge uses min(0, ...) so no positive bonus)
-        self.assertIsInstance(rolled, int)
+        # max(0, 5 - 1) = 4, bonus = 3 * 4 = 12
+        # base lunge params: (7, 4, 0) — lunge not in extra_rolled
+        self.assertEqual((7, 4, 12), (rolled, kept, modifier))
 
     def test_no_target_actions(self):
         self.kakita.set_actions([3])
@@ -689,7 +703,52 @@ class TestKakitaLungeAction(unittest.TestCase):
             self.kakita, self.target, "lunge", initiative_action, context
         )
         (rolled, kept, modifier) = attack.skill_roll_params()
-        self.assertIsInstance(rolled, int)
+        # max(0, 11 - 3) = 8, bonus = 3 * 8 = 24
+        self.assertEqual((7, 4, 24), (rolled, kept, modifier))
+
+
+class TestKakitaAttackStrategy(unittest.TestCase):
+    """Test that Kakita attack strategy restricts Phase 0 to iaijutsu."""
+
+    def setUp(self):
+        self.kakita = CharacterBuilder(xp=9001).with_name("Kakita").with_school(
+            KakitaBushiSchool()
+        ).buy_ring("fire", 4).buy_skill("attack", 3).buy_skill("double attack", 3).buy_skill("iaijutsu", 3).buy_skill("lunge", 3).build()
+        self.target = Character("Target")
+        self.groups = [Group("Crane", self.kakita), Group("Enemy", self.target)]
+
+    def test_phase_0_uses_iaijutsu(self):
+        """In Phase 0, attack strategy must use iaijutsu skill."""
+        self.kakita.set_actions([0, 3, 5])
+        context = EngineContext(self.groups, round=1, phase=0)
+        context.initialize()
+        strategy = KakitaAttackStrategy()
+        event = events.YourMoveEvent(self.kakita)
+        responses = list(strategy.recommend(self.kakita, event, context))
+        # Find the TakeAttackActionEvent
+        attack_events = [r for r in responses if isinstance(r, events.TakeAttackActionEvent)]
+        self.assertEqual(1, len(attack_events))
+        self.assertEqual("iaijutsu", attack_events[0].action.skill())
+
+    def test_non_phase_0_allows_other_skills(self):
+        """In non-Phase 0, attack strategy may use double attack or other skills."""
+        self.kakita.set_actions([3, 5])
+        context = EngineContext(self.groups, round=1, phase=3)
+        context.initialize()
+        strategy = KakitaAttackStrategy()
+        event = events.YourMoveEvent(self.kakita)
+        responses = list(strategy.recommend(self.kakita, event, context))
+        attack_events = [r for r in responses if isinstance(r, events.TakeAttackActionEvent)]
+        self.assertEqual(1, len(attack_events))
+        # Should use double attack or attack, not restricted to iaijutsu
+        self.assertIn(attack_events[0].action.skill(), ["double attack", "attack", "feint", "lunge"])
+
+    def test_school_sets_attack_strategy(self):
+        """KakitaBushiSchool should set KakitaAttackStrategy on the character."""
+        kakita = CharacterBuilder(xp=9001).with_name("Kakita").with_school(
+            KakitaBushiSchool()
+        ).buy_ring("fire", 4).buy_skill("attack", 3).buy_skill("iaijutsu", 3).build()
+        self.assertIsInstance(kakita.attack_strategy(), KakitaAttackStrategy)
 
 
 class TestKakitaInitiativeDieProvider(unittest.TestCase):
@@ -814,6 +873,48 @@ class TestHoldOneActionStrategy(unittest.TestCase):
         responses = list(strategy.recommend(self.character, event, context))
         self.assertEqual(1, len(responses))
         self.assertIsInstance(responses[0], events.NoActionEvent)
+
+    def test_attack_in_phase_0_with_single_action(self):
+        """In Phase 0 with a Phase 0 action, should attack (not hold).
+
+        Phase 0 actions are special (e.g. Kakita school) and should always
+        be used immediately — the whole point is to strike first.
+        """
+        self.character.set_actions([0, 3, 5])
+        context = EngineContext(self.groups, round=1, phase=0)
+        context.initialize()
+        strategy = HoldOneActionStrategy()
+        event = events.YourMoveEvent(self.character)
+        responses = list(strategy.recommend(self.character, event, context))
+        self.assertTrue(len(responses) >= 1)
+        self.assertNotIsInstance(responses[0], events.HoldActionEvent)
+
+    def test_phase_0_action_not_held_in_later_phases(self):
+        """Phase 0 action dice should never be held, even in later phases.
+
+        A Phase 0 die (value 0) is available in all phases (0 <= any phase).
+        If it's the only available action, the hold strategy should still
+        attack with it rather than holding it indefinitely.
+        """
+        self.character.set_actions([0, 5])
+        context = EngineContext(self.groups, round=1, phase=2)
+        context.initialize()
+        strategy = HoldOneActionStrategy()
+        event = events.YourMoveEvent(self.character)
+        responses = list(strategy.recommend(self.character, event, context))
+        self.assertTrue(len(responses) >= 1)
+        self.assertNotIsInstance(responses[0], events.HoldActionEvent)
+
+    def test_hold_normal_action_when_no_phase_0(self):
+        """Normal actions should still be held when only 1 is available."""
+        self.character.set_actions([3, 5])
+        context = EngineContext(self.groups, round=1, phase=3)
+        context.initialize()
+        strategy = HoldOneActionStrategy()
+        event = events.YourMoveEvent(self.character)
+        responses = list(strategy.recommend(self.character, event, context))
+        self.assertEqual(1, len(responses))
+        self.assertIsInstance(responses[0], events.HoldActionEvent)
 
 
 class TestAlwaysParryStrategy(unittest.TestCase):

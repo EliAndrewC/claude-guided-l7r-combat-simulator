@@ -124,7 +124,7 @@ class AttackAction(Action):
         if self.parry_attempted():
             return 0
         else:
-            return (skill_roll - self.tn()) // 5
+            return (skill_roll - tn) // 5
 
     def damage_roll(self):
         return self._damage_roll
@@ -213,7 +213,7 @@ class DoubleAttackAction(AttackAction):
                     # if a third character parries on behalf of the target,
                     # double attack does 2 fewer dice of damage
                     penalty = 2
-        return ((skill_roll - self.tn()) // 5) - penalty
+        return ((skill_roll - tn) // 5) - penalty
 
     def direct_damage(self):
         return SeriousWoundsDamageEvent(self.subject(), self.target(), 1)

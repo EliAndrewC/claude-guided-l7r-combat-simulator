@@ -40,6 +40,14 @@ class RollProvider(ABC):
 class DefaultRollProvider(RollProvider):
     def __init__(self, die_provider=None):
         self._die_provider = die_provider
+        self._last_skill_roll = None
+        self._last_damage_roll = None
+        self._last_wound_check_roll = None
+        self._last_initiative_roll = None
+        self._last_skill_info = None
+        self._last_damage_info = None
+        self._last_wound_check_info = None
+        self._last_initiative_info = None
 
     def die_provider(self):
         return self._die_provider
@@ -52,18 +60,25 @@ class DefaultRollProvider(RollProvider):
 
         Return a damage roll using the specified number of rolled and kept dice.
         """
-        return Roll(rolled, kept, die_provider=self.die_provider()).roll()
+        roll = Roll(rolled, kept, die_provider=self.die_provider())
+        result = roll.roll()
+        self._last_damage_roll = roll
+        self._last_damage_info = {"rolled": rolled, "kept": kept, "dice": list(roll.dice())}
+        return result
 
     def get_initiative_roll(self, rolled, kept):
         """
-        get_skill_roll(skill, rolled, kept) -> int
-          skill (str): name of skill being used
+        get_initiative_roll(rolled, kept) -> list of int
           rolled (int): number of rolled dice
           kept (int): number of kept dice
 
-        Return a skill roll using the specified number of rolled and kept dice.
+        Return an initiative roll using the specified number of rolled and kept dice.
         """
-        return InitiativeRoll(rolled, kept, die_provider=self.die_provider()).roll()
+        roll = InitiativeRoll(rolled, kept, die_provider=self.die_provider())
+        result = roll.roll()
+        self._last_initiative_roll = roll
+        self._last_initiative_info = {"rolled": rolled, "kept": kept, "all_dice": list(roll.all_dice())}
+        return result
 
     def get_skill_roll(self, skill, rolled, kept, explode=True):
         """
@@ -75,7 +90,11 @@ class DefaultRollProvider(RollProvider):
 
         Return a skill roll using the specified number of rolled and kept dice.
         """
-        return Roll(rolled, kept, die_provider=self.die_provider(), explode=explode).roll()
+        roll = Roll(rolled, kept, die_provider=self.die_provider(), explode=explode)
+        result = roll.roll()
+        self._last_skill_roll = roll
+        self._last_skill_info = {"rolled": rolled, "kept": kept, "dice": list(roll.dice())}
+        return result
 
     def get_wound_check_roll(self, rolled, kept):
         """
@@ -85,7 +104,35 @@ class DefaultRollProvider(RollProvider):
 
         Return a Wound Check roll using the specified number of rolled and kept dice.
         """
-        return Roll(rolled, kept, die_provider=self.die_provider()).roll()
+        roll = Roll(rolled, kept, die_provider=self.die_provider())
+        result = roll.roll()
+        self._last_wound_check_roll = roll
+        self._last_wound_check_info = {"rolled": rolled, "kept": kept, "dice": list(roll.dice())}
+        return result
+
+    def last_damage_roll(self):
+        return self._last_damage_roll
+
+    def last_damage_info(self):
+        return self._last_damage_info
+
+    def last_initiative_roll(self):
+        return self._last_initiative_roll
+
+    def last_initiative_info(self):
+        return self._last_initiative_info
+
+    def last_skill_roll(self):
+        return self._last_skill_roll
+
+    def last_skill_info(self):
+        return self._last_skill_info
+
+    def last_wound_check_roll(self):
+        return self._last_wound_check_roll
+
+    def last_wound_check_info(self):
+        return self._last_wound_check_info
 
     def set_die_provider(self, die_provider):
         if not isinstance(die_provider, DieProvider):  # noqa: F821 - TODO: missing import

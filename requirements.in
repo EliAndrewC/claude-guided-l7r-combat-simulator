@@ -1,5 +1,6 @@
 # Runtime dependencies
 pyyaml
+streamlit
 
 # Linting
 ruff
