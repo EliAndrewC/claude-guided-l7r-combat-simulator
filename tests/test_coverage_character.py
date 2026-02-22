@@ -218,6 +218,27 @@ class TestCharacterMaxSw(unittest.TestCase):
         self.assertEqual(3, c.max_sw())
 
 
+class TestDiscordant(unittest.TestCase):
+    """Discordant disadvantage: may not spend void points on skills."""
+
+    def test_max_vp_per_roll_default(self):
+        c = Character("Test")
+        # default rings are all 2, so max_vp_per_roll = 2
+        self.assertEqual(2, c.max_vp_per_roll())
+
+    def test_discordant_prevents_vp_on_skills(self):
+        c = Character("Test")
+        c.take_disadvantage("discordant")
+        self.assertEqual(0, c.max_vp_per_roll())
+
+    def test_discordant_does_not_affect_max_vp(self):
+        """Discordant blocks spending VP on skills, not total VP capacity."""
+        c = Character("Test")
+        c.take_disadvantage("discordant")
+        # max_vp should still be based on rings + worldliness
+        self.assertEqual(2, c.max_vp())
+
+
 class TestCharacterRemoveModifier(unittest.TestCase):
     """Line 497: remove_modifier removes from list."""
 

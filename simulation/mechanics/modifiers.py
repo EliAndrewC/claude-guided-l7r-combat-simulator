@@ -8,6 +8,8 @@
 
 import uuid
 
+from simulation.mechanics.skills import ATTACK_SKILLS
+
 
 class Modifier:
     """
@@ -93,7 +95,7 @@ class AnyAttackModifier(Modifier):
     """
 
     def __init__(self, subject, target, adjustment):
-        super().__init__(subject, target, ATTACK_SKILLS, adjustment)  # noqa: F821 - TODO: incomplete
+        super().__init__(subject, target, ATTACK_SKILLS, adjustment)
 
 
 class FreeRaise(Modifier):

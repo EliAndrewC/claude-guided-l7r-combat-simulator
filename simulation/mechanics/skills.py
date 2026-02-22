@@ -21,6 +21,10 @@ ADVANCED_SKILLS = ["acting", "attack", "commerce", "counterattack", "double atta
 ATTACK_SKILLS = ["attack", "counterattack", "double attack", "feint", "iaijutsu", "lunge"]
 
 
+# Non-combat skills are defined here for character-building XP costs but have
+# no mechanical effects in the simulator.  The simulator focuses on combat;
+# social and knowledge skills (bragging, etiquette, investigation, etc.) do
+# not influence any rolls or outcomes.
 BASIC_SKILLS = ["bragging", "culture", "etiquette", "heraldry", "intimidation", "investigation", "law", "precepts", "sincerity", "sneaking", "strategy", "tact"]
 
 

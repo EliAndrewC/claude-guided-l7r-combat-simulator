@@ -101,9 +101,9 @@ class BaseAttackStrategy(Strategy):
             unspent_action_dice.extend(character.actions())
             while len(action_dice) < cost:
                 die = max(unspent_action_dice)
-                unspent_action_dice.pop(die)
+                unspent_action_dice.remove(die)
                 action_dice.append(die)
-            return InitaitiveAction(action_dice, context.phase(), is_interrupt=True)  # noqa: F821 - TODO: typo, should be InitiativeAction
+            return InitiativeAction(action_dice, context.phase(), is_interrupt=True)
         else:
             raise NotEnoughActions()
 
@@ -164,15 +164,14 @@ class StingyPlainAttackStrategy(BaseAttackStrategy):
 
     def recommend(self, character, event, context):
         if isinstance(event, events.YourMoveEvent):
-            # TODO: implement intelligence around interrupts
             if character.has_action(context):
                 initiative_action = self.choose_action(character, "attack", context)
-                target = character.target_finder().find_target(character, "attack", context)
+                target = character.target_finder().find_target(character, "attack", initiative_action, context)
                 if target is not None:
-                    action = subject.action_factory().get_attack_action(subject, target, skill, initiative_action, context)  # noqa: F841, F821
+                    action = character.action_factory().get_attack_action(character, target, "attack", initiative_action, context)
                     logger.info(f"{character.name()} is attacking {target.name()}")
                     yield from self.spend_action(character, "attack", initiative_action)
-                    yield character.take_action_event_factory().get_take_attack_action_event(attack)  # noqa: F821 - TODO: incomplete
+                    yield character.take_action_event_factory().get_take_attack_action_event(action)
                 else:
                     yield events.HoldActionEvent(character)
             else:

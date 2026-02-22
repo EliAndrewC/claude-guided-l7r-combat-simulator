@@ -19,7 +19,7 @@ from simulation.groups import Group
 from simulation.log import logger
 from simulation.mechanics.initiative_actions import InitiativeAction
 from simulation.mechanics.roll_provider import TestRollProvider
-from simulation.strategies.base import BaseAttackStrategy, KeepLightWoundsStrategy, NeverParryStrategy, PlainAttackStrategy, ReluctantParryStrategy, WoundCheckStrategy
+from simulation.strategies.base import BaseAttackStrategy, KeepLightWoundsStrategy, NeverParryStrategy, PlainAttackStrategy, ReluctantParryStrategy, StingyPlainAttackStrategy, WoundCheckStrategy
 
 # set up logging
 stream_handler = logging.StreamHandler(sys.stdout)
@@ -129,6 +129,54 @@ class TestAttackStrategy(unittest.TestCase):
         responses = list(strategy.recommend(akodo, events.YourMoveEvent(akodo), context))
         self.assertEqual(1, len(responses))
         self.assertTrue(isinstance(responses[0], events.NoActionEvent))
+
+
+class TestStingyPlainAttackStrategy(unittest.TestCase):
+    def test_recommend_attacks_without_optimization(self):
+        """StingyPlainAttackStrategy attacks without spending VP to optimize."""
+        akodo = Character("Akodo")
+        akodo._actions = [1]
+        bayushi = Character("Bayushi")
+        bayushi._actions = [2]
+        context = EngineContext([Group("Lion", akodo), Group("Scorpion", bayushi)], round=1, phase=1)
+        context.initialize()
+        strategy = StingyPlainAttackStrategy()
+        responses = list(strategy.recommend(akodo, events.YourMoveEvent(akodo), context))
+        self.assertEqual(2, len(responses))
+        self.assertIsInstance(responses[0], events.SpendActionEvent)
+        self.assertIsInstance(responses[1], events.TakeAttackActionEvent)
+        self.assertIsInstance(responses[1].action, AttackAction)
+        self.assertEqual(akodo, responses[1].action.subject())
+        self.assertEqual(bayushi, responses[1].action.target())
+        # should not spend VP
+        self.assertEqual(0, responses[1].action.vp())
+
+    def test_recommend_no_action(self):
+        """NoActionEvent when character has no available actions."""
+        akodo = Character("Akodo")
+        akodo._actions = [3]
+        bayushi = Character("Bayushi")
+        bayushi._actions = [2]
+        context = EngineContext([Group("Lion", akodo), Group("Scorpion", bayushi)], round=1, phase=1)
+        context.initialize()
+        strategy = StingyPlainAttackStrategy()
+        responses = list(strategy.recommend(akodo, events.YourMoveEvent(akodo), context))
+        self.assertEqual(1, len(responses))
+        self.assertIsInstance(responses[0], events.NoActionEvent)
+
+    def test_recommend_holds_when_no_target(self):
+        """HoldActionEvent when no target is available (all enemies defeated)."""
+        akodo = Character("Akodo")
+        akodo._actions = [1]
+        bayushi = Character("Bayushi")
+        bayushi._actions = [2]
+        bayushi.take_sw(bayushi.max_sw())  # defeat bayushi
+        context = EngineContext([Group("Lion", akodo), Group("Scorpion", bayushi)], round=1, phase=1)
+        context.initialize()
+        strategy = StingyPlainAttackStrategy()
+        responses = list(strategy.recommend(akodo, events.YourMoveEvent(akodo), context))
+        self.assertEqual(1, len(responses))
+        self.assertIsInstance(responses[0], events.HoldActionEvent)
 
 
 class TestKeepLightWoundsStrategy(unittest.TestCase):

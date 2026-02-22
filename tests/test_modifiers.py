@@ -13,7 +13,7 @@ from simulation.character import Character
 from simulation.context import EngineContext
 from simulation.groups import Group
 from simulation.mechanics.initiative_actions import InitiativeAction
-from simulation.mechanics.modifiers import FreeRaise, Modifier
+from simulation.mechanics.modifiers import AnyAttackModifier, FreeRaise, Modifier
 from simulation.modifier_listeners import ModifierListener
 
 
@@ -97,3 +97,25 @@ class TestFreeRaise(unittest.TestCase):
         modifier = FreeRaise(self.attacker, "attack")
         self.assertEqual(5, modifier.apply(None, "attack"))
         self.assertEqual(0, modifier.apply(None, "parry"))
+
+
+class TestAnyAttackModifier(unittest.TestCase):
+    def setUp(self):
+        self.subject = Character("subject")
+        self.target = Character("target")
+
+    def test_applies_to_all_attack_skills(self):
+        modifier = AnyAttackModifier(self.subject, self.target, 3)
+        for skill in ["attack", "counterattack", "double attack", "feint", "iaijutsu", "lunge"]:
+            self.assertEqual(3, modifier.apply(self.target, skill))
+
+    def test_does_not_apply_to_non_attack_skills(self):
+        modifier = AnyAttackModifier(self.subject, self.target, 3)
+        self.assertEqual(0, modifier.apply(self.target, "parry"))
+        self.assertEqual(0, modifier.apply(self.target, "wound check"))
+
+    def test_specific_target(self):
+        modifier = AnyAttackModifier(self.subject, self.target, -5)
+        self.assertEqual(-5, modifier.apply(self.target, "attack"))
+        other = Character("other")
+        self.assertEqual(0, modifier.apply(other, "attack"))

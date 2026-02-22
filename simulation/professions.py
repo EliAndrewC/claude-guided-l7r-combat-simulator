@@ -227,7 +227,9 @@ class WeaponDamageBonusAbility(ProfessionAbility):
     """
 
     def apply(self, character, profession):
-        # implemented in WaveManRollParameterProvider
+        # The weapon damage bonus is implemented in WaveManRollParameterProvider.
+        # The armor damage reduction part of this ability is not implemented;
+        # armor and damage reduction are planned for a later project phase.
         character.set_roll_parameter_provider(WaveManRollParameterProvider(profession))
 
 

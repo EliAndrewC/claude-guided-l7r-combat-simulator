@@ -469,7 +469,10 @@ class Character:
         max_vp_per_roll() -> int
 
         Return the maximum number of VP this character may spend on a single roll.
+        Characters with the Discordant disadvantage may not spend VP on skills.
         """
+        if "discordant" in self._disadvantages:
+            return 0
         return min([self.ring(ring) for ring in RING_NAMES])
 
     def modifier(self, target, skill):
