@@ -365,6 +365,35 @@ class KakitaAttackStrategy(UniversalAttackStrategy):
             yield from super().recommend(character, event, context)
 
 
+class KakitaInterruptAttackStrategy(KakitaAttackStrategy):
+    """
+    Attack strategy for Kakita that uses interrupt iaijutsu attacks.
+
+    When no normal action is available but interrupt is possible
+    (character has enough future action dice), spends 2 future action
+    dice to make an iaijutsu attack out of turn.
+    """
+
+    def recommend(self, character, event, context):
+        if isinstance(event, events.YourMoveEvent):
+            if character.has_action(context):
+                # Normal behavior: Phase 0 iaijutsu or universal attacks
+                yield from super().recommend(character, event, context)
+            elif character.has_interrupt_action("iaijutsu", context):
+                # Interrupt: spend future dice for iaijutsu attack
+                initiative_action = self.choose_action(character, "iaijutsu", context)
+                iaijutsu_event = self.try_skill(
+                    character, "iaijutsu", initiative_action, 0.01, context,
+                )
+                if iaijutsu_event is not None:
+                    yield from self.spend_action(character, "iaijutsu", initiative_action)
+                    yield iaijutsu_event
+                else:
+                    yield events.NoActionEvent(character)
+            else:
+                yield events.NoActionEvent(character)
+
+
 # singleton instance
 KAKITA_ATTACK_STRATEGY = KakitaAttackStrategy()
 

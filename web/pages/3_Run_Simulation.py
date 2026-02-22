@@ -14,7 +14,9 @@ else:
     characters = [st.session_state.characters[n] for n in all_names]
     groups = [control, test]
 
-    st.write(f"**Control:** {', '.join(control.character_names)} vs **Test:** {', '.join(test.character_names)}")
+    control_label = control.name or "Control"
+    test_label = test.name or "Test"
+    st.write(f"**{control_label}:** {', '.join(control.character_names)} vs **{test_label}:** {', '.join(test.character_names)}")
 
     tab_batch, tab_single = st.tabs(["Batch Simulation", "Single Combat"])
 
@@ -33,14 +35,14 @@ else:
                 st.subheader("Results")
                 col1, col2, col3 = st.columns(3)
                 col1.metric("Trials", result.num_trials)
-                col2.metric("Control Wins", result.control_victories)
-                col3.metric("Test Wins", result.test_victories)
+                col2.metric(f"{control_label} Wins", result.control_victories)
+                col3.metric(f"{test_label} Wins", result.test_victories)
 
                 test_rate = result.test_victories / result.num_trials * 100
-                st.metric("Test Group Win Rate", f"{test_rate:.1f}%")
+                st.metric(f"{test_label} Win Rate", f"{test_rate:.1f}%")
 
                 # Victory bar chart
-                st.bar_chart({"Control": result.control_victories, "Test": result.test_victories})
+                st.bar_chart({control_label: result.control_victories, test_label: result.test_victories})
 
                 # Summary stats
                 if result.summary:
@@ -67,7 +69,7 @@ else:
 
             if result:
                 # Winner
-                winner_label = "Test Group" if result.winner == 1 else "Control Group"
+                winner_label = test_label if result.winner == 1 else control_label
                 st.subheader(f"Winner: {winner_label}")
                 st.write(f"Duration: {result.duration_rounds} rounds, {result.duration_phases} phases")
 

@@ -1,0 +1,18 @@
+name: Bayushi 200
+xp: 200
+school: Bayushi Bushi School
+rings:
+  air: 2
+  earth: 4
+  fire: 5
+  water: 3
+  void: 3
+skills:
+  attack: 5
+  parry: 5
+  double attack: 5
+  feint: 5
+  iaijutsu: 5
+template_tier: '200'
+template_earned_xp: 200
+template_school: Bayushi Bushi School

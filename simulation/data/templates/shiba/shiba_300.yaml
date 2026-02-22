@@ -1,0 +1,18 @@
+name: Shiba 300
+xp: 300
+school: Shiba Bushi School
+rings:
+  air: 5
+  earth: 5
+  fire: 4
+  water: 4
+  void: 5
+skills:
+  attack: 5
+  parry: 5
+  counterattack: 5
+  double attack: 5
+  iaijutsu: 5
+template_tier: '300'
+template_earned_xp: 300
+template_school: Shiba Bushi School

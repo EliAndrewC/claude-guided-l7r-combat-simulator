@@ -1,0 +1,22 @@
+name: Wave Man 250
+xp: 250
+profession: Wave Man
+rings:
+  air: 3
+  earth: 5
+  fire: 5
+  water: 5
+  void: 5
+skills:
+  attack: 5
+  parry: 5
+abilities:
+  wound check bonus: 2
+  weapon damage bonus: 2
+  rolled damage bonus: 2
+  initiative bonus: 2
+  crippled bonus: 2
+  missed attack bonus: 1
+template_tier: '250'
+template_earned_xp: 250
+template_school: Wave Man

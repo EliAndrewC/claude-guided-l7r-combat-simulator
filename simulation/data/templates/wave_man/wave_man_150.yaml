@@ -1,0 +1,18 @@
+name: Wave Man 150
+xp: 150
+profession: Wave Man
+rings:
+  air: 2
+  earth: 5
+  fire: 4
+  water: 3
+  void: 3
+skills:
+  attack: 5
+  parry: 5
+abilities:
+  wound check bonus: 2
+  weapon damage bonus: 2
+template_tier: '150'
+template_earned_xp: 150
+template_school: Wave Man

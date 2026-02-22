@@ -1,0 +1,18 @@
+name: Akodo 300
+xp: 300
+school: Akodo Bushi School
+rings:
+  air: 3
+  earth: 5
+  fire: 5
+  water: 5
+  void: 5
+skills:
+  attack: 5
+  parry: 5
+  double attack: 5
+  feint: 5
+  iaijutsu: 5
+template_tier: '300'
+template_earned_xp: 300
+template_school: Akodo Bushi School

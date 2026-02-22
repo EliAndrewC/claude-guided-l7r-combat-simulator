@@ -7,6 +7,7 @@
 # This is a convenience provided to the character builder.
 #
 
+from simulation.schools.kakita_school import KakitaAttackStrategy, KakitaInterruptAttackStrategy
 from simulation.strategies import base as strategies
 
 
@@ -19,6 +20,10 @@ def get_strategy(name):
         return strategies.AlwaysParryStrategy()
     if name == "HoldOneActionStrategy":
         return strategies.HoldOneActionStrategy()
+    if name == "KakitaAttackStrategy":
+        return KakitaAttackStrategy()
+    if name == "KakitaInterruptAttackStrategy":
+        return KakitaInterruptAttackStrategy()
     if name == "KeepLightWoundsStrategy":
         return strategies.KeepLightWoundsStrategy()
     if name == "NeverKeepLightWoundsStrategy":

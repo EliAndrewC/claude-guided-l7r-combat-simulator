@@ -14,6 +14,10 @@ class CharacterConfig:
     disadvantages: list[str] = field(default_factory=list)
     strategies: dict[str, str] = field(default_factory=dict)
     abilities: dict[str, int] = field(default_factory=dict)
+    # Optional template metadata
+    template_tier: str = ""
+    template_earned_xp: int = 0
+    template_school: str = ""
 
 
 @dataclass

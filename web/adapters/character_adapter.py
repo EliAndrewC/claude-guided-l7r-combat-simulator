@@ -38,9 +38,11 @@ def config_to_character(config: CharacterConfig):
     for skill, rank in skills.items():
         builder.buy_skill(skill, rank)
 
-    # buy rings
+    # buy rings one rank at a time so per-purchase discounts apply correctly
     for ring, rank in config.rings.items():
-        builder.buy_ring(ring, rank)
+        current = builder.character().ring(ring)
+        for target in range(current + 1, rank + 1):
+            builder.buy_ring(ring, target)
 
     # set strategies
     for event, strategy_name in config.strategies.items():
@@ -77,6 +79,11 @@ def yaml_to_config(yaml_str: str) -> CharacterConfig:
     config.strategies = data.get("strategies", {})
     config.abilities = data.get("abilities", {})
 
+    # Optional template metadata
+    config.template_tier = str(data.get("template_tier", ""))
+    config.template_earned_xp = int(data.get("template_earned_xp", 0))
+    config.template_school = str(data.get("template_school", ""))
+
     return config
 
 
@@ -95,4 +102,19 @@ def load_data_directory(path: str) -> list[CharacterConfig]:
             yaml_str = f.read()
         config = yaml_to_config(yaml_str)
         configs.append(config)
+    return configs
+
+
+def load_template_directory(path: str) -> list[CharacterConfig]:
+    """Load all character YAML files from a directory tree recursively."""
+    configs = []
+    for dirpath, _dirnames, filenames in os.walk(path):
+        for fname in sorted(filenames):
+            if not fname.endswith((".yaml", ".yml")):
+                continue
+            fpath = os.path.join(dirpath, fname)
+            with open(fpath) as f:
+                yaml_str = f.read()
+            config = yaml_to_config(yaml_str)
+            configs.append(config)
     return configs

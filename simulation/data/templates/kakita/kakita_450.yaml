@@ -1,0 +1,18 @@
+name: Kakita 450
+xp: 450
+school: Kakita Bushi School
+rings:
+  air: 5
+  earth: 5
+  fire: 6
+  water: 5
+  void: 5
+skills:
+  attack: 5
+  parry: 5
+  double attack: 5
+  iaijutsu: 5
+  lunge: 5
+template_tier: '450'
+template_earned_xp: 450
+template_school: Kakita Bushi School

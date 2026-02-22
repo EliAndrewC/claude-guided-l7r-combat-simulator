@@ -39,6 +39,7 @@ pages = [
     st.Page("pages/1_Characters.py", title="Characters", default=True),
     st.Page("pages/2_Combat_Setup.py", title="Combat Setup"),
     st.Page("pages/3_Run_Simulation.py", title="Run Simulation"),
+    st.Page("pages/4_Analysis.py", title="Analysis"),
 ]
 nav = st.navigation(pages)
 nav.run()
