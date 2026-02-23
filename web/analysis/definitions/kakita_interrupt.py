@@ -60,7 +60,7 @@ def _make_kakita_config(
 
 
 def build_kakita_interrupt_analysis(
-    num_trials: int = 1000,
+    num_trials: int = 100,
 ) -> AnalysisDefinition:
     """Build the analysis definition for Kakita interrupt vs no-interrupt.
 

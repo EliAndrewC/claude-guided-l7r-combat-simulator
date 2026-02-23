@@ -11,13 +11,21 @@ class VariableOption:
     """One option within an analysis variable (e.g., 'on', 'off')."""
     name: str = ""
     label: str = ""
+    description: str = ""
 
     def to_dict(self) -> dict:
-        return {"name": self.name, "label": self.label}
+        d = {"name": self.name, "label": self.label}
+        if self.description:
+            d["description"] = self.description
+        return d
 
     @classmethod
     def from_dict(cls, data: dict) -> "VariableOption":
-        return cls(name=data["name"], label=data["label"])
+        return cls(
+            name=data["name"],
+            label=data["label"],
+            description=data.get("description", ""),
+        )
 
 
 @dataclass
@@ -25,20 +33,25 @@ class AnalysisVariable:
     """A player-choice variable in a study (e.g., 'interrupt attack')."""
     name: str = ""
     label: str = ""
+    description: str = ""
     options: list[VariableOption] = field(default_factory=list)
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "name": self.name,
             "label": self.label,
             "options": [o.to_dict() for o in self.options],
         }
+        if self.description:
+            d["description"] = self.description
+        return d
 
     @classmethod
     def from_dict(cls, data: dict) -> "AnalysisVariable":
         return cls(
             name=data["name"],
             label=data["label"],
+            description=data.get("description", ""),
             options=[VariableOption.from_dict(o) for o in data.get("options", [])],
         )
 
@@ -52,7 +65,7 @@ class MatchupConfig:
     test_characters: list[CharacterConfig] = field(default_factory=list)
     control_group: GroupConfig = field(default_factory=GroupConfig)
     test_group: GroupConfig = field(default_factory=GroupConfig)
-    num_trials: int = 1000
+    num_trials: int = 100
     tags: dict[str, str] = field(default_factory=dict)
 
 
@@ -91,6 +104,7 @@ class AnalysisDefinition:
     description: str = ""
     matchups: list[MatchupConfig] = field(default_factory=list)
     variables: list[AnalysisVariable] = field(default_factory=list)
+    findings: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass

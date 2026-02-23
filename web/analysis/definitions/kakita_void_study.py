@@ -1,19 +1,22 @@
-"""Kakita Bushi School Comprehensive Study.
+"""Kakita Bushi School Void Point Wound Check Threshold Study.
 
-Tests all combinations of build variants (4) and strategy choices (3 dimensions
-with 2 options each = 8 profiles) against 4 opponents at 7 XP tiers with 3 XP
-deltas. Total: ~2,432 matchups.
+Investigates the impact of different VP spending thresholds on wound checks.
+The comprehensive Kakita study found only +0.2% win rate for normal (0.6)
+vs never spending VP — this study tests 5 threshold levels to determine
+whether the threshold value matters and at what confidence level spending
+becomes worthwhile.
 
-Build Variants:
-  - baseline: Default Kakita priority order
-  - earth_before_water: Earth ring raised before Water ring at ranks 3 and 4
-  - rush_dan4: Dan 4 skill purchases before rank-3 ring raises
-  - delay_dan4: All rank-3 ring raises before Dan 4 skill purchases
+Void Spending Dimension (5 options):
+  - never: StingyWoundCheckStrategy (never spend VP on wound checks)
+  - aggressive: WoundCheckStrategy02 (0.2 threshold, very liberal spending)
+  - moderate: WoundCheckStrategy04 (0.4 threshold)
+  - normal: WoundCheckStrategy (0.6 threshold, current default)
+  - conservative: WoundCheckStrategy08 (0.8 threshold, very conservative)
 
-Strategy Dimensions:
+Other dimensions carried from kakita_study:
+  - build: 4 variants (baseline, swap_earth_water, rush_dan4, delay_dan4)
   - interrupt: KakitaAttackStrategy vs KakitaInterruptAttackStrategy
   - action_hold: HoldOneActionStrategy vs AlwaysAttackActionStrategy
-  - void_spend: WoundCheckStrategy vs StingyWoundCheckStrategy
 """
 
 from simulation.templates.variants import (
@@ -32,11 +35,7 @@ from web.analysis.study import (
 
 
 def _swap_earth_water(priorities: list[tuple[str, str, int]]) -> list[tuple[str, str, int]]:
-    """Swap Earth and Water positions at ranks 3 and 4.
-
-    In the baseline, Earth is raised early and Water late. This variant
-    reverses that, raising Water early and Earth late.
-    """
+    """Swap Earth and Water positions at ranks 3 and 4."""
     result = swap_positions(
         priorities,
         ("ring", "earth", 3),
@@ -74,9 +73,20 @@ def _delay_dan4(priorities: list[tuple[str, str, int]]) -> list[tuple[str, str, 
     )
 
 
-KAKITA_STUDY_CONFIG = SchoolStudyConfig(
+KAKITA_VOID_STUDY_CONFIG = SchoolStudyConfig(
     school_key="kakita",
     school_name="Kakita Bushi School",
+    analysis_id="kakita_void_study",
+    title="Kakita Void Point Wound Check Threshold Study",
+    question=(
+        "Does the wound check VP spending threshold matter, "
+        "and at what confidence level does spending become worthwhile?"
+    ),
+    description=(
+        "Tests 5 different VP wound check spending thresholds (never, 0.2, "
+        "0.4, 0.6, 0.8) across all build variants, strategy choices, "
+        "opponents, and XP tiers for the Kakita Bushi School."
+    ),
     build_variants=[
         BuildVariant(
             name="baseline",
@@ -181,29 +191,60 @@ KAKITA_STUDY_CONFIG = SchoolStudyConfig(
             name="void_spend",
             label="Void Spending",
             description=(
-                "How Void Points are spent on wound checks — the primary "
-                "defensive resource decision for a Kakita Bushi."
+                "How aggressively Void Points are spent on wound checks. "
+                "Lower thresholds mean spending VP even when the chance of "
+                "benefit is small; higher thresholds only spend when highly "
+                "likely to help."
             ),
             options=[
                 StrategyOption(
-                    name="normal",
-                    label="Normal",
+                    name="never",
+                    label="Never Spend",
                     description=(
-                        "Uses a strategic optimizer to decide when spending "
-                        "Void Points on wound checks is worthwhile, based on "
-                        "a 60% confidence threshold."
+                        "Never spends Void Points on wound checks, saving "
+                        "them entirely for other uses."
+                    ),
+                    overrides={"wound_check": "StingyWoundCheckStrategy"},
+                ),
+                StrategyOption(
+                    name="aggressive",
+                    label="Aggressive (0.2)",
+                    description=(
+                        "Spends VP on wound checks with a very low 0.2 "
+                        "confidence threshold — spends liberally even when "
+                        "the chance of avoiding wounds is small."
+                    ),
+                    overrides={"wound_check": "WoundCheckStrategy02"},
+                ),
+                StrategyOption(
+                    name="moderate",
+                    label="Moderate (0.4)",
+                    description=(
+                        "Spends VP on wound checks with a 0.4 confidence "
+                        "threshold — a balanced approach between aggressive "
+                        "and conservative."
+                    ),
+                    overrides={"wound_check": "WoundCheckStrategy04"},
+                ),
+                StrategyOption(
+                    name="normal",
+                    label="Normal (0.6)",
+                    description=(
+                        "Spends VP on wound checks with the default 0.6 "
+                        "confidence threshold — only spends when fairly "
+                        "confident it will help."
                     ),
                     overrides={"wound_check": "WoundCheckStrategy"},
                 ),
                 StrategyOption(
-                    name="stingy",
-                    label="Stingy",
+                    name="conservative",
+                    label="Conservative (0.8)",
                     description=(
-                        "Never spends Void Points on wound checks, saving "
-                        "them entirely for other uses (such as attack rolls "
-                        "or other special abilities)."
+                        "Spends VP on wound checks with a high 0.8 "
+                        "confidence threshold — only spends when very "
+                        "likely to help."
                     ),
-                    overrides={"wound_check": "StingyWoundCheckStrategy"},
+                    overrides={"wound_check": "WoundCheckStrategy08"},
                 ),
             ],
         ),
@@ -211,52 +252,12 @@ KAKITA_STUDY_CONFIG = SchoolStudyConfig(
     opponents=["akodo", "bayushi", "shiba", "wave_man"],
     xp_tiers=[150, 200, 250, 300, 350, 400, 450],
     xp_deltas=[-50, 0, 50],
-    findings={
-        "action_hold": (
-            "**Always attacking immediately is consistently better than "
-            "holding an action in reserve**, with an average advantage of "
-            "about +4% win rate. This holds across 89% of opponent/XP-tier "
-            "combinations, making it the single most impactful tactical "
-            "choice tested. The effect is strongest against less-skilled "
-            "opponents and at lower XP tiers, where the extra offensive "
-            "pressure matters most. The Kakita iaijutsu style rewards "
-            "aggression — holding back gains nothing because the iaijutsu "
-            "strike does not benefit from saved actions."
-        ),
-        "build": (
-            "**Build order has minimal impact at most XP tiers.** The four "
-            "variants converge to nearly identical win rates above 200 XP. "
-            "The only significant finding is that **Delay Dan 4 is "
-            "dramatically worse at 150 XP** (~21% win rate vs ~57% for "
-            "other builds), because postponing Dan 4 skills means forgoing "
-            "critical combat techniques at the lowest tier. Rush Dan 4 and "
-            "Baseline are virtually tied. **Recommendation:** use the "
-            "Baseline build order, and never delay Dan 4."
-        ),
-        "interrupt": (
-            "**The interrupt attack has essentially no effect on overall "
-            "win rate** (+0.03%, consistent in only 54% of sub-groups — "
-            "barely better than a coin flip). The extra damage potential "
-            "from an interrupt iaijutsu strike is offset by the cost of "
-            "spending 2 future action dice. This technique is not worth "
-            "building a strategy around."
-        ),
-        "void_spend": (
-            "**Spending Void Points strategically on wound checks is "
-            "marginally better than never spending them** (+0.2% win rate, "
-            "71% consistency). The strategic wound-check optimizer adds a "
-            "small but real defensive benefit. However, the effect is tiny "
-            "— how you spend Void Points on wound checks barely matters "
-            "compared to action timing decisions. **Recommendation:** use "
-            "Normal void spending, but do not prioritize this over other "
-            "tactical choices."
-        ),
-    },
+    findings={},
 )
 
 
-def build_kakita_study_analysis(
+def build_kakita_void_study_analysis(
     num_trials: int = 100,
 ) -> AnalysisDefinition:
-    """Build the comprehensive Kakita study analysis definition."""
-    return build_study_analysis(KAKITA_STUDY_CONFIG, num_trials=num_trials)
+    """Build the Kakita void point wound check threshold study analysis definition."""
+    return build_study_analysis(KAKITA_VOID_STUDY_CONFIG, num_trials=num_trials)

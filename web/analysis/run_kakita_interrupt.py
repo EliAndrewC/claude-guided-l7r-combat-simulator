@@ -22,8 +22,8 @@ def main() -> None:
     parser.add_argument(
         "--trials",
         type=int,
-        default=1000,
-        help="Number of trials per matchup (default: 1000)",
+        default=100,
+        help="Number of trials per matchup (default: 100)",
     )
     args = parser.parse_args()
 

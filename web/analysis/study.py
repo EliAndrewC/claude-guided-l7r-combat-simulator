@@ -31,7 +31,9 @@ class StrategyOption:
     """One option within a strategy dimension."""
     name: str = ""
     label: str = ""
+    description: str = ""
     overrides: dict[str, str] = field(default_factory=dict)
+    extra_tags: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -39,6 +41,7 @@ class StrategyDimension:
     """A strategy choice axis (e.g., interrupt on/off)."""
     name: str = ""
     label: str = ""
+    description: str = ""
     options: list[StrategyOption] = field(default_factory=list)
 
 
@@ -47,6 +50,7 @@ class BuildVariant:
     """A build order variant (different XP spending priorities)."""
     name: str = ""
     label: str = ""
+    description: str = ""
     transform: Callable[[PriorityList], PriorityList] = field(
         default_factory=lambda: lambda p: list(p)
     )
@@ -57,11 +61,17 @@ class SchoolStudyConfig:
     """Full configuration for a school study."""
     school_key: str = ""
     school_name: str = ""
+    analysis_id: str = ""
+    title: str = ""
+    question: str = ""
+    description: str = ""
     build_variants: list[BuildVariant] = field(default_factory=list)
     strategy_dimensions: list[StrategyDimension] = field(default_factory=list)
     opponents: list[str] = field(default_factory=list)
     xp_tiers: list[int] = field(default_factory=list)
     xp_deltas: list[int] = field(default_factory=list)
+    findings: dict[str, str] = field(default_factory=dict)
+    extra_variables: list[AnalysisVariable] = field(default_factory=list)
 
 
 def _clone_config(
@@ -107,7 +117,7 @@ def _load_opponent_templates() -> dict[str, CharacterConfig]:
 
 def build_study_analysis(
     config: SchoolStudyConfig,
-    num_trials: int = 1000,
+    num_trials: int = 100,
 ) -> AnalysisDefinition:
     """Build an AnalysisDefinition from a SchoolStudyConfig.
 
@@ -177,6 +187,8 @@ def build_study_analysis(
                             config.strategy_dimensions, profile,
                         ):
                             tags[dim.name] = opt.name
+                            if opt.extra_tags:
+                                tags.update(opt.extra_tags)
 
                         # Build matchup ID
                         strategy_parts = "_".join(
@@ -227,11 +239,13 @@ def build_study_analysis(
     # Build AnalysisVariable metadata
     variables: list[AnalysisVariable] = []
     # Build variant as a variable
+    build_desc = "The order in which XP is spent on rings, skills, and Dan advancement"
     variables.append(AnalysisVariable(
         name="build",
         label="Build Order",
+        description=build_desc,
         options=[
-            VariableOption(name=v.name, label=v.label)
+            VariableOption(name=v.name, label=v.label, description=v.description)
             for v in config.build_variants
         ],
     ))
@@ -239,21 +253,34 @@ def build_study_analysis(
         variables.append(AnalysisVariable(
             name=dim.name,
             label=dim.label,
+            description=dim.description,
             options=[
-                VariableOption(name=opt.name, label=opt.label)
+                VariableOption(
+                    name=opt.name, label=opt.label, description=opt.description,
+                )
                 for opt in dim.options
             ],
         ))
+    # Add any extra variables defined by the study config
+    variables.extend(config.extra_variables)
+
+    study_id = config.analysis_id or f"{config.school_key}_study"
+    study_title = config.title or f"{config.school_name} Comprehensive Study"
+    study_question = config.question or (
+        f"What are the optimal tactical choices for a {subject_label}?"
+    )
+    study_description = config.description or (
+        f"Tests all combinations of build variants and strategy choices "
+        f"for {config.school_name} against all opponents at all XP tiers. "
+        f"{len(matchups)} total matchups."
+    )
 
     return AnalysisDefinition(
-        analysis_id=f"{config.school_key}_study",
-        title=f"{config.school_name} Comprehensive Study",
-        question=f"What are the optimal tactical choices for a {subject_label}?",
-        description=(
-            f"Tests all combinations of build variants and strategy choices "
-            f"for {config.school_name} against all opponents at all XP tiers. "
-            f"{len(matchups)} total matchups."
-        ),
+        analysis_id=study_id,
+        title=study_title,
+        question=study_question,
+        description=study_description,
         matchups=matchups,
         variables=variables,
+        findings=dict(config.findings),
     )

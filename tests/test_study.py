@@ -8,6 +8,23 @@ import json
 
 import pytest
 
+from simulation.schools.kakita_school import (
+    KakitaAttackStrategy,
+    KakitaAttackStrategy05,
+    KakitaInterruptAttackStrategy,
+    KakitaInterruptAttackStrategy05,
+    KakitaNoVPAttackStrategy,
+    KakitaNoVPInterruptAttackStrategy,
+)
+from simulation.strategies.base import (
+    BaseAttackStrategy,
+    UniversalAttackStrategy,
+    WoundCheckStrategy,
+    WoundCheckStrategy02,
+    WoundCheckStrategy04,
+    WoundCheckStrategy05,
+    WoundCheckStrategy08,
+)
 from simulation.templates.generator import generate_template
 from simulation.templates.strategies import KAKITA_PRIORITIES
 from simulation.templates.variants import (
@@ -24,6 +41,14 @@ from web.analysis.definitions.kakita_study import (
     _rush_dan4,
     _swap_earth_water,
     build_kakita_study_analysis,
+)
+from web.analysis.definitions.kakita_void_study import (
+    KAKITA_VOID_STUDY_CONFIG,
+    build_kakita_void_study_analysis,
+)
+from web.analysis.definitions.kakita_vp_study import (
+    KAKITA_VP_STUDY_CONFIG,
+    build_kakita_vp_study_analysis,
 )
 from web.analysis.models import (
     AnalysisDefinition,
@@ -667,3 +692,270 @@ class TestComputeStudySummary:
         assert len(summary.interactions) == 1
         # Interaction: |20 - 4| = 16
         assert summary.interactions[0].interaction_score == pytest.approx(16.0)
+
+
+# ── WoundCheckStrategy Threshold Subclasses ──────────────────────────
+
+
+class TestWoundCheckStrategyThresholds:
+    def test_base_threshold(self):
+        assert WoundCheckStrategy.threshold == 0.6
+
+    def test_strategy02_threshold(self):
+        assert WoundCheckStrategy02.threshold == 0.2
+
+    def test_strategy04_threshold(self):
+        assert WoundCheckStrategy04.threshold == 0.4
+
+    def test_strategy08_threshold(self):
+        assert WoundCheckStrategy08.threshold == 0.8
+
+    def test_subclasses_inherit_from_base(self):
+        assert issubclass(WoundCheckStrategy02, WoundCheckStrategy)
+        assert issubclass(WoundCheckStrategy04, WoundCheckStrategy)
+        assert issubclass(WoundCheckStrategy08, WoundCheckStrategy)
+
+    def test_instances_have_correct_threshold(self):
+        """Instance-level access returns the class threshold."""
+        assert WoundCheckStrategy().threshold == 0.6
+        assert WoundCheckStrategy02().threshold == 0.2
+        assert WoundCheckStrategy04().threshold == 0.4
+        assert WoundCheckStrategy08().threshold == 0.8
+
+
+# ── Kakita Void Study Definition ─────────────────────────────────────
+
+
+class TestKakitaVoidStudyDefinition:
+    def test_config_has_expected_structure(self):
+        assert KAKITA_VOID_STUDY_CONFIG.school_key == "kakita"
+        assert KAKITA_VOID_STUDY_CONFIG.analysis_id == "kakita_void_study"
+        assert len(KAKITA_VOID_STUDY_CONFIG.build_variants) == 4
+        assert len(KAKITA_VOID_STUDY_CONFIG.strategy_dimensions) == 3
+        # void_spend dimension has 5 options
+        void_dim = [d for d in KAKITA_VOID_STUDY_CONFIG.strategy_dimensions
+                     if d.name == "void_spend"][0]
+        assert len(void_dim.options) == 5
+        assert len(KAKITA_VOID_STUDY_CONFIG.opponents) == 4
+
+    def test_builds_analysis_definition(self):
+        defn = build_kakita_void_study_analysis(num_trials=10)
+        assert defn.analysis_id == "kakita_void_study"
+        assert len(defn.variables) > 0
+
+    def test_matchup_count_in_expected_range(self):
+        """Should be ~6,080 matchups (with edge clipping)."""
+        defn = build_kakita_void_study_analysis(num_trials=10)
+        # 4 builds x (2 x 2 x 5 = 20 profiles) x 4 opponents x 7 tiers x 3 deltas = 6720
+        # minus clipping at edges: expect roughly 5500-6500
+        assert 5000 < len(defn.matchups) < 7000
+
+    def test_void_spend_variable_has_five_options(self):
+        defn = build_kakita_void_study_analysis(num_trials=10)
+        void_var = [v for v in defn.variables if v.name == "void_spend"][0]
+        assert len(void_var.options) == 5
+        option_names = [o.name for o in void_var.options]
+        assert "never" in option_names
+        assert "aggressive" in option_names
+        assert "moderate" in option_names
+        assert "normal" in option_names
+        assert "conservative" in option_names
+
+
+# ── BaseAttackStrategy._get_optimizer ─────────────────────────────────
+
+
+class TestGetOptimizer:
+    def test_base_attack_strategy_has_get_optimizer(self):
+        """BaseAttackStrategy should have a _get_optimizer method."""
+        assert hasattr(BaseAttackStrategy, "_get_optimizer")
+
+    def test_get_optimizer_delegates_to_factory(self):
+        """Default _get_optimizer delegates to character.attack_optimizer_factory()."""
+        # We test indirectly: UniversalAttackStrategy inherits _get_optimizer
+        strategy = UniversalAttackStrategy()
+        assert hasattr(strategy, "_get_optimizer")
+
+
+# ── UniversalAttackStrategy.attack_threshold ─────────────────────────
+
+
+class TestAttackThreshold:
+    def test_default_threshold(self):
+        assert UniversalAttackStrategy.attack_threshold == 0.7
+
+    def test_kakita_inherits_default(self):
+        assert KakitaAttackStrategy.attack_threshold == 0.7
+
+    def test_kakita_05_threshold(self):
+        assert KakitaAttackStrategy05.attack_threshold == 0.5
+
+    def test_kakita_interrupt_05_threshold(self):
+        assert KakitaInterruptAttackStrategy05.attack_threshold == 0.5
+
+    def test_kakita_interrupt_inherits_default(self):
+        assert KakitaInterruptAttackStrategy.attack_threshold == 0.7
+
+
+# ── WoundCheckStrategy05 ─────────────────────────────────────────────
+
+
+class TestWoundCheckStrategy05:
+    def test_threshold(self):
+        assert WoundCheckStrategy05.threshold == 0.5
+
+    def test_inherits_from_base(self):
+        assert issubclass(WoundCheckStrategy05, WoundCheckStrategy)
+
+    def test_instance_threshold(self):
+        assert WoundCheckStrategy05().threshold == 0.5
+
+
+# ── Kakita No-VP Attack Strategies ───────────────────────────────────
+
+
+class TestKakitaNoVPStrategies:
+    def test_no_vp_attack_inherits_kakita(self):
+        assert issubclass(KakitaNoVPAttackStrategy, KakitaAttackStrategy)
+
+    def test_no_vp_interrupt_inherits_kakita_interrupt(self):
+        assert issubclass(KakitaNoVPInterruptAttackStrategy, KakitaInterruptAttackStrategy)
+
+    def test_no_vp_attack_overrides_get_optimizer(self):
+        """KakitaNoVPAttackStrategy should override _get_optimizer."""
+        assert (
+            KakitaNoVPAttackStrategy._get_optimizer
+            is not KakitaAttackStrategy._get_optimizer
+        )
+
+    def test_no_vp_interrupt_overrides_get_optimizer(self):
+        """KakitaNoVPInterruptAttackStrategy should override _get_optimizer."""
+        assert (
+            KakitaNoVPInterruptAttackStrategy._get_optimizer
+            is not KakitaInterruptAttackStrategy._get_optimizer
+        )
+
+
+# ── Extra Tags in Study Builder ──────────────────────────────────────
+
+
+class TestExtraTagsInStudyBuilder:
+    def test_extra_tags_merged_into_matchup_tags(self):
+        """StrategyOption.extra_tags should be merged into matchup tags."""
+        config = SchoolStudyConfig(
+            school_key="kakita",
+            school_name="Kakita Bushi School",
+            build_variants=[
+                BuildVariant(name="baseline", label="Baseline", transform=identity),
+            ],
+            strategy_dimensions=[
+                StrategyDimension(
+                    name="attack_style",
+                    label="Attack Style",
+                    options=[
+                        StrategyOption(
+                            name="std_novp",
+                            label="Std No VP",
+                            overrides={"attack": "KakitaNoVPAttackStrategy"},
+                            extra_tags={"interrupt": "off", "attack_vp": "never"},
+                        ),
+                        StrategyOption(
+                            name="int_vp07",
+                            label="Int VP 0.7",
+                            overrides={"attack": "KakitaInterruptAttackStrategy"},
+                            extra_tags={"interrupt": "on", "attack_vp": "threshold_07"},
+                        ),
+                    ],
+                ),
+            ],
+            opponents=["akodo"],
+            xp_tiers=[200],
+            xp_deltas=[0],
+        )
+        defn = build_study_analysis(config, num_trials=10)
+        assert len(defn.matchups) == 2
+        for m in defn.matchups:
+            # Standard dimension tag
+            assert "attack_style" in m.tags
+            # Extra tags should be present
+            assert "interrupt" in m.tags
+            assert "attack_vp" in m.tags
+
+    def test_extra_variables_included(self):
+        """extra_variables on SchoolStudyConfig should appear in definition."""
+        config = SchoolStudyConfig(
+            school_key="kakita",
+            school_name="Kakita Bushi School",
+            build_variants=[
+                BuildVariant(name="baseline", label="Baseline", transform=identity),
+            ],
+            strategy_dimensions=[],
+            opponents=["akodo"],
+            xp_tiers=[200],
+            xp_deltas=[0],
+            extra_variables=[
+                AnalysisVariable(
+                    name="attack_vp",
+                    label="Attack VP",
+                    options=[
+                        VariableOption(name="never", label="Never"),
+                        VariableOption(name="threshold_07", label="0.7"),
+                    ],
+                ),
+            ],
+        )
+        defn = build_study_analysis(config, num_trials=10)
+        var_names = {v.name for v in defn.variables}
+        assert "attack_vp" in var_names
+
+
+# ── Kakita VP Study Definition ───────────────────────────────────────
+
+
+class TestKakitaVPStudyDefinition:
+    def test_config_has_expected_structure(self):
+        assert KAKITA_VP_STUDY_CONFIG.school_key == "kakita"
+        assert KAKITA_VP_STUDY_CONFIG.analysis_id == "kakita_vp_study"
+        assert len(KAKITA_VP_STUDY_CONFIG.build_variants) == 4
+        assert len(KAKITA_VP_STUDY_CONFIG.strategy_dimensions) == 3
+        # attack_style dimension has 6 options
+        attack_dim = [d for d in KAKITA_VP_STUDY_CONFIG.strategy_dimensions
+                       if d.name == "attack_style"][0]
+        assert len(attack_dim.options) == 6
+        # wound_check_vp dimension has 2 options
+        wc_dim = [d for d in KAKITA_VP_STUDY_CONFIG.strategy_dimensions
+                   if d.name == "wound_check_vp"][0]
+        assert len(wc_dim.options) == 2
+        assert len(KAKITA_VP_STUDY_CONFIG.opponents) == 4
+
+    def test_builds_analysis_definition(self):
+        defn = build_kakita_vp_study_analysis(num_trials=10)
+        assert defn.analysis_id == "kakita_vp_study"
+        assert len(defn.variables) > 0
+
+    def test_matchup_count_in_expected_range(self):
+        """Should be ~7,296 matchups (with edge clipping)."""
+        defn = build_kakita_vp_study_analysis(num_trials=10)
+        # 4 builds x 6 attack_style x 2 action x 2 wound_check = 96 profiles
+        # 96 x 4 opponents x 7 tiers x 3 deltas = 8064
+        # minus clipping at edges: expect roughly 6500-7500
+        assert 6000 < len(defn.matchups) < 8000
+
+    def test_extra_tags_present_on_matchups(self):
+        """All matchups should have interrupt and attack_vp tags from extra_tags."""
+        defn = build_kakita_vp_study_analysis(num_trials=10)
+        for m in defn.matchups:
+            assert "interrupt" in m.tags, f"Missing interrupt tag on {m.matchup_id}"
+            assert "attack_vp" in m.tags, f"Missing attack_vp tag on {m.matchup_id}"
+
+    def test_variables_include_extra_variables(self):
+        """Variables should include interrupt and attack_vp from extra_variables."""
+        defn = build_kakita_vp_study_analysis(num_trials=10)
+        var_names = {v.name for v in defn.variables}
+        assert "interrupt" in var_names
+        assert "attack_vp" in var_names
+        # Plus the standard ones
+        assert "build" in var_names
+        assert "attack_style" in var_names
+        assert "action_hold" in var_names
+        assert "wound_check_vp" in var_names

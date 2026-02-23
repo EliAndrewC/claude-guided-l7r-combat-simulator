@@ -225,11 +225,14 @@ def _show_study_view(aid: str, result: AnalysisResult) -> None:
     elif study_view == "table":
         _show_full_results_table(aid, result, definition, matchup_configs, tags_by_id)
     else:
-        _show_study_summary(aid, result, summary)
+        _show_study_summary(aid, result, summary, definition)
 
 
 def _show_study_summary(
-    aid: str, result: AnalysisResult, summary: StudySummary,
+    aid: str,
+    result: AnalysisResult,
+    summary: StudySummary,
+    definition: AnalysisDefinition,
 ) -> None:
     """Tier 1: Summary dashboard showing best choice per variable."""
     st.subheader("Optimal Choices Summary")
@@ -262,6 +265,15 @@ def _show_study_summary(
     if table_data:
         st.table(table_data)
 
+    # Key findings per variable (brief summary with link to detail)
+    if definition.findings:
+        st.subheader("Key Findings")
+        for var in result.variables:
+            finding = definition.findings.get(var.name)
+            if finding:
+                with st.expander(f"{var.label}", expanded=False):
+                    st.markdown(finding)
+
     # Interactions callout
     notable_interactions = [
         ix for ix in summary.interactions if ix.interaction_score > 5.0
@@ -269,7 +281,6 @@ def _show_study_summary(
     if notable_interactions:
         st.subheader("Notable Interactions")
         for ix in notable_interactions:
-            # Find labels
             a_label = ix.variable_a
             b_label = ix.variable_b
             for var in result.variables:
@@ -315,25 +326,51 @@ def _show_variable_detail(
             del st.query_params["variable"]
         st.rerun()
 
-    # Find variable metadata
-    var_meta = next((v for v in result.variables if v.name == var_name), None)
+    # Find variable metadata — prefer definition (has descriptions)
+    def_var = next((v for v in definition.variables if v.name == var_name), None)
+    var_meta = def_var or next(
+        (v for v in result.variables if v.name == var_name), None,
+    )
     if var_meta is None:
         st.error(f"Variable '{var_name}' not found.")
         return
 
     st.subheader(f"Variable Detail: {var_meta.label}")
 
-    # Show marginal effects for this variable
+    # Show variable description
+    if var_meta.description:
+        st.markdown(f"*{var_meta.description}*")
+
+    # Show findings at the top
+    finding = definition.findings.get(var_name, "")
+    if finding:
+        st.markdown(finding)
+        st.divider()
+
+    # Show marginal effects with option descriptions
     effects = summary.marginal_effects.get(var_name, [])
     if effects:
+        # Build option description lookup
+        opt_descriptions = {o.name: o.description for o in var_meta.options}
+
         effect_data = []
         for e in effects:
-            effect_data.append({
+            row: dict[str, str] = {
                 "Option": e.option_label,
                 "Avg Win Rate": f"{e.avg_win_rate:.1f}%",
                 "Best?": "Yes" if e.is_best else "",
-            })
+            }
+            effect_data.append(row)
         st.table(effect_data)
+
+        # Show option descriptions below the table
+        has_descriptions = any(opt_descriptions.get(e.option_name) for e in effects)
+        if has_descriptions:
+            st.markdown("**What each option does:**")
+            for e in effects:
+                desc = opt_descriptions.get(e.option_name, "")
+                if desc:
+                    st.markdown(f"- **{e.option_label}**: {desc}")
 
     # Breakdown by opponent and XP tier
     detail = summary.variable_details.get(var_name)
@@ -524,7 +561,7 @@ def _show_analysis(aid: str) -> None:
         st.write(definition.description)
         st.warning(
             "Results not yet available. Run from the command line:\n\n"
-            f"`env/bin/python -m web.analysis.run_{aid} --trials 1000`"
+            f"`env/bin/python -m web.analysis.run_{aid} --trials 100`"
         )
         st.stop()
 

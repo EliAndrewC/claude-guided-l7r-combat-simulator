@@ -7,7 +7,15 @@
 # This is a convenience provided to the character builder.
 #
 
-from simulation.schools.kakita_school import KakitaAttackStrategy, KakitaInterruptAttackStrategy, KakitaParryStrategy
+from simulation.schools.kakita_school import (
+    KakitaAttackStrategy,
+    KakitaAttackStrategy05,
+    KakitaInterruptAttackStrategy,
+    KakitaInterruptAttackStrategy05,
+    KakitaNoVPAttackStrategy,
+    KakitaNoVPInterruptAttackStrategy,
+    KakitaParryStrategy,
+)
 from simulation.strategies import base as strategies
 
 
@@ -22,8 +30,16 @@ def get_strategy(name):
         return strategies.HoldOneActionStrategy()
     if name == "KakitaAttackStrategy":
         return KakitaAttackStrategy()
+    if name == "KakitaAttackStrategy05":
+        return KakitaAttackStrategy05()
     if name == "KakitaInterruptAttackStrategy":
         return KakitaInterruptAttackStrategy()
+    if name == "KakitaInterruptAttackStrategy05":
+        return KakitaInterruptAttackStrategy05()
+    if name == "KakitaNoVPAttackStrategy":
+        return KakitaNoVPAttackStrategy()
+    if name == "KakitaNoVPInterruptAttackStrategy":
+        return KakitaNoVPInterruptAttackStrategy()
     if name == "KakitaParryStrategy":
         return KakitaParryStrategy()
     if name == "KeepLightWoundsStrategy":
@@ -44,5 +60,13 @@ def get_strategy(name):
         return strategies.UniversalAttackStrategy()
     elif name == "WoundCheckStrategy":
         return strategies.WoundCheckStrategy()
+    elif name == "WoundCheckStrategy02":
+        return strategies.WoundCheckStrategy02()
+    elif name == "WoundCheckStrategy05":
+        return strategies.WoundCheckStrategy05()
+    elif name == "WoundCheckStrategy04":
+        return strategies.WoundCheckStrategy04()
+    elif name == "WoundCheckStrategy08":
+        return strategies.WoundCheckStrategy08()
     else:
         raise ValueError(f"Invalid strategy: {name}")

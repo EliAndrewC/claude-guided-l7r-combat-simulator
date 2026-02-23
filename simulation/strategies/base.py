@@ -107,6 +107,16 @@ class BaseAttackStrategy(Strategy):
         else:
             raise NotEnoughActions()
 
+    def _get_optimizer(self, character, target, skill, initiative_action, context):
+        """Return an attack optimizer for the given parameters.
+
+        Subclasses can override this to control VP spending or other
+        optimizer behaviour without duplicating try_skill logic.
+        """
+        return character.attack_optimizer_factory().get_optimizer(
+            character, target, skill, initiative_action, context,
+        )
+
     def spend_action(self, character, skill, initiative_action):
         """
         spend_action(character, skill, initiative_action) -> SpendActionEvent
@@ -125,7 +135,7 @@ class BaseAttackStrategy(Strategy):
         if character.skill(skill) > 0:
             target = character.target_finder().find_target(character, skill, initiative_action, context)
             if target is not None:
-                attack = character.attack_optimizer_factory().get_optimizer(character, target, skill, initiative_action, context).optimize(threshold)
+                attack = self._get_optimizer(character, target, skill, initiative_action, context).optimize(threshold)
                 if attack is not None:
                     logger.info(f"{character.name()} is attacking {target.name()} with {skill} and spending {attack.vp()} VP")
                     return character.take_action_event_factory().get_take_attack_action_event(attack)
@@ -179,13 +189,15 @@ class StingyPlainAttackStrategy(BaseAttackStrategy):
 
 
 class UniversalAttackStrategy(BaseAttackStrategy):
+    attack_threshold = 0.7
+
     def recommend(self, character, event, context):
         if isinstance(event, events.YourMoveEvent):
             # TODO: implement intelligence around interrupts
             if character.has_action(context):
                 # try to double attack first
                 initiative_action = self.choose_action(character, "double attack", context)
-                double_attack_event = self.try_skill(character, "double attack", initiative_action, 0.6, context)
+                double_attack_event = self.try_skill(character, "double attack", initiative_action, self.attack_threshold - 0.1, context)
                 if double_attack_event is not None:
                     yield from self.spend_action(character, "double attack", initiative_action)
                     yield double_attack_event
@@ -194,14 +206,14 @@ class UniversalAttackStrategy(BaseAttackStrategy):
                 if character.vp() == 0 and len(character.actions()) > 1:
                     # if this character is out of VP and has more than one action in this round, a feint might be worth it
                     initiative_action = self.choose_action(character, "feint", context)
-                    feint_event = self.try_skill(character, "feint", initiative_action, 0.7, context)
+                    feint_event = self.try_skill(character, "feint", initiative_action, self.attack_threshold, context)
                     if feint_event is not None:
                         yield from self.spend_action(character, "feint", initiative_action)
                         yield feint_event
                         return
                 # try a plain attack
                 initiative_action = self.choose_action(character, "attack", context)
-                attack_event = self.try_skill(character, "attack", initiative_action, 0.7, context)
+                attack_event = self.try_skill(character, "attack", initiative_action, self.attack_threshold, context)
                 if attack_event is not None:
                     yield from self.spend_action(character, "attack", initiative_action)
                     yield attack_event
@@ -614,13 +626,39 @@ class WoundCheckStrategy(Strategy):
     Strategy to decide how many VP to spend on a wound check.
     """
 
+    threshold = 0.6
+
     def recommend(self, character, event, context):
         if isinstance(event, events.LightWoundsDamageEvent):
             if event.target == character:
                 # calculate maximum tolerable SW
                 max_sw = min(1, character.sw_remaining() - 1)
                 optimizer = character.wound_check_optimizer_factory().get_wound_check_optimizer(character, event, context)
-                yield optimizer.declare(max_sw, 0.6)
+                yield optimizer.declare(max_sw, self.threshold)
+
+
+class WoundCheckStrategy02(WoundCheckStrategy):
+    """Wound check optimizer with 0.2 confidence threshold (very aggressive spending)."""
+
+    threshold = 0.2
+
+
+class WoundCheckStrategy05(WoundCheckStrategy):
+    """Wound check optimizer with 0.5 confidence threshold."""
+
+    threshold = 0.5
+
+
+class WoundCheckStrategy04(WoundCheckStrategy):
+    """Wound check optimizer with 0.4 confidence threshold."""
+
+    threshold = 0.4
+
+
+class WoundCheckStrategy08(WoundCheckStrategy):
+    """Wound check optimizer with 0.8 confidence threshold (very conservative spending)."""
+
+    threshold = 0.8
 
 
 class StingyWoundCheckStrategy(Strategy):

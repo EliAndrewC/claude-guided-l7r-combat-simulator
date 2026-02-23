@@ -17,6 +17,7 @@ from simulation.mechanics.initiative_actions import InitiativeAction
 from simulation.mechanics.roll import DieProvider, InitiativeRoll
 from simulation.mechanics.roll_params import DefaultRollParameterProvider, normalize_roll_params
 from simulation.mechanics.roll_provider import DefaultRollProvider
+from simulation.optimizers.attack_optimizers import AttackOptimizer, DamageOptimizer
 from simulation.schools.base import BaseSchool
 from simulation.strategies import target_finders
 from simulation.strategies.action_factory import DefaultActionFactory
@@ -393,6 +394,45 @@ class KakitaInterruptAttackStrategy(KakitaAttackStrategy):
                     yield events.NoActionEvent(character)
             else:
                 yield events.NoActionEvent(character)
+
+
+def _no_vp_optimizer(character, target, skill, initiative_action, context):
+    """Create an optimizer that never spends VP."""
+    if skill == "feint":
+        return AttackOptimizer(
+            character, target, skill, initiative_action, context,
+            max_vp=0, max_ap=2,
+        )
+    return DamageOptimizer(
+        character, target, skill, initiative_action, context,
+        max_vp=0, max_ap=2,
+    )
+
+
+class KakitaAttackStrategy05(KakitaAttackStrategy):
+    """Kakita attack strategy with 0.5 attack VP threshold."""
+
+    attack_threshold = 0.5
+
+
+class KakitaInterruptAttackStrategy05(KakitaInterruptAttackStrategy):
+    """Kakita interrupt attack strategy with 0.5 attack VP threshold."""
+
+    attack_threshold = 0.5
+
+
+class KakitaNoVPAttackStrategy(KakitaAttackStrategy):
+    """Kakita attack strategy that never spends VP on attacks."""
+
+    def _get_optimizer(self, character, target, skill, initiative_action, context):
+        return _no_vp_optimizer(character, target, skill, initiative_action, context)
+
+
+class KakitaNoVPInterruptAttackStrategy(KakitaInterruptAttackStrategy):
+    """Kakita interrupt attack strategy that never spends VP on attacks."""
+
+    def _get_optimizer(self, character, target, skill, initiative_action, context):
+        return _no_vp_optimizer(character, target, skill, initiative_action, context)
 
 
 class KakitaParryStrategy(BaseParryStrategy):
