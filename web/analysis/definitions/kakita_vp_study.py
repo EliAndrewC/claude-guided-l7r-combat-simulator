@@ -317,7 +317,64 @@ KAKITA_VP_STUDY_CONFIG = SchoolStudyConfig(
     opponents=["akodo", "bayushi", "shiba", "wave_man"],
     xp_tiers=[150, 200, 250, 300, 350, 400, 450],
     xp_deltas=[-50, 0, 50],
-    findings={},
+    findings={
+        "attack_vp": (
+            "**Spending VP on attack rolls is the most important VP "
+            "allocation decision**, worth roughly +5.5% win rate compared "
+            "to never spending. The default 0.7 threshold is optimal "
+            "(+0.84% over 0.5, 50% consistency), because the higher "
+            "threshold concentrates VP on attacks that are likely to "
+            "connect rather than wasting them on marginal rolls. "
+            "**Recommendation:** always spend VP on attacks at the 0.7 "
+            "threshold. This is a larger effect than interrupt mode, "
+            "build order, or wound check VP spending."
+        ),
+        "wound_check_vp": (
+            "**Spending VP defensively on wound checks at a 0.5 threshold "
+            "is worth +1.38% win rate with 100% consistency** — the most "
+            "consistent effect in the entire study. The prior void study "
+            "found only +0.2% for the 0.6 threshold vs never; the 0.5 "
+            "threshold is substantially more effective because it catches "
+            "cases where 0.6 was too conservative to spend but spending "
+            "would have helped. This interacts strongly with attack VP "
+            "spending (interaction score 3.0): when you are already "
+            "spending VP offensively, fewer VP are available for defense, "
+            "but the defensive spending still helps. **Recommendation:** "
+            "use the 0.5 wound check threshold."
+        ),
+        "action_hold": (
+            "**Always attacking immediately remains the strongest single "
+            "tactical choice**, with +3.96% win rate and 89% consistency "
+            "— fully consistent with the comprehensive Kakita study. "
+            "The Kakita iaijutsu style rewards aggression; holding an "
+            "action in reserve gains nothing because the iaijutsu strike "
+            "does not benefit from saved actions. This effect is larger "
+            "than any VP allocation decision."
+        ),
+        "attack_style": (
+            "**The flattened attack style (interrupt x attack VP) is "
+            "dominated by the attack VP component.** The top two options "
+            "(int_vp07 and std_vp07 at ~54.6%) both use the 0.7 attack "
+            "VP threshold, while the bottom two (int_novp and std_novp "
+            "at ~49%) never spend VP on attacks. The interrupt mode adds "
+            "only ~0.3% within each VP level. The spread from best to "
+            "worst is 5.7%, almost entirely explained by VP spending."
+        ),
+        "interrupt": (
+            "**Interrupt attacks have a tiny +0.16% effect** (68% "
+            "consistency), consistent with the prior study's finding "
+            "that interrupt is essentially neutral. The extra damage "
+            "potential is offset by spending 2 future action dice. "
+            "This dimension is negligible compared to VP allocation."
+        ),
+        "build": (
+            "**Build order remains a minor factor** (+0.19% for Baseline "
+            "over Rush Dan 4, only 43% consistency). As in the prior "
+            "study, the only significant finding is that Delay Dan 4 is "
+            "clearly worse (~49.8% vs ~54% for other builds). All three "
+            "non-delay builds are effectively tied."
+        ),
+    },
 )
 
 
