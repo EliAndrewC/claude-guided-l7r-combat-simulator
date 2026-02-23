@@ -132,7 +132,7 @@ class _BaseCharacterBuilder:
         if rank > self.max_ring(ring):
             raise ValueError(f"May not raise {ring} past {self.max_ring(ring)}")
         original_rank = self.character().ring(ring)
-        return sum([(5 * i) for i in range(original_rank, rank)]) - discount
+        return sum([(5 * i) for i in range(original_rank + 1, rank + 1)]) - discount
 
     def calculate_skill_cost(self, skill, rank):
         if rank > 5:

@@ -17,7 +17,7 @@ class TestGenerateTemplate:
     @pytest.mark.parametrize("xp_tier", XP_TIERS)
     def test_template_builds_successfully(self, school_key: str, xp_tier: int):
         """Each template must build via config_to_character without errors."""
-        config = generate_template(school_key, xp_tier)
+        config, _ = generate_template(school_key, xp_tier)
         character = config_to_character(config)
         assert character.name() == config.name
         assert character.is_alive()
@@ -26,10 +26,25 @@ class TestGenerateTemplate:
     @pytest.mark.parametrize("xp_tier", XP_TIERS)
     def test_template_metadata(self, school_key: str, xp_tier: int):
         """Templates have correct metadata."""
-        config = generate_template(school_key, xp_tier)
+        config, _ = generate_template(school_key, xp_tier)
         assert config.template_tier == str(xp_tier)
         assert config.template_earned_xp == xp_tier
         assert config.template_school != ""
+
+    @pytest.mark.parametrize("school_key", list(SCHOOL_NAMES.keys()))
+    @pytest.mark.parametrize("xp_tier", XP_TIERS)
+    def test_combat_budget_respected(self, school_key: str, xp_tier: int):
+        """Combat XP spent should not exceed 80% of total XP."""
+        _, breakdown = generate_template(school_key, xp_tier)
+        assert breakdown["combat_spent"] <= breakdown["combat_budget"]
+
+    @pytest.mark.parametrize("school_key", [k for k in SCHOOL_NAMES if k != "wave_man"])
+    @pytest.mark.parametrize("xp_tier", XP_TIERS)
+    def test_school_characters_have_attack_parry(self, school_key: str, xp_tier: int):
+        """School characters should always have attack and parry >= 1."""
+        config, _ = generate_template(school_key, xp_tier)
+        assert config.skills.get("attack", 0) >= 1
+        assert config.skills.get("parry", 0) >= 1
 
 
 class TestSchoolDanProgression:
@@ -53,7 +68,7 @@ class TestSchoolDanProgression:
         """Higher XP tiers should reach equal or higher Dan ranks."""
         prev_dan = 0
         for xp_tier in XP_TIERS:
-            config = generate_template(school_key, xp_tier)
+            config, _ = generate_template(school_key, xp_tier)
             dan = self._get_dan_rank(config, school_knacks)
             assert dan >= prev_dan, (
                 f"{school_key} at {xp_tier} XP has Dan {dan}, "
@@ -70,7 +85,7 @@ class TestTierProgression:
         """All rings and skills should be >= the previous tier."""
         prev_config = None
         for xp_tier in XP_TIERS:
-            config = generate_template(school_key, xp_tier)
+            config, _ = generate_template(school_key, xp_tier)
             if prev_config is not None:
                 for ring_name in ["air", "earth", "fire", "water", "void"]:
                     assert config.rings[ring_name] >= prev_config.rings[ring_name], (
@@ -93,11 +108,11 @@ class TestWriteTemplateYaml:
 
     def test_write_and_reload(self):
         """A written template can be reloaded and rebuilt."""
-        config = generate_template("kakita", 200)
+        config, breakdown = generate_template("kakita", 200)
         with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
             path = f.name
         try:
-            write_template_yaml(config, path)
+            write_template_yaml(config, path, breakdown)
             with open(path) as f:
                 yaml_str = f.read()
             reloaded = yaml_to_config(yaml_str)
@@ -107,6 +122,21 @@ class TestWriteTemplateYaml:
             # Verify it still builds
             character = config_to_character(reloaded)
             assert character.is_alive()
+        finally:
+            os.unlink(path)
+
+    def test_yaml_has_breakdown_comments(self):
+        """Written YAML should include XP breakdown comments."""
+        config, breakdown = generate_template("kakita", 200)
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            path = f.name
+        try:
+            write_template_yaml(config, path, breakdown)
+            with open(path) as f:
+                content = f.read()
+            assert "# XP Breakdown" in content
+            assert "Combat budget" in content
+            assert "Non-combat reserve" in content
         finally:
             os.unlink(path)
 

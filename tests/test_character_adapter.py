@@ -28,7 +28,7 @@ class TestConfigToCharacter:
     def test_school_character(self):
         config = CharacterConfig(
             name="TestAkodo",
-            xp=370,
+            xp=400,
             char_type="school",
             school="Akodo Bushi School",
             rings={"air": 3, "earth": 5, "fire": 5, "water": 6, "void": 5},

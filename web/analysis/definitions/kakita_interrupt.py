@@ -93,23 +93,24 @@ def build_kakita_interrupt_analysis(
                 if opponent_config is None:
                     continue
 
+                opponent_name = opponent.replace("_", " ").title()
+                kakita_group_label = f"Kakita with {kakita_xp}XP"
+                opponent_group_label = f"{opponent_name} with {opponent_xp}XP"
+
                 # Matchup: Kakita (no interrupt) vs opponent
                 kakita_no_interrupt = _make_kakita_config(
                     kakita_base, "KakitaAttackStrategy",
                 )
-                kakita_no_interrupt.name = f"Kakita {kakita_xp} (no interrupt)"
-
-                kakita_label = "Kakita"
-                opponent_label = opponent.replace("_", " ").title()
+                kakita_no_interrupt.name = "Kakita"
 
                 control_group = GroupConfig(
-                    name=kakita_label,
+                    name=f"{kakita_group_label} (no interrupt)",
                     is_control=True,
                     character_names=[kakita_no_interrupt.name],
                 )
 
                 opponent_copy = CharacterConfig(
-                    name=opponent_config.name,
+                    name=opponent_name,
                     xp=opponent_config.xp,
                     char_type=opponent_config.char_type,
                     school=opponent_config.school,
@@ -126,7 +127,7 @@ def build_kakita_interrupt_analysis(
                 )
 
                 test_group_no = GroupConfig(
-                    name=opponent_label,
+                    name=opponent_group_label,
                     is_control=False,
                     character_names=[opponent_copy.name],
                 )
@@ -136,7 +137,7 @@ def build_kakita_interrupt_analysis(
                 )
                 matchups.append(MatchupConfig(
                     matchup_id=no_interrupt_id,
-                    label=f"Kakita {kakita_xp} (no interrupt) vs {opponent.title()} {opponent_xp}",
+                    label=f"Kakita (no interrupt) vs {opponent_name} @ {kakita_xp}/{opponent_xp}XP",
                     control_characters=[kakita_no_interrupt],
                     test_characters=[opponent_copy],
                     control_group=control_group,
@@ -155,17 +156,16 @@ def build_kakita_interrupt_analysis(
                 kakita_interrupt = _make_kakita_config(
                     kakita_base, "KakitaInterruptAttackStrategy",
                 )
-                kakita_interrupt.name = f"Kakita {kakita_xp} (interrupt)"
+                kakita_interrupt.name = "Kakita"
 
                 control_group_int = GroupConfig(
-                    name=kakita_label,
+                    name=f"{kakita_group_label} (interrupt)",
                     is_control=True,
                     character_names=[kakita_interrupt.name],
                 )
 
-                # Reuse same opponent config with a distinct name for the interrupt matchup
                 opponent_copy_int = CharacterConfig(
-                    name=opponent_config.name,
+                    name=opponent_name,
                     xp=opponent_config.xp,
                     char_type=opponent_config.char_type,
                     school=opponent_config.school,
@@ -182,7 +182,7 @@ def build_kakita_interrupt_analysis(
                 )
 
                 test_group_int = GroupConfig(
-                    name=opponent_label,
+                    name=opponent_group_label,
                     is_control=False,
                     character_names=[opponent_copy_int.name],
                 )
@@ -192,7 +192,7 @@ def build_kakita_interrupt_analysis(
                 )
                 matchups.append(MatchupConfig(
                     matchup_id=interrupt_id,
-                    label=f"Kakita {kakita_xp} (interrupt) vs {opponent.title()} {opponent_xp}",
+                    label=f"Kakita (interrupt) vs {opponent_name} @ {kakita_xp}/{opponent_xp}XP",
                     control_characters=[kakita_interrupt],
                     test_characters=[opponent_copy_int],
                     control_group=control_group_int,

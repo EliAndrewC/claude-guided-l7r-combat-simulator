@@ -6,915 +6,915 @@
   "matchup_results": [
     {
       "matchup_id": "kakita_150_vs_akodo_150_no_interrupt",
-      "control_victories": 99,
-      "test_victories": 1,
-      "num_trials": 100
+      "control_victories": 983,
+      "test_victories": 17,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_150_vs_akodo_150_interrupt",
-      "control_victories": 99,
-      "test_victories": 1,
-      "num_trials": 100
+      "control_victories": 975,
+      "test_victories": 25,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_150_vs_akodo_200_no_interrupt",
-      "control_victories": 36,
-      "test_victories": 64,
-      "num_trials": 100
+      "control_victories": 614,
+      "test_victories": 386,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_150_vs_akodo_200_interrupt",
-      "control_victories": 31,
-      "test_victories": 69,
-      "num_trials": 100
+      "control_victories": 596,
+      "test_victories": 404,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_150_vs_bayushi_150_no_interrupt",
-      "control_victories": 71,
-      "test_victories": 29,
-      "num_trials": 100
+      "control_victories": 632,
+      "test_victories": 368,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_150_vs_bayushi_150_interrupt",
-      "control_victories": 67,
-      "test_victories": 33,
-      "num_trials": 100
+      "control_victories": 620,
+      "test_victories": 380,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_150_vs_bayushi_200_no_interrupt",
-      "control_victories": 0,
-      "test_victories": 100,
-      "num_trials": 100
+      "control_victories": 288,
+      "test_victories": 712,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_150_vs_bayushi_200_interrupt",
-      "control_victories": 0,
-      "test_victories": 100,
-      "num_trials": 100
+      "control_victories": 274,
+      "test_victories": 726,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_150_vs_shiba_150_no_interrupt",
-      "control_victories": 85,
-      "test_victories": 15,
-      "num_trials": 100
+      "control_victories": 779,
+      "test_victories": 221,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_150_vs_shiba_150_interrupt",
-      "control_victories": 90,
-      "test_victories": 10,
-      "num_trials": 100
+      "control_victories": 803,
+      "test_victories": 197,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_150_vs_shiba_200_no_interrupt",
-      "control_victories": 5,
-      "test_victories": 95,
-      "num_trials": 100
+      "control_victories": 265,
+      "test_victories": 735,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_150_vs_shiba_200_interrupt",
-      "control_victories": 6,
-      "test_victories": 94,
-      "num_trials": 100
+      "control_victories": 248,
+      "test_victories": 752,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_150_vs_wave_man_150_no_interrupt",
-      "control_victories": 3,
-      "test_victories": 97,
-      "num_trials": 100
+      "control_victories": 826,
+      "test_victories": 174,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_150_vs_wave_man_150_interrupt",
-      "control_victories": 9,
-      "test_victories": 91,
-      "num_trials": 100
+      "control_victories": 815,
+      "test_victories": 185,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_150_vs_wave_man_200_no_interrupt",
-      "control_victories": 0,
-      "test_victories": 100,
-      "num_trials": 100
+      "control_victories": 88,
+      "test_victories": 912,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_150_vs_wave_man_200_interrupt",
-      "control_victories": 0,
-      "test_victories": 100,
-      "num_trials": 100
+      "control_victories": 90,
+      "test_victories": 910,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_akodo_150_no_interrupt",
-      "control_victories": 100,
-      "test_victories": 0,
-      "num_trials": 100
+      "control_victories": 995,
+      "test_victories": 5,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_akodo_150_interrupt",
-      "control_victories": 100,
-      "test_victories": 0,
-      "num_trials": 100
+      "control_victories": 997,
+      "test_victories": 3,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_akodo_200_no_interrupt",
-      "control_victories": 99,
-      "test_victories": 1,
-      "num_trials": 100
+      "control_victories": 816,
+      "test_victories": 184,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_akodo_200_interrupt",
-      "control_victories": 98,
-      "test_victories": 2,
-      "num_trials": 100
+      "control_victories": 817,
+      "test_victories": 183,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_akodo_250_no_interrupt",
-      "control_victories": 56,
-      "test_victories": 44,
-      "num_trials": 100
+      "control_victories": 669,
+      "test_victories": 331,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_akodo_250_interrupt",
-      "control_victories": 56,
-      "test_victories": 44,
-      "num_trials": 100
+      "control_victories": 712,
+      "test_victories": 288,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_bayushi_150_no_interrupt",
-      "control_victories": 100,
-      "test_victories": 0,
-      "num_trials": 100
+      "control_victories": 826,
+      "test_victories": 174,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_bayushi_150_interrupt",
-      "control_victories": 97,
-      "test_victories": 3,
-      "num_trials": 100
+      "control_victories": 820,
+      "test_victories": 180,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_bayushi_200_no_interrupt",
-      "control_victories": 14,
-      "test_victories": 86,
-      "num_trials": 100
+      "control_victories": 502,
+      "test_victories": 498,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_bayushi_200_interrupt",
-      "control_victories": 4,
-      "test_victories": 96,
-      "num_trials": 100
+      "control_victories": 510,
+      "test_victories": 490,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_bayushi_250_no_interrupt",
-      "control_victories": 1,
-      "test_victories": 99,
-      "num_trials": 100
+      "control_victories": 15,
+      "test_victories": 985,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_bayushi_250_interrupt",
-      "control_victories": 0,
-      "test_victories": 100,
-      "num_trials": 100
+      "control_victories": 18,
+      "test_victories": 982,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_shiba_150_no_interrupt",
-      "control_victories": 100,
-      "test_victories": 0,
-      "num_trials": 100
+      "control_victories": 931,
+      "test_victories": 69,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_shiba_150_interrupt",
-      "control_victories": 100,
-      "test_victories": 0,
-      "num_trials": 100
+      "control_victories": 932,
+      "test_victories": 68,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_shiba_200_no_interrupt",
-      "control_victories": 98,
-      "test_victories": 2,
-      "num_trials": 100
+      "control_victories": 472,
+      "test_victories": 528,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_shiba_200_interrupt",
-      "control_victories": 100,
-      "test_victories": 0,
-      "num_trials": 100
+      "control_victories": 484,
+      "test_victories": 516,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_shiba_250_no_interrupt",
-      "control_victories": 88,
-      "test_victories": 12,
-      "num_trials": 100
+      "control_victories": 257,
+      "test_victories": 743,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_shiba_250_interrupt",
-      "control_victories": 88,
-      "test_victories": 12,
-      "num_trials": 100
+      "control_victories": 215,
+      "test_victories": 785,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_wave_man_150_no_interrupt",
-      "control_victories": 87,
-      "test_victories": 13,
-      "num_trials": 100
+      "control_victories": 966,
+      "test_victories": 34,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_wave_man_150_interrupt",
-      "control_victories": 84,
-      "test_victories": 16,
-      "num_trials": 100
+      "control_victories": 962,
+      "test_victories": 38,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_wave_man_200_no_interrupt",
-      "control_victories": 8,
-      "test_victories": 92,
-      "num_trials": 100
+      "control_victories": 287,
+      "test_victories": 713,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_wave_man_200_interrupt",
-      "control_victories": 9,
-      "test_victories": 91,
-      "num_trials": 100
+      "control_victories": 309,
+      "test_victories": 691,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_wave_man_250_no_interrupt",
-      "control_victories": 1,
-      "test_victories": 99,
-      "num_trials": 100
+      "control_victories": 44,
+      "test_victories": 956,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_200_vs_wave_man_250_interrupt",
-      "control_victories": 3,
-      "test_victories": 97,
-      "num_trials": 100
+      "control_victories": 55,
+      "test_victories": 945,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_akodo_200_no_interrupt",
-      "control_victories": 100,
-      "test_victories": 0,
-      "num_trials": 100
+      "control_victories": 974,
+      "test_victories": 26,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_akodo_200_interrupt",
-      "control_victories": 100,
-      "test_victories": 0,
-      "num_trials": 100
+      "control_victories": 992,
+      "test_victories": 8,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_akodo_250_no_interrupt",
-      "control_victories": 89,
-      "test_victories": 11,
-      "num_trials": 100
+      "control_victories": 967,
+      "test_victories": 33,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_akodo_250_interrupt",
-      "control_victories": 89,
-      "test_victories": 11,
-      "num_trials": 100
+      "control_victories": 970,
+      "test_victories": 30,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_akodo_300_no_interrupt",
-      "control_victories": 71,
-      "test_victories": 29,
-      "num_trials": 100
+      "control_victories": 883,
+      "test_victories": 117,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_akodo_300_interrupt",
-      "control_victories": 59,
-      "test_victories": 41,
-      "num_trials": 100
+      "control_victories": 888,
+      "test_victories": 112,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_bayushi_200_no_interrupt",
-      "control_victories": 34,
-      "test_victories": 66,
-      "num_trials": 100
+      "control_victories": 884,
+      "test_victories": 116,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_bayushi_200_interrupt",
-      "control_victories": 29,
-      "test_victories": 71,
-      "num_trials": 100
+      "control_victories": 880,
+      "test_victories": 120,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_bayushi_250_no_interrupt",
-      "control_victories": 2,
-      "test_victories": 98,
-      "num_trials": 100
+      "control_victories": 114,
+      "test_victories": 886,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_bayushi_250_interrupt",
-      "control_victories": 1,
-      "test_victories": 99,
-      "num_trials": 100
+      "control_victories": 112,
+      "test_victories": 888,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_bayushi_300_no_interrupt",
-      "control_victories": 0,
-      "test_victories": 100,
-      "num_trials": 100
+      "control_victories": 3,
+      "test_victories": 997,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_bayushi_300_interrupt",
-      "control_victories": 0,
-      "test_victories": 100,
-      "num_trials": 100
+      "control_victories": 2,
+      "test_victories": 998,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_shiba_200_no_interrupt",
-      "control_victories": 100,
-      "test_victories": 0,
-      "num_trials": 100
+      "control_victories": 913,
+      "test_victories": 87,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_shiba_200_interrupt",
-      "control_victories": 100,
-      "test_victories": 0,
-      "num_trials": 100
+      "control_victories": 936,
+      "test_victories": 64,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_shiba_250_no_interrupt",
-      "control_victories": 97,
-      "test_victories": 3,
-      "num_trials": 100
+      "control_victories": 728,
+      "test_victories": 272,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_shiba_250_interrupt",
-      "control_victories": 98,
-      "test_victories": 2,
-      "num_trials": 100
+      "control_victories": 730,
+      "test_victories": 270,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_shiba_300_no_interrupt",
-      "control_victories": 57,
-      "test_victories": 43,
-      "num_trials": 100
+      "control_victories": 474,
+      "test_victories": 526,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_shiba_300_interrupt",
-      "control_victories": 56,
-      "test_victories": 44,
-      "num_trials": 100
+      "control_victories": 477,
+      "test_victories": 523,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_wave_man_200_no_interrupt",
-      "control_victories": 48,
-      "test_victories": 52,
-      "num_trials": 100
+      "control_victories": 787,
+      "test_victories": 213,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_wave_man_200_interrupt",
-      "control_victories": 54,
-      "test_victories": 46,
-      "num_trials": 100
+      "control_victories": 752,
+      "test_victories": 248,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_wave_man_250_no_interrupt",
-      "control_victories": 12,
-      "test_victories": 88,
-      "num_trials": 100
+      "control_victories": 262,
+      "test_victories": 738,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_wave_man_250_interrupt",
-      "control_victories": 15,
-      "test_victories": 85,
-      "num_trials": 100
+      "control_victories": 304,
+      "test_victories": 696,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_wave_man_300_no_interrupt",
-      "control_victories": 10,
-      "test_victories": 90,
-      "num_trials": 100
+      "control_victories": 54,
+      "test_victories": 946,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_250_vs_wave_man_300_interrupt",
-      "control_victories": 9,
-      "test_victories": 91,
-      "num_trials": 100
+      "control_victories": 62,
+      "test_victories": 938,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_akodo_250_no_interrupt",
-      "control_victories": 99,
+      "control_victories": 999,
       "test_victories": 1,
-      "num_trials": 100
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_akodo_250_interrupt",
-      "control_victories": 100,
-      "test_victories": 0,
-      "num_trials": 100
+      "control_victories": 999,
+      "test_victories": 1,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_akodo_300_no_interrupt",
-      "control_victories": 93,
-      "test_victories": 7,
-      "num_trials": 100
+      "control_victories": 998,
+      "test_victories": 2,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_akodo_300_interrupt",
-      "control_victories": 92,
-      "test_victories": 8,
-      "num_trials": 100
+      "control_victories": 989,
+      "test_victories": 11,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_akodo_350_no_interrupt",
-      "control_victories": 83,
-      "test_victories": 17,
-      "num_trials": 100
+      "control_victories": 743,
+      "test_victories": 257,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_akodo_350_interrupt",
-      "control_victories": 87,
-      "test_victories": 13,
-      "num_trials": 100
+      "control_victories": 740,
+      "test_victories": 260,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_bayushi_250_no_interrupt",
-      "control_victories": 24,
-      "test_victories": 76,
-      "num_trials": 100
+      "control_victories": 591,
+      "test_victories": 409,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_bayushi_250_interrupt",
-      "control_victories": 26,
-      "test_victories": 74,
-      "num_trials": 100
+      "control_victories": 576,
+      "test_victories": 424,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_bayushi_300_no_interrupt",
-      "control_victories": 2,
-      "test_victories": 98,
-      "num_trials": 100
+      "control_victories": 72,
+      "test_victories": 928,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_bayushi_300_interrupt",
-      "control_victories": 2,
-      "test_victories": 98,
-      "num_trials": 100
+      "control_victories": 86,
+      "test_victories": 914,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_bayushi_350_no_interrupt",
-      "control_victories": 1,
-      "test_victories": 99,
-      "num_trials": 100
+      "control_victories": 10,
+      "test_victories": 990,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_bayushi_350_interrupt",
-      "control_victories": 0,
-      "test_victories": 100,
-      "num_trials": 100
+      "control_victories": 7,
+      "test_victories": 993,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_shiba_250_no_interrupt",
-      "control_victories": 100,
-      "test_victories": 0,
-      "num_trials": 100
+      "control_victories": 996,
+      "test_victories": 4,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_shiba_250_interrupt",
-      "control_victories": 100,
-      "test_victories": 0,
-      "num_trials": 100
+      "control_victories": 990,
+      "test_victories": 10,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_shiba_300_no_interrupt",
-      "control_victories": 88,
-      "test_victories": 12,
-      "num_trials": 100
+      "control_victories": 961,
+      "test_victories": 39,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_shiba_300_interrupt",
-      "control_victories": 91,
-      "test_victories": 9,
-      "num_trials": 100
+      "control_victories": 975,
+      "test_victories": 25,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_shiba_350_no_interrupt",
-      "control_victories": 65,
-      "test_victories": 35,
-      "num_trials": 100
+      "control_victories": 633,
+      "test_victories": 367,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_shiba_350_interrupt",
-      "control_victories": 63,
-      "test_victories": 37,
-      "num_trials": 100
+      "control_victories": 620,
+      "test_victories": 380,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_wave_man_250_no_interrupt",
-      "control_victories": 65,
-      "test_victories": 35,
-      "num_trials": 100
+      "control_victories": 912,
+      "test_victories": 88,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_wave_man_250_interrupt",
-      "control_victories": 68,
-      "test_victories": 32,
-      "num_trials": 100
+      "control_victories": 905,
+      "test_victories": 95,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_wave_man_300_no_interrupt",
-      "control_victories": 53,
-      "test_victories": 47,
-      "num_trials": 100
+      "control_victories": 438,
+      "test_victories": 562,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_wave_man_300_interrupt",
-      "control_victories": 50,
-      "test_victories": 50,
-      "num_trials": 100
+      "control_victories": 380,
+      "test_victories": 620,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_wave_man_350_no_interrupt",
-      "control_victories": 18,
-      "test_victories": 82,
-      "num_trials": 100
+      "control_victories": 81,
+      "test_victories": 919,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_300_vs_wave_man_350_interrupt",
-      "control_victories": 10,
-      "test_victories": 90,
-      "num_trials": 100
+      "control_victories": 86,
+      "test_victories": 914,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_akodo_300_no_interrupt",
-      "control_victories": 96,
-      "test_victories": 4,
-      "num_trials": 100
+      "control_victories": 997,
+      "test_victories": 3,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_akodo_300_interrupt",
-      "control_victories": 96,
-      "test_victories": 4,
-      "num_trials": 100
+      "control_victories": 998,
+      "test_victories": 2,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_akodo_350_no_interrupt",
-      "control_victories": 92,
-      "test_victories": 8,
-      "num_trials": 100
+      "control_victories": 851,
+      "test_victories": 149,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_akodo_350_interrupt",
-      "control_victories": 97,
-      "test_victories": 3,
-      "num_trials": 100
+      "control_victories": 858,
+      "test_victories": 142,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_akodo_400_no_interrupt",
-      "control_victories": 92,
-      "test_victories": 8,
-      "num_trials": 100
+      "control_victories": 778,
+      "test_victories": 222,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_akodo_400_interrupt",
-      "control_victories": 88,
-      "test_victories": 12,
-      "num_trials": 100
+      "control_victories": 788,
+      "test_victories": 212,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_bayushi_300_no_interrupt",
-      "control_victories": 5,
-      "test_victories": 95,
-      "num_trials": 100
+      "control_victories": 187,
+      "test_victories": 813,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_bayushi_300_interrupt",
-      "control_victories": 4,
-      "test_victories": 96,
-      "num_trials": 100
+      "control_victories": 151,
+      "test_victories": 849,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_bayushi_350_no_interrupt",
-      "control_victories": 0,
-      "test_victories": 100,
-      "num_trials": 100
+      "control_victories": 30,
+      "test_victories": 970,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_bayushi_350_interrupt",
-      "control_victories": 0,
-      "test_victories": 100,
-      "num_trials": 100
+      "control_victories": 36,
+      "test_victories": 964,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_bayushi_400_no_interrupt",
-      "control_victories": 0,
-      "test_victories": 100,
-      "num_trials": 100
+      "control_victories": 24,
+      "test_victories": 976,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_bayushi_400_interrupt",
-      "control_victories": 1,
-      "test_victories": 99,
-      "num_trials": 100
+      "control_victories": 23,
+      "test_victories": 977,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_shiba_300_no_interrupt",
-      "control_victories": 98,
-      "test_victories": 2,
-      "num_trials": 100
+      "control_victories": 979,
+      "test_victories": 21,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_shiba_300_interrupt",
-      "control_victories": 94,
-      "test_victories": 6,
-      "num_trials": 100
+      "control_victories": 986,
+      "test_victories": 14,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_shiba_350_no_interrupt",
-      "control_victories": 67,
-      "test_victories": 33,
-      "num_trials": 100
+      "control_victories": 729,
+      "test_victories": 271,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_shiba_350_interrupt",
-      "control_victories": 62,
-      "test_victories": 38,
-      "num_trials": 100
+      "control_victories": 707,
+      "test_victories": 293,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_shiba_400_no_interrupt",
-      "control_victories": 68,
-      "test_victories": 32,
-      "num_trials": 100
+      "control_victories": 620,
+      "test_victories": 380,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_shiba_400_interrupt",
-      "control_victories": 64,
-      "test_victories": 36,
-      "num_trials": 100
+      "control_victories": 604,
+      "test_victories": 396,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_wave_man_300_no_interrupt",
-      "control_victories": 75,
-      "test_victories": 25,
-      "num_trials": 100
+      "control_victories": 585,
+      "test_victories": 415,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_wave_man_300_interrupt",
-      "control_victories": 69,
-      "test_victories": 31,
-      "num_trials": 100
+      "control_victories": 567,
+      "test_victories": 433,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_wave_man_350_no_interrupt",
-      "control_victories": 21,
-      "test_victories": 79,
-      "num_trials": 100
+      "control_victories": 138,
+      "test_victories": 862,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_wave_man_350_interrupt",
-      "control_victories": 19,
-      "test_victories": 81,
-      "num_trials": 100
+      "control_victories": 147,
+      "test_victories": 853,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_wave_man_400_no_interrupt",
-      "control_victories": 9,
-      "test_victories": 91,
-      "num_trials": 100
+      "control_victories": 7,
+      "test_victories": 993,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_350_vs_wave_man_400_interrupt",
-      "control_victories": 7,
-      "test_victories": 93,
-      "num_trials": 100
+      "control_victories": 4,
+      "test_victories": 996,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_akodo_350_no_interrupt",
-      "control_victories": 95,
-      "test_victories": 5,
-      "num_trials": 100
+      "control_victories": 931,
+      "test_victories": 69,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_akodo_350_interrupt",
-      "control_victories": 96,
-      "test_victories": 4,
-      "num_trials": 100
+      "control_victories": 908,
+      "test_victories": 92,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_akodo_400_no_interrupt",
-      "control_victories": 93,
-      "test_victories": 7,
-      "num_trials": 100
+      "control_victories": 893,
+      "test_victories": 107,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_akodo_400_interrupt",
-      "control_victories": 97,
-      "test_victories": 3,
-      "num_trials": 100
+      "control_victories": 890,
+      "test_victories": 110,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_akodo_450_no_interrupt",
-      "control_victories": 94,
-      "test_victories": 6,
-      "num_trials": 100
+      "control_victories": 790,
+      "test_victories": 210,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_akodo_450_interrupt",
-      "control_victories": 87,
-      "test_victories": 13,
-      "num_trials": 100
+      "control_victories": 797,
+      "test_victories": 203,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_bayushi_350_no_interrupt",
-      "control_victories": 0,
-      "test_victories": 100,
-      "num_trials": 100
+      "control_victories": 41,
+      "test_victories": 959,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_bayushi_350_interrupt",
-      "control_victories": 2,
-      "test_victories": 98,
-      "num_trials": 100
+      "control_victories": 38,
+      "test_victories": 962,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_bayushi_400_no_interrupt",
-      "control_victories": 0,
-      "test_victories": 100,
-      "num_trials": 100
+      "control_victories": 29,
+      "test_victories": 971,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_bayushi_400_interrupt",
-      "control_victories": 1,
-      "test_victories": 99,
-      "num_trials": 100
+      "control_victories": 31,
+      "test_victories": 969,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_bayushi_450_no_interrupt",
-      "control_victories": 3,
-      "test_victories": 97,
-      "num_trials": 100
+      "control_victories": 2,
+      "test_victories": 998,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_bayushi_450_interrupt",
-      "control_victories": 1,
-      "test_victories": 99,
-      "num_trials": 100
+      "control_victories": 3,
+      "test_victories": 997,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_shiba_350_no_interrupt",
-      "control_victories": 80,
-      "test_victories": 20,
-      "num_trials": 100
+      "control_victories": 829,
+      "test_victories": 171,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_shiba_350_interrupt",
-      "control_victories": 70,
-      "test_victories": 30,
-      "num_trials": 100
+      "control_victories": 829,
+      "test_victories": 171,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_shiba_400_no_interrupt",
-      "control_victories": 77,
-      "test_victories": 23,
-      "num_trials": 100
+      "control_victories": 750,
+      "test_victories": 250,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_shiba_400_interrupt",
-      "control_victories": 71,
-      "test_victories": 29,
-      "num_trials": 100
+      "control_victories": 746,
+      "test_victories": 254,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_shiba_450_no_interrupt",
-      "control_victories": 74,
-      "test_victories": 26,
-      "num_trials": 100
+      "control_victories": 538,
+      "test_victories": 462,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_shiba_450_interrupt",
-      "control_victories": 76,
-      "test_victories": 24,
-      "num_trials": 100
+      "control_victories": 550,
+      "test_victories": 450,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_wave_man_350_no_interrupt",
-      "control_victories": 27,
-      "test_victories": 73,
-      "num_trials": 100
+      "control_victories": 222,
+      "test_victories": 778,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_wave_man_350_interrupt",
-      "control_victories": 27,
-      "test_victories": 73,
-      "num_trials": 100
+      "control_victories": 221,
+      "test_victories": 779,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_wave_man_400_no_interrupt",
-      "control_victories": 11,
-      "test_victories": 89,
-      "num_trials": 100
+      "control_victories": 12,
+      "test_victories": 988,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_wave_man_400_interrupt",
-      "control_victories": 12,
-      "test_victories": 88,
-      "num_trials": 100
+      "control_victories": 19,
+      "test_victories": 981,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_wave_man_450_no_interrupt",
-      "control_victories": 9,
-      "test_victories": 91,
-      "num_trials": 100
+      "control_victories": 5,
+      "test_victories": 995,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_400_vs_wave_man_450_interrupt",
-      "control_victories": 16,
-      "test_victories": 84,
-      "num_trials": 100
+      "control_victories": 4,
+      "test_victories": 996,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_450_vs_akodo_400_no_interrupt",
-      "control_victories": 91,
-      "test_victories": 9,
-      "num_trials": 100
+      "control_victories": 990,
+      "test_victories": 10,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_450_vs_akodo_400_interrupt",
-      "control_victories": 95,
-      "test_victories": 5,
-      "num_trials": 100
+      "control_victories": 988,
+      "test_victories": 12,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_450_vs_akodo_450_no_interrupt",
-      "control_victories": 94,
-      "test_victories": 6,
-      "num_trials": 100
+      "control_victories": 982,
+      "test_victories": 18,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_450_vs_akodo_450_interrupt",
-      "control_victories": 91,
-      "test_victories": 9,
-      "num_trials": 100
+      "control_victories": 974,
+      "test_victories": 26,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_450_vs_bayushi_400_no_interrupt",
-      "control_victories": 2,
-      "test_victories": 98,
-      "num_trials": 100
+      "control_victories": 196,
+      "test_victories": 804,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_450_vs_bayushi_400_interrupt",
-      "control_victories": 1,
-      "test_victories": 99,
-      "num_trials": 100
+      "control_victories": 168,
+      "test_victories": 832,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_450_vs_bayushi_450_no_interrupt",
-      "control_victories": 2,
-      "test_victories": 98,
-      "num_trials": 100
+      "control_victories": 36,
+      "test_victories": 964,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_450_vs_bayushi_450_interrupt",
-      "control_victories": 2,
-      "test_victories": 98,
-      "num_trials": 100
+      "control_victories": 35,
+      "test_victories": 965,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_450_vs_shiba_400_no_interrupt",
-      "control_victories": 70,
-      "test_victories": 30,
-      "num_trials": 100
+      "control_victories": 963,
+      "test_victories": 37,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_450_vs_shiba_400_interrupt",
-      "control_victories": 70,
-      "test_victories": 30,
-      "num_trials": 100
+      "control_victories": 955,
+      "test_victories": 45,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_450_vs_shiba_450_no_interrupt",
-      "control_victories": 73,
-      "test_victories": 27,
-      "num_trials": 100
+      "control_victories": 892,
+      "test_victories": 108,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_450_vs_shiba_450_interrupt",
-      "control_victories": 69,
-      "test_victories": 31,
-      "num_trials": 100
+      "control_victories": 893,
+      "test_victories": 107,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_450_vs_wave_man_400_no_interrupt",
-      "control_victories": 14,
-      "test_victories": 86,
-      "num_trials": 100
+      "control_victories": 78,
+      "test_victories": 922,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_450_vs_wave_man_400_interrupt",
-      "control_victories": 17,
-      "test_victories": 83,
-      "num_trials": 100
+      "control_victories": 93,
+      "test_victories": 907,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_450_vs_wave_man_450_no_interrupt",
-      "control_victories": 12,
-      "test_victories": 88,
-      "num_trials": 100
+      "control_victories": 36,
+      "test_victories": 964,
+      "num_trials": 1000
     },
     {
       "matchup_id": "kakita_450_vs_wave_man_450_interrupt",
-      "control_victories": 8,
-      "test_victories": 92,
-      "num_trials": 100
+      "control_victories": 37,
+      "test_victories": 963,
+      "num_trials": 1000
     }
   ],
   "interpretation": ""

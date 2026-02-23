@@ -1,12 +1,19 @@
-name: Wave Man 350
+# XP Breakdown (350 XP total):
+#   Combat budget: 280 XP (80%), Non-combat reserve: 70 XP (20%)
+#   Free: attack/parry start at 1
+#   Rings (200 XP): earth 2→5 (60), fire 2→4 (35), water 2→4 (35), void 2→4 (35), air 2→4 (35)
+#   Attack/Parry (56 XP): attack 1→5 (28), parry 1→5 (28)
+#   Combat total: 256 XP
+#
+name: Wave Man
 xp: 350
 profession: Wave Man
 rings:
-  air: 5
+  air: 4
   earth: 5
-  fire: 5
-  water: 5
-  void: 5
+  fire: 4
+  water: 4
+  void: 4
 skills:
   attack: 5
   parry: 5

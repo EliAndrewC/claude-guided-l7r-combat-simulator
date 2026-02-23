@@ -59,6 +59,10 @@ class DetailedEventFormatter:
         lines = []
         shown_opening_status = False
         last_status = None
+        # Track whether any visible combat output occurred since the last
+        # status block, so we don't render duplicate status blocks with
+        # nothing between them (e.g. when Phase 0 has no 5th Dan strike).
+        combat_output_since_status = False
         consumed: set[int] = set()
 
         for i, event in enumerate(history):
@@ -86,14 +90,16 @@ class DetailedEventFormatter:
                     lines.extend(self._format_status_block(last_status))
                     lines.append("  ─────")
                     shown_opening_status = True
+                    combat_output_since_status = False
 
             elif isinstance(event, events.TakeAttackActionEvent):
                 status = getattr(event, "_detail_status", last_status)
-                if status:
+                if status and combat_output_since_status:
                     lines.append("  ─────")
                     lines.extend(self._format_status_block(status))
                     lines.append("  ─────")
                     self._phase_shown = False
+                    combat_output_since_status = False
                 # Lookahead for matching AttackRolledEvent
                 rolled_idx = self._find_attack_rolled(history, i + 1, event.action)
                 if rolled_idx is not None:
@@ -110,12 +116,15 @@ class DetailedEventFormatter:
                     consumed.add(rolled_idx)
                 else:
                     lines.extend(self._format_take_attack(event))
+                combat_output_since_status = True
 
             elif isinstance(event, events.AttackRolledEvent):
                 lines.extend(self._format_attack_rolled(event))
+                combat_output_since_status = True
 
             elif isinstance(event, ContestedIaijutsuAttackRolledEvent):
                 lines.extend(self._format_contested_iaijutsu_rolled(event))
+                combat_output_since_status = True
 
             elif isinstance(event, events.TakeParryActionEvent):
                 rolled_idx = self._find_parry_rolled(history, i + 1, event.action)
@@ -124,12 +133,15 @@ class DetailedEventFormatter:
                     consumed.add(rolled_idx)
                 else:
                     lines.extend(self._format_take_parry(event))
+                combat_output_since_status = True
 
             elif isinstance(event, events.ParryRolledEvent):
                 lines.extend(self._format_parry_rolled(event))
+                combat_output_since_status = True
 
             elif isinstance(event, events.LightWoundsDamageEvent):
                 lines.extend(self._format_lw_damage(event))
+                combat_output_since_status = True
 
             elif isinstance(event, events.SeriousWoundsDamageEvent):
                 # Skip if redundant with preceding TakeSeriousWoundEvent
@@ -138,9 +150,11 @@ class DetailedEventFormatter:
                     continue
                 self._last_take_sw_target = None
                 lines.extend(self._format_sw_damage(event))
+                combat_output_since_status = True
 
             elif isinstance(event, events.WoundCheckRolledEvent):
                 lines.extend(self._process_wound_check(history, i, consumed))
+                combat_output_since_status = True
 
             elif isinstance(event, events.SpendVoidPointsEvent):
                 if event.skill == "wound check":
@@ -149,27 +163,34 @@ class DetailedEventFormatter:
                         vp_infix = self._build_vp_infix([event])
                         lines.extend(self._process_wound_check(history, wc_idx, consumed, vp_infix))
                         consumed.add(wc_idx)
+                        combat_output_since_status = True
                         continue
                 lines.extend(self._format_spend_vp(event))
+                combat_output_since_status = True
 
             elif isinstance(event, events.KeepLightWoundsEvent):
                 lines.extend(self._format_keep_lw(event))
+                combat_output_since_status = True
 
             elif isinstance(event, events.TakeSeriousWoundEvent):
                 self._last_take_sw_target = event.subject.name()
                 lines.extend(self._format_take_sw(event))
+                combat_output_since_status = True
 
             elif isinstance(event, events.DeathEvent):
                 name = event.subject.name()
                 lines.append(f"{self._phase_prefix(name)} ☠️ is killed!")
+                combat_output_since_status = True
 
             elif isinstance(event, events.UnconsciousEvent):
                 name = event.subject.name()
                 lines.append(f"{self._phase_prefix(name)} 💀 falls unconscious!")
+                combat_output_since_status = True
 
             elif isinstance(event, events.SurrenderEvent):
                 name = event.subject.name()
                 lines.append(f"{self._phase_prefix(name)} 🏳️ surrenders!")
+                combat_output_since_status = True
 
         return lines
 

@@ -7,6 +7,43 @@ from web.models import CharacterConfig, GroupConfig
 
 
 @dataclass
+class VariableOption:
+    """One option within an analysis variable (e.g., 'on', 'off')."""
+    name: str = ""
+    label: str = ""
+
+    def to_dict(self) -> dict:
+        return {"name": self.name, "label": self.label}
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "VariableOption":
+        return cls(name=data["name"], label=data["label"])
+
+
+@dataclass
+class AnalysisVariable:
+    """A player-choice variable in a study (e.g., 'interrupt attack')."""
+    name: str = ""
+    label: str = ""
+    options: list[VariableOption] = field(default_factory=list)
+
+    def to_dict(self) -> dict:
+        return {
+            "name": self.name,
+            "label": self.label,
+            "options": [o.to_dict() for o in self.options],
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "AnalysisVariable":
+        return cls(
+            name=data["name"],
+            label=data["label"],
+            options=[VariableOption.from_dict(o) for o in data.get("options", [])],
+        )
+
+
+@dataclass
 class MatchupConfig:
     """Configuration for a single matchup to simulate."""
     matchup_id: str = ""
@@ -53,6 +90,7 @@ class AnalysisDefinition:
     question: str = ""
     description: str = ""
     matchups: list[MatchupConfig] = field(default_factory=list)
+    variables: list[AnalysisVariable] = field(default_factory=list)
 
 
 @dataclass
@@ -64,6 +102,7 @@ class AnalysisResult:
     description: str = ""
     matchup_results: list[MatchupResult] = field(default_factory=list)
     interpretation: str = ""
+    variables: list[AnalysisVariable] = field(default_factory=list)
 
     def to_json(self) -> str:
         data = {
@@ -73,6 +112,7 @@ class AnalysisResult:
             "description": self.description,
             "matchup_results": [r.to_dict() for r in self.matchup_results],
             "interpretation": self.interpretation,
+            "variables": [v.to_dict() for v in self.variables],
         }
         return json.dumps(data, indent=2)
 
@@ -88,4 +128,8 @@ class AnalysisResult:
                 MatchupResult.from_dict(r) for r in data["matchup_results"]
             ],
             interpretation=data.get("interpretation", ""),
+            variables=[
+                AnalysisVariable.from_dict(v)
+                for v in data.get("variables", [])
+            ],
         )

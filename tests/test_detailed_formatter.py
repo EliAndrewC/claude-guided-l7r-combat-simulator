@@ -145,6 +145,59 @@ class TestFormatterOpeningStatus(unittest.TestCase):
         # Only opening status = 2 lines (one per character)
         self.assertEqual(2, len(status_lines))
 
+    def test_no_duplicate_status_when_no_actions_in_phase_zero(self):
+        """When Phase 0 has no actions (no 5th Dan), the first attack should
+        not re-render the status block immediately after the opening status."""
+        fmt = DetailedEventFormatter()
+        status = _make_status()
+        # Phase 0 with opening status, but no actions
+        p0 = events.NewPhaseEvent(0)
+        p0._detail_status = status
+        p0._detail_initiative = {
+            "Akodo": {"all_dice": [4, 7], "actions": [4, 7], "roll_params": (3, 2)},
+            "Bayushi": {"all_dice": [5, 6], "actions": [5, 6], "roll_params": (3, 2)},
+        }
+        # Phase 4: first actual attack
+        p4 = events.NewPhaseEvent(4)
+        p4._detail_status = status  # same status, nothing happened
+        action = _make_action("Akodo", "Bayushi")
+        take_atk = events.TakeAttackActionEvent(action)
+        take_atk._detail_status = status
+
+        lines = fmt.format_history([p0, p4, take_atk])
+        status_lines = [ln for ln in lines if "Light" in ln and "Serious" in ln]
+        # Should have exactly 2 status lines (one per character) from opening,
+        # NOT 4 (which would mean the status block was duplicated)
+        self.assertEqual(2, len(status_lines), f"Status duplicated: {lines}")
+
+    def test_status_shown_again_after_combat_action(self):
+        """After a combat action occurs, subsequent attacks should show updated status."""
+        fmt = DetailedEventFormatter()
+        status1 = _make_status()
+        status2 = _make_status(Akodo={"lw": 10, "sw": 1})
+
+        p0 = events.NewPhaseEvent(0)
+        p0._detail_status = status1
+        # First attack
+        action1 = _make_action("Bayushi", "Akodo")
+        take_atk1 = events.TakeAttackActionEvent(action1)
+        take_atk1._detail_status = status1
+        # Damage happens (status changes)...
+        attacker = MagicMock()
+        attacker.name.return_value = "Bayushi"
+        target = MagicMock()
+        target.name.return_value = "Akodo"
+        lw_event = events.LightWoundsDamageEvent(attacker, target, 10)
+        # Second attack should show updated status
+        action2 = _make_action("Akodo", "Bayushi")
+        take_atk2 = events.TakeAttackActionEvent(action2)
+        take_atk2._detail_status = status2
+
+        lines = fmt.format_history([p0, take_atk1, lw_event, take_atk2])
+        status_lines = [ln for ln in lines if "Light" in ln and "Serious" in ln]
+        # 2 from opening + 2 from before second attack = 4
+        self.assertEqual(4, len(status_lines))
+
 
 class TestFormatterAttackAction(unittest.TestCase):
     def test_phase_prefix_on_attack_action(self):
@@ -635,8 +688,8 @@ class TestFormatterDefeat(unittest.TestCase):
 
 
 class TestFormatterStatusBlock(unittest.TestCase):
-    def test_status_block_between_exchanges(self):
-        """Status block before attack actions should have separators."""
+    def test_no_duplicate_status_when_no_combat_between(self):
+        """Opening status + immediate attack should NOT duplicate the status block."""
         fmt = DetailedEventFormatter()
         status = {
             "Akodo": {"lw": 0, "sw": 0, "max_sw": 4, "vp": 2, "max_vp": 3, "actions": [7], "crippled": False},
@@ -649,11 +702,11 @@ class TestFormatterStatusBlock(unittest.TestCase):
         attack._detail_status = status
 
         lines = fmt.format_history([phase, attack])
-        # Pre-attack status block should have separator
+        # Should have opening status separator
         self.assertTrue(any("─────" in ln for ln in lines))
         bayushi_status = [ln for ln in lines if "Bayushi" in ln and "Light" in ln]
-        # Opening status + pre-attack status = 2 bayushi status lines
-        self.assertEqual(2, len(bayushi_status))
+        # Only 1 status block (opening), not duplicated before the attack
+        self.assertEqual(1, len(bayushi_status))
 
 
 class TestFormatterSkippedEvents(unittest.TestCase):

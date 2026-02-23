@@ -753,21 +753,21 @@ class TestCharacterBuilderCalculateRingCost(unittest.TestCase):
     def test_calculate_ring_cost_rank_3(self):
         """Line 135: cost of going from 2 to 3."""
         builder = CharacterBuilder().with_name("Test").with_xp(1000).generic()
-        # cost for rank 2 to 3 = 5*2 = 10
+        # cost for rank 2 to 3 = 5*3 = 15
         cost = builder.calculate_ring_cost("earth", 3)
-        self.assertEqual(10, cost)
+        self.assertEqual(15, cost)
 
     def test_calculate_ring_cost_rank_4(self):
         builder = CharacterBuilder().with_name("Test").with_xp(1000).generic()
-        # cost = 5*2 + 5*3 = 10 + 15 = 25
+        # cost = 5*3 + 5*4 = 15 + 20 = 35
         cost = builder.calculate_ring_cost("earth", 4)
-        self.assertEqual(25, cost)
+        self.assertEqual(35, cost)
 
     def test_calculate_ring_cost_rank_5(self):
         builder = CharacterBuilder().with_name("Test").with_xp(1000).generic()
-        # cost = 5*2 + 5*3 + 5*4 = 10 + 15 + 20 = 45
+        # cost = 5*3 + 5*4 + 5*5 = 15 + 20 + 25 = 60
         cost = builder.calculate_ring_cost("earth", 5)
-        self.assertEqual(45, cost)
+        self.assertEqual(60, cost)
 
 
 class TestCharacterBuilderCalculateSkillCost(unittest.TestCase):

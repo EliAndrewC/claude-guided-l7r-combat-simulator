@@ -36,10 +36,10 @@ with st.sidebar:
 
 # Navigation — Characters is the default landing page
 pages = [
-    st.Page("pages/1_Characters.py", title="Characters", default=True),
-    st.Page("pages/2_Combat_Setup.py", title="Combat Setup"),
-    st.Page("pages/3_Run_Simulation.py", title="Run Simulation"),
-    st.Page("pages/4_Analysis.py", title="Analysis"),
+    st.Page("views/1_Characters.py", title="Characters", default=True),
+    st.Page("views/2_Combat_Setup.py", title="Combat Setup"),
+    st.Page("views/3_Run_Simulation.py", title="Run Simulation"),
+    st.Page("views/4_Analysis.py", title="Analysis"),
 ]
 nav = st.navigation(pages)
 nav.run()

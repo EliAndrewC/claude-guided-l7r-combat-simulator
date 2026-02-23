@@ -45,6 +45,7 @@ def run_analysis(
         question=definition.question,
         description=definition.description,
         matchup_results=matchup_results,
+        variables=definition.variables,
     )
 
     # Write results to JSON

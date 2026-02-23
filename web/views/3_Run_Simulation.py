@@ -2,6 +2,46 @@ import streamlit as st
 
 from web.adapters.engine_adapter import run_batch, run_single
 from web.adapters.html_renderer import render_play_by_play_html
+from web.models import CharacterConfig
+
+_SCHOOL_KNACKS = {
+    "Akodo Bushi School": ["attack", "counterattack", "feint"],
+    "Bayushi Bushi School": ["attack", "feint", "lunge"],
+    "Kakita Bushi School": ["double attack", "iaijutsu", "lunge"],
+    "Shiba Bushi School": ["attack", "counterattack", "parry"],
+}
+
+RING_ORDER = ["air", "earth", "fire", "water", "void"]
+
+
+def _school_rank(config: CharacterConfig) -> int | None:
+    """Compute school rank (Dan) from config: min of school knack ranks."""
+    knacks = _SCHOOL_KNACKS.get(config.school)
+    if not knacks:
+        return None
+    return min(config.skills.get(k, 0) for k in knacks)
+
+
+def _format_character_stats(config: CharacterConfig) -> str:
+    """Format a character's stats as a compact markdown string."""
+    parts = []
+    # Rings
+    rings = " / ".join(f"{r.title()} {config.rings.get(r, 2)}" for r in RING_ORDER)
+    parts.append(f"**Rings:** {rings}")
+    # Attack and Parry
+    combat = []
+    if "attack" in config.skills:
+        combat.append(f"Attack {config.skills['attack']}")
+    if "parry" in config.skills:
+        combat.append(f"Parry {config.skills['parry']}")
+    if combat:
+        parts.append(f"**Combat:** {' / '.join(combat)}")
+    # School rank
+    rank = _school_rank(config)
+    if rank is not None:
+        ordinals = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th"}
+        parts.append(f"**School Rank:** {ordinals.get(rank, f'{rank}th')} Dan")
+    return "  \n".join(parts)
 
 st.title("Run Simulation")
 
@@ -68,6 +108,15 @@ else:
                     result = None
 
             if result:
+                # Character stats
+                st.subheader("Combatants")
+                stat_cols = st.columns(len(characters))
+                for col, config in zip(stat_cols, characters):
+                    with col:
+                        st.markdown(f"**{config.name}**")
+                        st.markdown(_format_character_stats(config))
+                st.divider()
+
                 # Winner
                 winner_label = test_label if result.winner == 1 else control_label
                 st.subheader(f"Winner: {winner_label}")

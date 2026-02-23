@@ -61,5 +61,11 @@ def _auto_register() -> None:
         build_kakita_interrupt_analysis,
     )
 
+    from web.analysis.definitions.kakita_study import build_kakita_study_analysis
+    register_analysis(
+        "kakita_study",
+        build_kakita_study_analysis,
+    )
+
 
 _auto_register()

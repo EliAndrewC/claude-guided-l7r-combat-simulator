@@ -632,4 +632,4 @@ class StingyWoundCheckStrategy(Strategy):
         if isinstance(event, events.LightWoundsDamageEvent):
             if event.target == character:
                 logger.info(f"{character.name()} never spends VP on wound checks.")
-                yield events.WoundCheckDeclaredEvent(character, event.subject, event.damage, tn=event.tn)
+                yield events.WoundCheckDeclaredEvent(character, event.subject, event.damage, tn=event.wound_check_tn)

@@ -1,12 +1,21 @@
-name: Akodo 450
+# XP Breakdown (450 XP total):
+#   Combat budget: 360 XP (80%), Non-combat reserve: 90 XP (20%)
+#   Free: water ring starts at 3 (school ring); school knacks start at 1; attack/parry start at 1
+#   Free: water +1 free at 4th Dan
+#   Rings (210 XP): earth 2→5 (60), void 2→4 (35), fire 2→4 (35), air 2→4 (35), water 4→6 (45)
+#   School knacks (84 XP): double attack 1→5 (28), feint 1→5 (28), iaijutsu 1→5 (28)
+#   Attack/Parry (56 XP): attack 1→5 (28), parry 1→5 (28)
+#   Combat total: 350 XP
+#
+name: Akodo
 xp: 450
 school: Akodo Bushi School
 rings:
-  air: 5
+  air: 4
   earth: 5
-  fire: 5
+  fire: 4
   water: 6
-  void: 5
+  void: 4
 skills:
   attack: 5
   parry: 5

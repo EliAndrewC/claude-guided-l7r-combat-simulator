@@ -20,7 +20,7 @@ from simulation.mechanics.roll_provider import DefaultRollProvider
 from simulation.schools.base import BaseSchool
 from simulation.strategies import target_finders
 from simulation.strategies.action_factory import DefaultActionFactory
-from simulation.strategies.base import UniversalAttackStrategy
+from simulation.strategies.base import BaseParryStrategy, UniversalAttackStrategy
 
 
 class KakitaBushiSchool(BaseSchool):
@@ -40,6 +40,7 @@ class KakitaBushiSchool(BaseSchool):
     def apply_special_ability(self, character):
         character.set_roll_provider(KAKITA_ROLL_PROVIDER)
         character.set_attack_strategy(KAKITA_ATTACK_STRATEGY)
+        character.set_parry_strategy(KAKITA_PARRY_STRATEGY)
         character.add_interrupt_skill("iaijutsu")
 
     def extra_rolled(self):
@@ -394,8 +395,50 @@ class KakitaInterruptAttackStrategy(KakitaAttackStrategy):
                 yield events.NoActionEvent(character)
 
 
-# singleton instance
+class KakitaParryStrategy(BaseParryStrategy):
+    """Parry strategy for Kakita Bushi.
+
+    A Kakita's actions are extremely valuable for attacking (iaijutsu with
+    tempo bonus, interrupt attacks). Parrying should be a last resort:
+
+    - NEVER interrupt parry (spending 2 future actions to parry is not
+      worth it when those actions could be interrupt iaijutsu attacks).
+    - Only parry with a current-phase action when the hit would be fatal
+      (expected damage >= remaining serious wounds).
+    """
+
+    def _recommend(self, character, event, context):
+        # Never interrupt parry — future actions are too valuable
+        if not character.has_action(context):
+            return
+
+        # Let someone else parry if possible
+        if self._can_shirk(character, event, context):
+            return
+
+        # Don't re-parry if already attempted
+        if event.action.parry_attempted():
+            return
+
+        # Only parry if the hit would be fatal
+        expected_sw = self._estimate_damage(character, event, context)
+        if event.action.skill() == "double attack":
+            expected_sw += 1
+
+        target = event.action.target()
+        if target.sw_remaining() <= expected_sw:
+            initiative_action = self._choose_action(character, "parry", context)
+            parry = character.action_factory().get_parry_action(
+                character, event.action.subject(), event.action,
+                "parry", initiative_action, context,
+            )
+            yield from self._spend_action(character, "parry", initiative_action)
+            yield character.take_action_event_factory().get_take_parry_action_event(parry)
+
+
+# singleton instances
 KAKITA_ATTACK_STRATEGY = KakitaAttackStrategy()
+KAKITA_PARRY_STRATEGY = KakitaParryStrategy()
 
 
 class KakitaActionFactory(DefaultActionFactory):

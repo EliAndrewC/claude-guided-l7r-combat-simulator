@@ -65,13 +65,24 @@ class TestKakitaInterruptDefinition:
             assert len(matchup.control_group.character_names) == 1
             assert len(matchup.test_group.character_names) == 1
 
-    def test_group_names_use_school_names(self):
-        """Group names should use school names, not 'Control'/'Test'."""
+    def test_group_names_include_xp(self):
+        """Group names should include school name, XP tier, and strategy."""
         definition = build_kakita_interrupt_analysis(num_trials=10)
         for matchup in definition.matchups:
-            assert matchup.control_group.name == "Kakita"
-            assert matchup.test_group.name in (
-                "Akodo", "Bayushi", "Shiba", "Wave Man",
+            assert matchup.control_group.name.startswith("Kakita with ")
+            strategy = matchup.tags["strategy"].replace("_", " ")
+            assert matchup.control_group.name.endswith(f"({strategy})")
+            assert any(
+                matchup.test_group.name.startswith(f"{s} with ")
+                for s in ("Akodo", "Bayushi", "Shiba", "Wave Man")
             )
-            assert matchup.control_group.name != "Control"
-            assert matchup.test_group.name != "Test"
+            assert matchup.test_group.name.endswith("XP")
+
+    def test_character_names_are_plain(self):
+        """Character names should not include XP tier or strategy."""
+        definition = build_kakita_interrupt_analysis(num_trials=10)
+        for matchup in definition.matchups:
+            for config in matchup.control_characters:
+                assert config.name == "Kakita"
+            for config in matchup.test_characters:
+                assert config.name in ("Akodo", "Bayushi", "Shiba", "Wave Man")

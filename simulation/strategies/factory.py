@@ -7,7 +7,7 @@
 # This is a convenience provided to the character builder.
 #
 
-from simulation.schools.kakita_school import KakitaAttackStrategy, KakitaInterruptAttackStrategy
+from simulation.schools.kakita_school import KakitaAttackStrategy, KakitaInterruptAttackStrategy, KakitaParryStrategy
 from simulation.strategies import base as strategies
 
 
@@ -24,6 +24,8 @@ def get_strategy(name):
         return KakitaAttackStrategy()
     if name == "KakitaInterruptAttackStrategy":
         return KakitaInterruptAttackStrategy()
+    if name == "KakitaParryStrategy":
+        return KakitaParryStrategy()
     if name == "KeepLightWoundsStrategy":
         return strategies.KeepLightWoundsStrategy()
     if name == "NeverKeepLightWoundsStrategy":

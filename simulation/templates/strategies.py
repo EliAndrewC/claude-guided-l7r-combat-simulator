@@ -5,7 +5,11 @@ The generator iterates through these in order, attempting each purchase.
 If a purchase is already satisfied or unaffordable, it is skipped.
 
 Priority order:
-  school knacks to next Dan > attack/parry > school ring > Earth > Void > other rings > max skills > max rings
+  school knacks to next Dan > attack/parry > critical rings > max skills > max rings
+
+Within the "max rings" section, purchases are ordered by cost (cheapest first)
+to ensure monotonic progression: a higher XP tier always has stats >= a lower tier.
+  rank 3 raises (15 XP) > rank 4 raises (20 XP) > rank 5 raises (25 XP) > rank 6 (30 XP)
 """
 
 # Kakita Bushi School (school_ring: fire, knacks: double attack, iaijutsu, lunge)
@@ -30,6 +34,8 @@ KAKITA_PRIORITIES: list[tuple[str, str, int]] = [
     ("skill", "attack", 4),
     ("skill", "parry", 4),
     ("ring", "void", 3),
+    ("ring", "air", 3),
+    ("ring", "water", 3),
     ("ring", "earth", 4),
     # Dan 5: school knacks to 5
     ("skill", "double attack", 5),
@@ -37,16 +43,14 @@ KAKITA_PRIORITIES: list[tuple[str, str, int]] = [
     ("skill", "lunge", 5),
     ("skill", "attack", 5),
     ("skill", "parry", 5),
-    # Max rings
-    ("ring", "fire", 5),
+    # Max rings — ordered by cost: 20 > 25
+    ("ring", "fire", 5),       # school ring discounted: 20
     ("ring", "void", 4),
-    ("ring", "earth", 5),
-    ("ring", "air", 3),
-    ("ring", "water", 3),
-    ("ring", "void", 5),
-    ("ring", "fire", 6),
     ("ring", "air", 4),
     ("ring", "water", 4),
+    ("ring", "earth", 5),
+    ("ring", "fire", 6),       # school ring discounted: 25
+    ("ring", "void", 5),
     ("ring", "air", 5),
     ("ring", "water", 5),
 ]
@@ -73,6 +77,8 @@ AKODO_PRIORITIES: list[tuple[str, str, int]] = [
     ("skill", "attack", 4),
     ("skill", "parry", 4),
     ("ring", "void", 3),
+    ("ring", "fire", 3),
+    ("ring", "air", 3),
     ("ring", "earth", 4),
     # Dan 5
     ("skill", "double attack", 5),
@@ -80,17 +86,15 @@ AKODO_PRIORITIES: list[tuple[str, str, int]] = [
     ("skill", "iaijutsu", 5),
     ("skill", "attack", 5),
     ("skill", "parry", 5),
-    # Max rings
-    ("ring", "fire", 3),
-    ("ring", "water", 5),
+    # Max rings — ordered by cost: 20 > 25
+    ("ring", "water", 5),      # school ring discounted: 20
     ("ring", "void", 4),
-    ("ring", "earth", 5),
     ("ring", "fire", 4),
-    ("ring", "fire", 5),
-    ("ring", "air", 3),
-    ("ring", "void", 5),
-    ("ring", "water", 6),
     ("ring", "air", 4),
+    ("ring", "earth", 5),
+    ("ring", "water", 6),      # school ring discounted: 25
+    ("ring", "void", 5),
+    ("ring", "fire", 5),
     ("ring", "air", 5),
 ]
 
@@ -116,6 +120,8 @@ BAYUSHI_PRIORITIES: list[tuple[str, str, int]] = [
     ("skill", "attack", 4),
     ("skill", "parry", 4),
     ("ring", "void", 3),
+    ("ring", "water", 3),
+    ("ring", "air", 3),
     ("ring", "earth", 4),
     # Dan 5
     ("skill", "double attack", 5),
@@ -123,17 +129,15 @@ BAYUSHI_PRIORITIES: list[tuple[str, str, int]] = [
     ("skill", "iaijutsu", 5),
     ("skill", "attack", 5),
     ("skill", "parry", 5),
-    # Max rings
-    ("ring", "fire", 5),
-    ("ring", "water", 3),
+    # Max rings — ordered by cost: 20 > 25
+    ("ring", "fire", 5),       # school ring discounted: 20
     ("ring", "void", 4),
-    ("ring", "earth", 5),
     ("ring", "water", 4),
-    ("ring", "void", 5),
-    ("ring", "fire", 6),
-    ("ring", "air", 3),
-    ("ring", "water", 5),
     ("ring", "air", 4),
+    ("ring", "earth", 5),
+    ("ring", "fire", 6),       # school ring discounted: 25
+    ("ring", "void", 5),
+    ("ring", "water", 5),
     ("ring", "air", 5),
 ]
 
@@ -159,6 +163,8 @@ SHIBA_PRIORITIES: list[tuple[str, str, int]] = [
     ("skill", "attack", 4),
     ("skill", "parry", 4),
     ("ring", "void", 3),
+    ("ring", "fire", 3),
+    ("ring", "water", 3),
     ("ring", "earth", 4),
     # Dan 5
     ("skill", "counterattack", 5),
@@ -166,45 +172,47 @@ SHIBA_PRIORITIES: list[tuple[str, str, int]] = [
     ("skill", "iaijutsu", 5),
     ("skill", "attack", 5),
     ("skill", "parry", 5),
-    # Max rings
-    ("ring", "air", 4),
-    ("ring", "fire", 3),
-    ("ring", "water", 3),
+    # Max rings — ordered by cost: 20 > 25
+    ("ring", "air", 5),        # school ring discounted: 20
     ("ring", "void", 4),
-    ("ring", "earth", 5),
-    ("ring", "air", 5),
     ("ring", "fire", 4),
     ("ring", "water", 4),
+    ("ring", "earth", 5),
+    ("ring", "air", 6),        # school ring discounted: 25
     ("ring", "void", 5),
-    ("ring", "air", 6),
     ("ring", "fire", 5),
     ("ring", "water", 5),
 ]
 
 # Wave Man (profession, no school)
+# Ordered to ensure monotonic progression: skills before rings at each tier,
+# all rank-3 rings before rank-4, etc.
 WAVE_MAN_PRIORITIES: list[tuple[str, str, int]] = [
+    # Tier 1: skills to 2, rings to 3
     ("skill", "attack", 2),
     ("skill", "parry", 2),
     ("ring", "earth", 3),
     ("ring", "fire", 3),
-    ("skill", "attack", 3),
-    ("skill", "parry", 3),
     ("ring", "water", 3),
     ("ring", "void", 3),
+    ("ring", "air", 3),
+    # Tier 2: skills to 3, rings to 4
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
     ("ring", "earth", 4),
-    ("skill", "attack", 4),
-    ("skill", "parry", 4),
     ("ring", "fire", 4),
-    ("ring", "earth", 5),
-    ("skill", "attack", 5),
-    ("skill", "parry", 5),
-    ("ring", "fire", 5),
     ("ring", "water", 4),
     ("ring", "void", 4),
-    ("ring", "air", 3),
+    ("ring", "air", 4),
+    # Tier 3: skills to 4-5, rings to 5
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    ("ring", "earth", 5),
+    ("ring", "fire", 5),
     ("ring", "water", 5),
     ("ring", "void", 5),
-    ("ring", "air", 4),
     ("ring", "air", 5),
 ]
 
