@@ -228,6 +228,186 @@ def _show_study_view(aid: str, result: AnalysisResult) -> None:
         _show_study_summary(aid, result, summary, definition)
 
 
+# Human-readable descriptions for each recommended option, keyed by
+# (variable_name, option_name).  Used by _show_recommended_strategy()
+# to explain *what the choice means in practice*.
+_RECOMMENDATION_DESCRIPTIONS: dict[tuple[str, str], str] = {
+    ("attack_vp", "threshold_07"): (
+        "Spend VP on an attack roll when doing so gives you at least a "
+        "70% chance of hitting your target number. This focuses your "
+        "limited VP on attacks that are likely to connect."
+    ),
+    ("attack_vp", "threshold_05"): (
+        "Spend VP on an attack roll when doing so gives you at least a "
+        "50% chance of hitting. More aggressive than the 70% threshold "
+        "-- useful against defensive opponents like the Shiba."
+    ),
+    ("attack_vp", "never"): (
+        "Never spend VP on attack rolls, saving them entirely for "
+        "wound checks or other uses."
+    ),
+    ("wound_check_vp", "threshold_05"): (
+        "When you take wounds, spend a VP on the wound check if it "
+        "gives you at least a 50% chance of avoiding an extra Serious "
+        "Wound. This is worth doing every time."
+    ),
+    ("wound_check_vp", "never"): (
+        "Never spend VP on wound checks, saving them for attacks."
+    ),
+    ("action_hold", "immediate"): (
+        "Attack immediately whenever you have an action available. "
+        "Don't hold actions in reserve -- the Kakita fighting style "
+        "rewards aggression and early pressure."
+    ),
+    ("action_hold", "hold"): (
+        "Hold one action in reserve until later in the round, keeping "
+        "flexibility to react."
+    ),
+    ("interrupt", "on"): (
+        "Use interrupt iaijutsu: spend 2 future action dice to make "
+        "an out-of-turn strike when you've used your current action."
+    ),
+    ("interrupt", "off"): (
+        "Don't use interrupt attacks. Only attack on your normal turns."
+    ),
+}
+
+
+def _show_recommended_strategy(
+    result: AnalysisResult,
+    summary: StudySummary,
+    definition: AnalysisDefinition,
+) -> None:
+    """Show recommended strategy summary with human-readable explanations."""
+    if not summary.marginal_effects or not definition.strategy_map:
+        return
+
+    school_name = (
+        definition.title.split(" Comprehensive")[0]
+        if "Comprehensive" in definition.title
+        else "School"
+    )
+
+    st.markdown(f"### Recommended Strategy for {school_name}")
+    st.markdown(
+        "*Based on thousands of simulated duels. Each 'advantage' is how "
+        "many more duels out of 100 the Kakita wins with this choice "
+        "compared to the next-best alternative.*"
+    )
+
+    # Collect best choices, skipping the combined "attack_style" variable
+    # since its components (interrupt + attack_vp) are shown separately.
+    skip_vars = {"attack_style"}
+    yaml_lines = ["strategies:"]
+    per_opp_exceptions: list[str] = []
+
+    for var in result.variables:
+        if var.name in skip_vars:
+            continue
+
+        effects = summary.marginal_effects.get(var.name, [])
+        best = next((e for e in effects if e.is_best), None)
+        if not best:
+            continue
+
+        # Human-readable description of this recommendation
+        desc = _RECOMMENDATION_DESCRIPTIONS.get(
+            (var.name, best.option_name), "",
+        )
+        advantage_str = f"+{best.margin_over_next:.1f}" if best.margin_over_next >= 0.1 else "<0.1"
+
+        st.markdown(
+            f"- **{var.label}: {best.option_label}** "
+            f"({advantage_str} wins per 100 duels)"
+        )
+        if desc:
+            st.caption(f"  {desc}")
+
+        # Look up strategy class name from strategy_map
+        dim_map = definition.strategy_map.get(var.name, {})
+        opt_overrides = dim_map.get(best.option_name, {})
+        for strategy_key, class_name in opt_overrides.items():
+            yaml_lines.append(
+                f"  {strategy_key}: {class_name}    "
+                f"# {var.label}: {best.option_label}"
+            )
+
+        # Check per-opponent exceptions
+        opp_effects = summary.per_opponent_effects.get(var.name, {})
+        for opp, opp_eff_list in sorted(opp_effects.items()):
+            opp_best = next((e for e in opp_eff_list if e.is_best), None)
+            if opp_best and opp_best.option_name != best.option_name:
+                opp_label = opp.replace("_", " ").title()
+                opp_desc = _RECOMMENDATION_DESCRIPTIONS.get(
+                    (var.name, opp_best.option_name), "",
+                )
+                exc_text = (
+                    f"- vs **{opp_label}**: prefer "
+                    f"**{opp_best.option_label}** for {var.label}"
+                )
+                if opp_desc:
+                    exc_text += f" -- {opp_desc.lower().rstrip('.')}"
+                per_opp_exceptions.append(exc_text)
+
+    if len(yaml_lines) > 1:
+        st.markdown("**Strategy config (for simulator YAML):**")
+        st.code("\n".join(yaml_lines), language="yaml")
+
+    if per_opp_exceptions:
+        st.markdown("**Opponent-specific adjustments:**")
+        for exc in per_opp_exceptions:
+            st.markdown(exc)
+
+    st.divider()
+
+
+def _show_per_opponent_breakdown(
+    result: AnalysisResult,
+    summary: StudySummary,
+) -> None:
+    """Show per-opponent breakdown table in the study summary."""
+    if not summary.per_opponent_effects:
+        return
+
+    # Collect all opponents
+    all_opponents: set[str] = set()
+    for _var_name, opp_dict in summary.per_opponent_effects.items():
+        all_opponents.update(opp_dict.keys())
+
+    if not all_opponents:
+        return
+
+    with st.expander("Per-Opponent Breakdown", expanded=False):
+        for opp in sorted(all_opponents):
+            opp_label = opp.replace("_", " ").title()
+            st.markdown(f"**vs {opp_label}**")
+
+            rows = []
+            for var in result.variables:
+                global_effects = summary.marginal_effects.get(var.name, [])
+                global_best = next((e for e in global_effects if e.is_best), None)
+                opp_effects = summary.per_opponent_effects.get(var.name, {}).get(opp, [])
+                opp_best = next((e for e in opp_effects if e.is_best), None)
+
+                if not opp_best:
+                    continue
+
+                differs = ""
+                if global_best and opp_best.option_name != global_best.option_name:
+                    differs = "DIFFERS"
+
+                rows.append({
+                    "Decision": var.label,
+                    "Best Option": opp_best.option_label,
+                    "Win Rate": f"{opp_best.avg_win_rate:.1f}%",
+                    "Advantage": f"+{opp_best.margin_over_next:.1f}%",
+                    "": differs,
+                })
+
+            if rows:
+                st.table(rows)
+
+
 def _show_study_summary(
     aid: str,
     result: AnalysisResult,
@@ -235,6 +415,9 @@ def _show_study_summary(
     definition: AnalysisDefinition,
 ) -> None:
     """Tier 1: Summary dashboard showing best choice per variable."""
+    # Recommended Strategy section at the top
+    _show_recommended_strategy(result, summary, definition)
+
     st.subheader("Optimal Choices Summary")
 
     if not summary.marginal_effects:
@@ -293,6 +476,9 @@ def _show_study_summary(
                 f"(score: {ix.interaction_score:.1f}%). "
                 f"The effect of one changes depending on the other."
             )
+
+    # Per-opponent breakdown
+    _show_per_opponent_breakdown(result, summary)
 
     # Navigation to detail views
     st.subheader("Drill Down")
@@ -371,6 +557,28 @@ def _show_variable_detail(
                 desc = opt_descriptions.get(e.option_name, "")
                 if desc:
                     st.markdown(f"- **{e.option_label}**: {desc}")
+
+    # Per-opponent summary for this variable
+    opp_effects = summary.per_opponent_effects.get(var_name, {})
+    global_best = next((e for e in effects if e.is_best), None) if effects else None
+    if opp_effects and global_best:
+        st.subheader("Per-Opponent Summary")
+        opp_rows = []
+        for opp in sorted(opp_effects.keys()):
+            opp_eff_list = opp_effects[opp]
+            opp_best = next((e for e in opp_eff_list if e.is_best), None)
+            if not opp_best:
+                continue
+            consistent = "Yes" if opp_best.option_name == global_best.option_name else "No"
+            opp_rows.append({
+                "Opponent": opp.replace("_", " ").title(),
+                "Best Option": opp_best.option_label,
+                "Win Rate": f"{opp_best.avg_win_rate:.1f}%",
+                "Advantage": f"+{opp_best.margin_over_next:.1f}%",
+                "Consistent?": consistent,
+            })
+        if opp_rows:
+            st.table(opp_rows)
 
     # Breakdown by opponent and XP tier
     detail = summary.variable_details.get(var_name)

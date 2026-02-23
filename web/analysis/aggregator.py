@@ -49,6 +49,9 @@ class StudySummary:
     )
     interactions: list[InteractionEffect] = field(default_factory=list)
     variable_details: dict[str, VariableDetail] = field(default_factory=dict)
+    per_opponent_effects: dict[str, dict[str, list[MarginalEffect]]] = field(
+        default_factory=dict,
+    )
 
 
 def _win_rate(result: MatchupResult) -> float:
@@ -111,11 +114,15 @@ def compute_study_summary_with_tags(
     marginal_effects = _compute_marginal_effects(tagged_results, variables)
     interactions = _compute_interactions(tagged_results, variables)
     variable_details = _compute_variable_details(tagged_results, variables)
+    per_opponent_effects = _compute_per_opponent_marginal_effects(
+        tagged_results, variables,
+    )
 
     return StudySummary(
         marginal_effects=marginal_effects,
         interactions=interactions,
         variable_details=variable_details,
+        per_opponent_effects=per_opponent_effects,
     )
 
 
@@ -301,3 +308,33 @@ def _compute_variable_details(
         )
 
     return details
+
+
+def _compute_per_opponent_marginal_effects(
+    tagged_results: list[tuple[dict[str, str], MatchupResult]],
+    variables: list[AnalysisVariable],
+) -> dict[str, dict[str, list[MarginalEffect]]]:
+    """Compute marginal effects per variable, broken down by opponent."""
+    # Collect all opponent names
+    opponents: set[str] = set()
+    for tags, _r in tagged_results:
+        opp = tags.get("opponent")
+        if opp:
+            opponents.add(opp)
+
+    if not opponents:
+        return {}
+
+    result: dict[str, dict[str, list[MarginalEffect]]] = {}
+    for var in variables:
+        opp_effects: dict[str, list[MarginalEffect]] = {}
+        for opp in sorted(opponents):
+            subset = [(t, r) for t, r in tagged_results if t.get("opponent") == opp]
+            if subset:
+                effects = _compute_marginal_effects(subset, [var])
+                if var.name in effects:
+                    opp_effects[opp] = effects[var.name]
+        if opp_effects:
+            result[var.name] = opp_effects
+
+    return result

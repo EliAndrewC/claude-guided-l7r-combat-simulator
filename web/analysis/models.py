@@ -105,6 +105,9 @@ class AnalysisDefinition:
     matchups: list[MatchupConfig] = field(default_factory=list)
     variables: list[AnalysisVariable] = field(default_factory=list)
     findings: dict[str, str] = field(default_factory=dict)
+    strategy_map: dict[str, dict[str, dict[str, str]]] = field(
+        default_factory=dict,
+    )
 
 
 @dataclass

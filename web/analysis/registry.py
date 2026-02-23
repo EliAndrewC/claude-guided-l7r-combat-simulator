@@ -55,18 +55,6 @@ def has_result(analysis_id: str) -> bool:
 
 # Auto-register analyses on import
 def _auto_register() -> None:
-    from web.analysis.definitions.kakita_interrupt import build_kakita_interrupt_analysis
-    register_analysis(
-        "kakita_interrupt",
-        build_kakita_interrupt_analysis,
-    )
-
-    from web.analysis.definitions.kakita_study import build_kakita_study_analysis
-    register_analysis(
-        "kakita_study",
-        build_kakita_study_analysis,
-    )
-
     from web.analysis.definitions.kakita_void_study import build_kakita_void_study_analysis
     register_analysis(
         "kakita_void_study",
@@ -77,6 +65,12 @@ def _auto_register() -> None:
     register_analysis(
         "kakita_vp_study",
         build_kakita_vp_study_analysis,
+    )
+
+    from web.analysis.definitions.kakita_comprehensive import build_kakita_comprehensive_analysis
+    register_analysis(
+        "kakita_comprehensive",
+        build_kakita_comprehensive_analysis,
     )
 
 

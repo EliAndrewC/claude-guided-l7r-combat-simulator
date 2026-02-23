@@ -13,7 +13,7 @@ Void Spending Dimension (5 options):
   - normal: WoundCheckStrategy (0.6 threshold, current default)
   - conservative: WoundCheckStrategy08 (0.8 threshold, very conservative)
 
-Other dimensions carried from kakita_study:
+Other dimensions:
   - build: 4 variants (baseline, swap_earth_water, rush_dan4, delay_dan4)
   - interrupt: KakitaAttackStrategy vs KakitaInterruptAttackStrategy
   - action_hold: HoldOneActionStrategy vs AlwaysAttackActionStrategy

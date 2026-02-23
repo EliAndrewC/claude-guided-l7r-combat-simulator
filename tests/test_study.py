@@ -35,12 +35,9 @@ from simulation.templates.variants import (
 )
 from web.adapters.character_adapter import config_to_character
 from web.analysis.aggregator import compute_study_summary_with_tags
-from web.analysis.definitions.kakita_study import (
-    KAKITA_STUDY_CONFIG,
-    _delay_dan4,
-    _rush_dan4,
-    _swap_earth_water,
-    build_kakita_study_analysis,
+from web.analysis.definitions.kakita_comprehensive import (
+    KAKITA_COMPREHENSIVE_CONFIG,
+    build_kakita_comprehensive_analysis,
 )
 from web.analysis.definitions.kakita_void_study import (
     KAKITA_VOID_STUDY_CONFIG,
@@ -48,6 +45,9 @@ from web.analysis.definitions.kakita_void_study import (
 )
 from web.analysis.definitions.kakita_vp_study import (
     KAKITA_VP_STUDY_CONFIG,
+    _delay_dan4,
+    _rush_dan4,
+    _swap_earth_water,
     build_kakita_vp_study_analysis,
 )
 from web.analysis.models import (
@@ -514,37 +514,6 @@ class TestKakitaTransforms:
             assert sorted(result) == sorted(KAKITA_PRIORITIES)
 
 
-class TestKakitaStudyDefinition:
-    def test_config_has_expected_structure(self):
-        assert KAKITA_STUDY_CONFIG.school_key == "kakita"
-        assert len(KAKITA_STUDY_CONFIG.build_variants) == 4
-        assert len(KAKITA_STUDY_CONFIG.strategy_dimensions) == 3
-        assert len(KAKITA_STUDY_CONFIG.opponents) == 4
-        assert len(KAKITA_STUDY_CONFIG.xp_tiers) == 7
-        assert len(KAKITA_STUDY_CONFIG.xp_deltas) == 3
-
-    def test_builds_analysis_definition(self):
-        defn = build_kakita_study_analysis(num_trials=10)
-        assert defn.analysis_id == "kakita_study"
-        assert len(defn.variables) > 0
-
-    def test_matchup_count_in_expected_range(self):
-        """Should be ~2,432 matchups (with edge clipping)."""
-        defn = build_kakita_study_analysis(num_trials=10)
-        # 4 builds x 8 profiles x 4 opponents x 7 tiers x 3 deltas = 2688
-        # minus clipping at edges: expect roughly 2400-2500
-        assert 2000 < len(defn.matchups) < 2700
-
-    def test_all_variant_configs_build_characters(self):
-        """Every build variant at every XP tier produces a buildable config."""
-        for variant in KAKITA_STUDY_CONFIG.build_variants:
-            priorities = variant.transform(KAKITA_PRIORITIES)
-            for xp in KAKITA_STUDY_CONFIG.xp_tiers:
-                config, _ = generate_template("kakita", xp, priorities=priorities)
-                char = config_to_character(config)
-                assert char is not None, f"Failed: {variant.name} @ {xp}XP"
-
-
 # ── Layer 6: Aggregator ───────────────────────────────────────────────
 
 
@@ -912,6 +881,73 @@ class TestExtraTagsInStudyBuilder:
 # ── Kakita VP Study Definition ───────────────────────────────────────
 
 
+class TestPerOpponentMarginalEffects:
+    """Test per-opponent marginal effects aggregation."""
+
+    def test_per_opponent_effects_computed(self):
+        results, tags, variables = _make_tagged_results()
+        summary = compute_study_summary_with_tags(results, tags, variables)
+        assert "interrupt" in summary.per_opponent_effects
+        opp_effects = summary.per_opponent_effects["interrupt"]
+        assert "akodo" in opp_effects
+        assert "bayushi" in opp_effects
+
+    def test_per_opponent_best_identified(self):
+        results, tags, variables = _make_tagged_results()
+        summary = compute_study_summary_with_tags(results, tags, variables)
+        opp_effects = summary.per_opponent_effects["interrupt"]
+        # vs akodo: on=60%, off=55% → best is "on"
+        akodo_best = [e for e in opp_effects["akodo"] if e.is_best][0]
+        assert akodo_best.option_name == "on"
+        assert akodo_best.avg_win_rate == pytest.approx(60.0)
+        # vs bayushi: on=58%, off=50% → best is "on"
+        bayushi_best = [e for e in opp_effects["bayushi"] if e.is_best][0]
+        assert bayushi_best.option_name == "on"
+        assert bayushi_best.avg_win_rate == pytest.approx(58.0)
+
+    def test_per_opponent_margin(self):
+        results, tags, variables = _make_tagged_results()
+        summary = compute_study_summary_with_tags(results, tags, variables)
+        opp_effects = summary.per_opponent_effects["interrupt"]
+        # vs akodo: on=60, off=55 → margin=5
+        akodo_best = [e for e in opp_effects["akodo"] if e.is_best][0]
+        assert akodo_best.margin_over_next == pytest.approx(5.0)
+        # vs bayushi: on=58, off=50 → margin=8
+        bayushi_best = [e for e in opp_effects["bayushi"] if e.is_best][0]
+        assert bayushi_best.margin_over_next == pytest.approx(8.0)
+
+    def test_empty_results(self):
+        summary = compute_study_summary_with_tags([], {}, [])
+        assert summary.per_opponent_effects == {}
+
+
+class TestStrategyMap:
+    """Test strategy_map on AnalysisDefinition."""
+
+    def test_strategy_map_populated(self):
+        """VP study definition should have a strategy_map with correct class names."""
+        defn = build_kakita_vp_study_analysis(num_trials=10)
+        assert defn.strategy_map
+        # attack_style should map to attack strategy classes
+        assert "attack_style" in defn.strategy_map
+        assert "std_vp07" in defn.strategy_map["attack_style"]
+        assert defn.strategy_map["attack_style"]["std_vp07"] == {
+            "attack": "KakitaAttackStrategy",
+        }
+
+    def test_strategy_map_has_all_dimensions(self):
+        """All strategy dimensions should be present in strategy_map."""
+        defn = build_kakita_vp_study_analysis(num_trials=10)
+        assert "attack_style" in defn.strategy_map
+        assert "action_hold" in defn.strategy_map
+        assert "wound_check_vp" in defn.strategy_map
+
+    def test_strategy_map_empty_for_build(self):
+        """Build variants don't have strategy overrides, so shouldn't appear."""
+        defn = build_kakita_vp_study_analysis(num_trials=10)
+        assert "build" not in defn.strategy_map
+
+
 class TestKakitaVPStudyDefinition:
     def test_config_has_expected_structure(self):
         assert KAKITA_VP_STUDY_CONFIG.school_key == "kakita"
@@ -959,3 +995,50 @@ class TestKakitaVPStudyDefinition:
         assert "attack_style" in var_names
         assert "action_hold" in var_names
         assert "wound_check_vp" in var_names
+
+
+# ── Kakita Comprehensive Study Definition ──────────────────────────
+
+
+class TestKakitaComprehensiveDefinition:
+    def test_config_structure(self):
+        assert KAKITA_COMPREHENSIVE_CONFIG.analysis_id == "kakita_comprehensive"
+        assert KAKITA_COMPREHENSIVE_CONFIG.school_key == "kakita"
+        assert len(KAKITA_COMPREHENSIVE_CONFIG.build_variants) == 4
+        assert len(KAKITA_COMPREHENSIVE_CONFIG.strategy_dimensions) == 3
+        assert len(KAKITA_COMPREHENSIVE_CONFIG.opponents) == 4
+        assert len(KAKITA_COMPREHENSIVE_CONFIG.xp_tiers) == 7
+
+    def test_builds_definition(self):
+        defn = build_kakita_comprehensive_analysis(num_trials=10)
+        assert defn.analysis_id == "kakita_comprehensive"
+        assert len(defn.variables) > 0
+
+    def test_matchup_ids_match_vp_study(self):
+        """Matchup IDs must be identical to VP study (enables result reuse)."""
+        vp_defn = build_kakita_vp_study_analysis(num_trials=10)
+        comp_defn = build_kakita_comprehensive_analysis(num_trials=10)
+        vp_ids = sorted(m.matchup_id for m in vp_defn.matchups)
+        comp_ids = sorted(m.matchup_id for m in comp_defn.matchups)
+        assert vp_ids == comp_ids
+
+    def test_variables_include_all(self):
+        defn = build_kakita_comprehensive_analysis(num_trials=10)
+        var_names = {v.name for v in defn.variables}
+        expected = {"build", "attack_style", "action_hold", "wound_check_vp",
+                    "interrupt", "attack_vp"}
+        assert var_names == expected
+
+    def test_findings_for_all_variables(self):
+        defn = build_kakita_comprehensive_analysis(num_trials=10)
+        var_names = {v.name for v in defn.variables}
+        for name in var_names:
+            assert name in defn.findings, f"Missing findings for {name}"
+            assert len(defn.findings[name]) > 0
+
+    def test_strategy_map_populated(self):
+        defn = build_kakita_comprehensive_analysis(num_trials=10)
+        assert "attack_style" in defn.strategy_map
+        assert "action_hold" in defn.strategy_map
+        assert "wound_check_vp" in defn.strategy_map
+        assert "build" not in defn.strategy_map

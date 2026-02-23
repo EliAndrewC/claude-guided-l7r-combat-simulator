@@ -275,6 +275,16 @@ def build_study_analysis(
         f"{len(matchups)} total matchups."
     )
 
+    # Build strategy_map: dimension_name -> option_name -> overrides
+    strategy_map: dict[str, dict[str, dict[str, str]]] = {}
+    for dim in config.strategy_dimensions:
+        dim_map: dict[str, dict[str, str]] = {}
+        for opt in dim.options:
+            if opt.overrides:
+                dim_map[opt.name] = dict(opt.overrides)
+        if dim_map:
+            strategy_map[dim.name] = dim_map
+
     return AnalysisDefinition(
         analysis_id=study_id,
         title=study_title,
@@ -283,4 +293,5 @@ def build_study_analysis(
         matchups=matchups,
         variables=variables,
         findings=dict(config.findings),
+        strategy_map=strategy_map,
     )
