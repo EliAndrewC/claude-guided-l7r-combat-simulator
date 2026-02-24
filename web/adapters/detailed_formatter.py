@@ -77,6 +77,7 @@ class DetailedEventFormatter:
                 if lines:
                     lines.append("")
                 lines.append(f"═══ Round {event.round + 1} ═══")
+                shown_opening_status = False
 
             elif isinstance(event, events.NewPhaseEvent):
                 self._current_phase = event.phase

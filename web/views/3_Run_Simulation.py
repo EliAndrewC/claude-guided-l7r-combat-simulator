@@ -45,8 +45,10 @@ def _format_character_stats(config: CharacterConfig) -> str:
 
 st.title("Run Simulation")
 
-if not st.session_state.control_group or not st.session_state.test_group:
-    st.warning("Please set up combat groups first on the Combat Setup page.")
+if not st.session_state.characters:
+    st.warning("No characters loaded. Go to the Characters page to load or create characters.")
+elif not st.session_state.control_group or not st.session_state.test_group:
+    st.warning("Combat groups are not configured. Go to Combat Setup to select groups.")
 else:
     control = st.session_state.control_group
     test = st.session_state.test_group

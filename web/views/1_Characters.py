@@ -1,11 +1,9 @@
-import os
-
 import streamlit as st
 
 from simulation.mechanics.advantages import ADVANTAGES
 from simulation.mechanics.disadvantages import DISADVANTAGES
 from simulation.mechanics.skills import ADVANCED_SKILLS, BASIC_SKILLS
-from web.adapters.character_adapter import config_to_character, load_data_directory
+from web.adapters.character_adapter import config_to_character
 from web.models import CharacterConfig
 from web.state import save_state
 
@@ -27,19 +25,6 @@ STRATEGY_NAMES = [
 STRATEGY_EVENTS = ["your_move", "attack_rolled", "parry_rolled", "wound_check", "lw_damage"]
 
 st.title("Characters")
-
-# --- Load existing characters ---
-st.header("Load Characters from Data Directory")
-data_dir = os.path.join(os.path.dirname(__file__), "..", "..", "simulation", "data")
-if st.button("Load from simulation/data/"):
-    try:
-        configs = load_data_directory(data_dir)
-        for config in configs:
-            st.session_state.characters[config.name] = config
-        save_state()
-        st.success(f"Loaded {len(configs)} characters")
-    except Exception as e:
-        st.error(f"Error loading characters: {e}")
 
 # --- Create new character ---
 st.header("Create New Character")

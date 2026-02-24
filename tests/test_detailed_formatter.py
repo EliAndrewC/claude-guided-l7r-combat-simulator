@@ -145,6 +145,33 @@ class TestFormatterOpeningStatus(unittest.TestCase):
         # Only opening status = 2 lines (one per character)
         self.assertEqual(2, len(status_lines))
 
+    def test_opening_status_shown_each_round(self):
+        """Each round should display its opening status after initiative."""
+        fmt = DetailedEventFormatter()
+        status1 = _make_status()
+        status2 = _make_status(Akodo={"lw": 10, "sw": 1})
+
+        r0 = events.NewRoundEvent(0)
+        p0 = events.NewPhaseEvent(0)
+        p0._detail_status = status1
+        p0._detail_initiative = {
+            "Akodo": {"all_dice": [4, 7], "actions": [4, 7], "roll_params": (3, 2)},
+            "Bayushi": {"all_dice": [5, 6], "actions": [5, 6], "roll_params": (3, 2)},
+        }
+
+        r1 = events.NewRoundEvent(1)
+        p1 = events.NewPhaseEvent(0)
+        p1._detail_status = status2
+        p1._detail_initiative = {
+            "Akodo": {"all_dice": [3, 5], "actions": [3, 5], "roll_params": (3, 2)},
+            "Bayushi": {"all_dice": [2, 8], "actions": [2, 8], "roll_params": (3, 2)},
+        }
+
+        lines = fmt.format_history([r0, p0, r1, p1])
+        status_lines = [ln for ln in lines if "Light" in ln and "Serious" in ln]
+        # 2 characters per round × 2 rounds = 4 status lines
+        self.assertEqual(4, len(status_lines), f"Expected 4 status lines, got: {status_lines}")
+
     def test_no_duplicate_status_when_no_actions_in_phase_zero(self):
         """When Phase 0 has no actions (no 5th Dan), the first attack should
         not re-render the status block immediately after the opening status."""
