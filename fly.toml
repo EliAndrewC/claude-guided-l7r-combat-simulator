@@ -1,3 +1,8 @@
+# fly.toml app configuration file generated for l7r-combat-sim on 2026-02-24T14:34:39Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
 app = 'l7r-combat-sim'
 primary_region = 'iad'
 
@@ -14,3 +19,4 @@ primary_region = 'iad'
   memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1
+  memory_mb = 512

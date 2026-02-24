@@ -41,3 +41,6 @@ After every code change, run these steps in order:
 1. **Lint**: `env/bin/ruff check .` — fix any errors before proceeding
 2. **Test**: `env/bin/pytest tests/ -v` — all tests must pass
 3. **Restart Streamlit**: Kill any running `streamlit` process and restart with `env/bin/streamlit run web/app.py`. Streamlit does not reliably hot-reload all changes (especially new modules, factory registrations, and sys.path fixes in page files), so a full restart is required after every change.
+
+## Manual actions not done after every code change
+4. **Deploy to Fly.io**: The app is deployed to Fly.io at https://l7r-combat-sim.fly.dev/. Do NOT deploy unless the user explicitly asks. Deploy command: `~/.fly/bin/flyctl deploy`
