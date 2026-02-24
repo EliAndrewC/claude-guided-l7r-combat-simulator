@@ -15,14 +15,42 @@ PROFESSION_ABILITIES = [
     "rolled damage bonus", "weapon damage bonus", "wound check bonus",
     "wound check penalty",
 ]
-STRATEGY_NAMES = [
-    "AlwaysAttackActionStrategy", "AlwaysKeepLightWoundsStrategy",
-    "AlwaysParryStrategy", "HoldOneActionStrategy", "KeepLightWoundsStrategy",
-    "NeverKeepLightWoundsStrategy", "NeverParryStrategy", "PlainAttackStrategy",
-    "ReluctantParryStrategy", "StingyPlainAttackStrategy",
-    "StingyWoundCheckStrategy", "UniversalAttackStrategy", "WoundCheckStrategy",
-]
-STRATEGY_EVENTS = ["your_move", "attack_rolled", "parry_rolled", "wound_check", "lw_damage"]
+STRATEGIES_BY_EVENT = {
+    "action": [
+        "AlwaysAttackActionStrategy",
+        "HoldOneActionStrategy",
+        "PlainAttackStrategy",
+        "StingyPlainAttackStrategy",
+        "UniversalAttackStrategy",
+    ],
+    "attack": [
+        "KakitaAttackStrategy",
+        "KakitaAttackStrategy05",
+        "KakitaInterruptAttackStrategy",
+        "KakitaInterruptAttackStrategy05",
+        "KakitaNoVPAttackStrategy",
+        "KakitaNoVPInterruptAttackStrategy",
+    ],
+    "parry": [
+        "AlwaysParryStrategy",
+        "KakitaParryStrategy",
+        "NeverParryStrategy",
+        "ReluctantParryStrategy",
+    ],
+    "wound_check": [
+        "StingyWoundCheckStrategy",
+        "WoundCheckStrategy",
+        "WoundCheckStrategy02",
+        "WoundCheckStrategy04",
+        "WoundCheckStrategy05",
+        "WoundCheckStrategy08",
+    ],
+    "light_wounds": [
+        "AlwaysKeepLightWoundsStrategy",
+        "KeepLightWoundsStrategy",
+        "NeverKeepLightWoundsStrategy",
+    ],
+}
 
 st.title("Characters")
 
@@ -66,8 +94,8 @@ with st.form("new_character_form"):
 
     with st.expander("Strategies"):
         strategies = {}
-        for event_name in STRATEGY_EVENTS:
-            strat = st.selectbox(f"Strategy for {event_name}", ["(default)"] + STRATEGY_NAMES, key=f"strat_{event_name}")
+        for event_name, event_strategies in STRATEGIES_BY_EVENT.items():
+            strat = st.selectbox(f"Strategy for {event_name}", ["(default)"] + event_strategies, key=f"strat_{event_name}")
             if strat != "(default)":
                 strategies[event_name] = strat
 

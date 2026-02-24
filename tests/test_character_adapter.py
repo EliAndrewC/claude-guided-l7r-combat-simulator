@@ -220,6 +220,66 @@ class TestKakitaYamlData:
         assert isinstance(character.roll_parameter_provider(), KakitaRollParameterProvider)
 
 
+class TestStrategyEventNames:
+    """Verify that strategy event names used in the UI map to actual Character strategy slots."""
+
+    def test_action_strategy_applied(self):
+        config = CharacterConfig(
+            name="Test",
+            xp=200,
+            char_type="generic",
+            rings={"air": 2, "earth": 2, "fire": 2, "water": 2, "void": 2},
+            skills={"attack": 1},
+            strategies={"action": "AlwaysAttackActionStrategy"},
+        )
+        character = config_to_character(config)
+        from simulation.strategies.base import AlwaysAttackActionStrategy
+
+        assert isinstance(character.action_strategy(), AlwaysAttackActionStrategy)
+
+    def test_parry_strategy_applied(self):
+        config = CharacterConfig(
+            name="Test",
+            xp=200,
+            char_type="generic",
+            rings={"air": 2, "earth": 2, "fire": 2, "water": 2, "void": 2},
+            skills={"attack": 1},
+            strategies={"parry": "NeverParryStrategy"},
+        )
+        character = config_to_character(config)
+        from simulation.strategies.base import NeverParryStrategy
+
+        assert isinstance(character.parry_strategy(), NeverParryStrategy)
+
+    def test_wound_check_strategy_applied(self):
+        config = CharacterConfig(
+            name="Test",
+            xp=200,
+            char_type="generic",
+            rings={"air": 2, "earth": 2, "fire": 2, "water": 2, "void": 2},
+            skills={"attack": 1},
+            strategies={"wound_check": "StingyWoundCheckStrategy"},
+        )
+        character = config_to_character(config)
+        from simulation.strategies.base import StingyWoundCheckStrategy
+
+        assert isinstance(character.wound_check_strategy(), StingyWoundCheckStrategy)
+
+    def test_light_wounds_strategy_applied(self):
+        config = CharacterConfig(
+            name="Test",
+            xp=200,
+            char_type="generic",
+            rings={"air": 2, "earth": 2, "fire": 2, "water": 2, "void": 2},
+            skills={"attack": 1},
+            strategies={"light_wounds": "NeverKeepLightWoundsStrategy"},
+        )
+        character = config_to_character(config)
+        from simulation.strategies.base import NeverKeepLightWoundsStrategy
+
+        assert isinstance(character.light_wounds_strategy(), NeverKeepLightWoundsStrategy)
+
+
 class TestLoadDataDirectory:
     def test_load_data_directory(self):
         data_dir = os.path.join(os.path.dirname(__file__), "..", "simulation", "data")

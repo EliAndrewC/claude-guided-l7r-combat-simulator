@@ -6,3 +6,5 @@ tests/
 rules/
 .coverage
 *.pyc
+web/.state.json
+web/.sessions/

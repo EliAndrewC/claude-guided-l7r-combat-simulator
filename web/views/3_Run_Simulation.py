@@ -1,25 +1,22 @@
 import streamlit as st
 
+from simulation.schools.factory import get_school
 from web.adapters.engine_adapter import run_batch, run_single
 from web.adapters.html_renderer import render_play_by_play_html
 from web.models import CharacterConfig
-
-_SCHOOL_KNACKS = {
-    "Akodo Bushi School": ["attack", "counterattack", "feint"],
-    "Bayushi Bushi School": ["attack", "feint", "lunge"],
-    "Kakita Bushi School": ["double attack", "iaijutsu", "lunge"],
-    "Shiba Bushi School": ["attack", "counterattack", "parry"],
-}
 
 RING_ORDER = ["air", "earth", "fire", "water", "void"]
 
 
 def _school_rank(config: CharacterConfig) -> int | None:
     """Compute school rank (Dan) from config: min of school knack ranks."""
-    knacks = _SCHOOL_KNACKS.get(config.school)
-    if not knacks:
+    if not config.school:
         return None
-    return min(config.skills.get(k, 0) for k in knacks)
+    try:
+        school = get_school(config.school)
+    except ValueError:
+        return None
+    return min(config.skills.get(k, 0) for k in school.school_knacks())
 
 
 def _format_character_stats(config: CharacterConfig) -> str:
