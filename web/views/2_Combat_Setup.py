@@ -5,7 +5,7 @@ from web.state import save_state
 
 st.title("Combat Setup")
 
-available_names = list(st.session_state.characters.keys())
+available_names = sorted(st.session_state.characters.keys())
 
 if not available_names:
     st.warning("No characters available. Go to the Characters page to load or create characters first.")
@@ -26,18 +26,16 @@ else:
         st.subheader("Control Group")
         control_names = st.multiselect("Control group characters", available_names, default=default_control, key="control_chars")
 
+    # Filter test options to exclude characters already in control
+    test_options = [n for n in available_names if n not in control_names]
+    adjusted_default_test = [n for n in default_test if n in test_options]
+
     with col2:
         st.subheader("Test Group")
-        test_names = st.multiselect("Test group characters", available_names, default=default_test, key="test_chars")
+        test_names = st.multiselect("Test group characters", test_options, default=adjusted_default_test, key="test_chars")
 
-    # Validation and auto-update groups
-    overlap = set(control_names) & set(test_names)
-    if overlap:
-        st.error(f"Characters cannot be in both groups: {', '.join(overlap)}")
-        st.session_state.control_group = None
-        st.session_state.test_group = None
-        save_state()
-    elif not control_names or not test_names:
+    # Auto-update groups
+    if not control_names or not test_names:
         if not control_names:
             st.info("Select at least one character for the Control group.")
         if not test_names:

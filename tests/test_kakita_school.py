@@ -185,6 +185,21 @@ class TestKakitaNewPhaseListener(unittest.TestCase):
         responses = [e for e in listener.handle(self.kakita, event, self.context)]
         self.assertEqual(0, len(responses))
 
+    def test_targets_enemy_not_ally(self):
+        # With an ally in the same group, the 5th Dan strike should target
+        # an enemy, not the ally. Put enemy group first so ally appears
+        # later in context.characters() to expose ordering bugs.
+        ally = Character("ally")
+        enemy = Character("enemy")
+        groups = [Group("enemy", enemy), Group("Crane", [self.kakita, ally])]
+        context = EngineContext(groups)
+        listener = KakitaNewPhaseListener()
+        event = NewPhaseEvent(0)
+        responses = [e for e in listener.handle(self.kakita, event, context)]
+        self.assertEqual(1, len(responses))
+        response = responses[0]
+        self.assertEqual(enemy, response.defender())
+
 
 class TestKakitaRollParameterProvider(unittest.TestCase):
     """

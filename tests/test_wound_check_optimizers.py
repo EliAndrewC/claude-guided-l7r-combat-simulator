@@ -70,6 +70,17 @@ class TestDefaultWoundCheckOptimizer(unittest.TestCase):
         self.assertEqual(response.attacker, self.akagi)
         self.assertEqual(0, response.vp)
 
+    def test_declare_no_risk_of_max_sw(self):
+        # When max_sw is not in sw_to_roll (no risk of taking that many SW),
+        # declare should return vp=0 without error.
+        # Use very low damage so max_sw=2 is not in sw_to_roll.
+        event = LightWoundsDamageEvent(self.akodo, self.akagi, 5)
+        self.akagi.take_lw(5)
+        optimizer = DefaultWoundCheckOptimizer(self.akagi, event, self.context)
+        response = optimizer.declare(2, 0.7)
+        self.assertIsInstance(response, WoundCheckDeclaredEvent)
+        self.assertEqual(0, response.vp)
+
     def test_declare_one(self):
         #
         # test case where the character should spend 1 VP

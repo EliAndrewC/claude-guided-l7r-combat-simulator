@@ -53,7 +53,7 @@ class TestCharacterReader(unittest.TestCase):
         # assert expected rings
         self.assertEqual(3, character.ring("air"))
         self.assertEqual(4, character.ring("earth"))
-        self.assertEqual(5, character.ring("fire"))
+        self.assertEqual(6, character.ring("fire"))
         self.assertEqual(5, character.ring("water"))
         self.assertEqual(4, character.ring("void"))
         # assert expected skills

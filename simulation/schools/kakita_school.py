@@ -547,9 +547,6 @@ class KakitaNewPhaseListener(Listener):
         if isinstance(event, events.NewPhaseEvent) and event.phase == 0:
             initiative_action = InitiativeAction([], 0)
             target = self._target_finder.find_target(character, "iaijutsu", initiative_action, context)
-            for other_character in context.characters():
-                if other_character != character:
-                    target = other_character
             if target is not None:
                 # determine target's skill (iaijutsu or attack)
                 target_skill = "iaijutsu"

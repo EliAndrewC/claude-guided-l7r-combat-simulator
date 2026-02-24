@@ -1357,10 +1357,8 @@ class TestDefaultWoundCheckOptimizerMaxSWNotInDict(unittest.TestCase):
         # wound_check(0) with 5 LW = 1 + (5-0)//10 = 1 SW
         # wound_check(5) with 5 LW = 0 SW
         # So sw_to_roll = {1: 0, 0: 5}
-        # If we ask for max_sw=2, it's NOT in sw_to_roll, so line 128 returns early.
-        # NOTE: line 128 has a bug where 0 is passed as positional arg for tn
-        # and tn is also passed as keyword, causing TypeError. This test documents
-        # the existing behavior.
+        # If we ask for max_sw=2, it's NOT in sw_to_roll, so the early return
+        # fires with vp=0 (no resources needed since there's no risk).
         akagi = Character("Akagi")
         akagi.set_ring("water", 3)
         akodo = Character("Akodo")
@@ -1370,8 +1368,9 @@ class TestDefaultWoundCheckOptimizerMaxSWNotInDict(unittest.TestCase):
         event = LightWoundsDamageEvent(akodo, akagi, 5)
         akagi.take_lw(5)
         optimizer = DefaultWoundCheckOptimizer(akagi, event, context)
-        with self.assertRaises(TypeError):
-            optimizer.declare(2, 0.9)
+        response = optimizer.declare(2, 0.9)
+        self.assertIsInstance(response, WoundCheckDeclaredEvent)
+        self.assertEqual(0, response.vp)
 
 
 class TestDefaultWoundCheckOptimizerWithMaxVP(unittest.TestCase):
