@@ -74,11 +74,18 @@ class BayushiWoundCheckProvider(WoundCheckProvider):
     """
     WoundCheckProvider to implement the Bayushi 5th Dan ability
     to take Serious Wounds as if the character had half as many light wounds.
+
+    A failed wound check (roll < actual LW) always results in at least 1 SW.
+    The halving only reduces severity but cannot eliminate SW entirely.
     """
 
     def wound_check(self, roll, lw=None):
-        lw = lw // 2
-        return DEFAULT_WOUND_CHECK_PROVIDER.wound_check(roll, lw)
+        halved_lw = lw // 2
+        result = DEFAULT_WOUND_CHECK_PROVIDER.wound_check(roll, halved_lw)
+        # A failed wound check always results in at least 1 SW
+        if result == 0 and roll < lw:
+            return 1
+        return result
 
 
 class BayushiFeintAction(FeintAction):

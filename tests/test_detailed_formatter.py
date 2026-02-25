@@ -4,6 +4,14 @@ import unittest
 from unittest.mock import MagicMock
 
 from simulation import events
+from simulation.events import (
+    CounterattackDeclaredEvent,
+    CounterattackFailedEvent,
+    CounterattackRolledEvent,
+    CounterattackSucceededEvent,
+    TakeCounterattackActionEvent,
+)
+from simulation.schools.daidoji_school import DaidojiTakeCounterattackActionEvent
 from simulation.schools.kakita_school import (
     ContestedIaijutsuAttackDeclaredEvent,
     ContestedIaijutsuAttackRolledEvent,
@@ -1745,6 +1753,151 @@ class TestSingularPlural(unittest.TestCase):
         lines = fmt.format_history([sw_dmg])
         sw_line = [ln for ln in lines if "serious" in ln.lower()][0]
         self.assertIn("2 serious wounds", sw_line)
+
+
+class TestFormatterCounterattack(unittest.TestCase):
+    def _make_counterattack_action(
+        self, subject_name="Daidoji", target_name="Bayushi", skill="counterattack",
+        skill_roll=35, is_hit=True,
+    ):
+        action = MagicMock()
+        subject = MagicMock()
+        subject.name.return_value = subject_name
+        subject.get_damage_roll_params.return_value = (5, 2, 0)
+        target = MagicMock()
+        target.name.return_value = target_name
+        action.subject.return_value = subject
+        action.target.return_value = target
+        action.skill.return_value = skill
+        action.skill_roll.return_value = skill_roll
+        action.vp.return_value = 0
+        action.is_hit.return_value = is_hit
+        action.parried.return_value = False
+        action.calculate_extra_damage_dice.return_value = 2
+        action.tn.return_value = 25
+        return action
+
+    def test_combined_counterattack_hit(self):
+        """Combined counterattack line shows 'counterattacks' and 'HIT!'."""
+        fmt = DetailedEventFormatter()
+        action = self._make_counterattack_action()
+
+        take = TakeCounterattackActionEvent(action)
+        rolled = CounterattackRolledEvent(action, 35)
+        rolled._detail_dice = [10, 9, 8, 5, 3]
+        rolled._detail_params = (5, 3, 0)
+        rolled._detail_tn = 25
+
+        lines = fmt.format_history([take, rolled])
+        ca_lines = [ln for ln in lines if "counterattacks" in ln]
+        self.assertEqual(1, len(ca_lines))
+        line = ca_lines[0]
+        self.assertIn("⚔️", line)
+        self.assertIn("counterattacks Bayushi", line)
+        self.assertIn("HIT!", line)
+        self.assertIn("5k3", line)
+        self.assertIn("TN 25", line)
+
+    def test_combined_counterattack_miss(self):
+        """Combined counterattack line shows 'MISS'."""
+        fmt = DetailedEventFormatter()
+        action = self._make_counterattack_action(is_hit=False, skill_roll=18)
+
+        take = TakeCounterattackActionEvent(action)
+        rolled = CounterattackRolledEvent(action, 18)
+        rolled._detail_dice = [9, 5, 4, 2, 1]
+        rolled._detail_params = (5, 3, 0)
+        rolled._detail_tn = 25
+
+        lines = fmt.format_history([take, rolled])
+        ca_lines = [ln for ln in lines if "counterattacks" in ln]
+        self.assertEqual(1, len(ca_lines))
+        self.assertIn("MISS", ca_lines[0])
+
+    def test_standalone_counterattack_rolled(self):
+        """CounterattackRolledEvent without preceding TakeCounterattackActionEvent."""
+        fmt = DetailedEventFormatter()
+        action = self._make_counterattack_action()
+
+        rolled = CounterattackRolledEvent(action, 35)
+        rolled._detail_dice = [10, 9, 8, 5, 3]
+        rolled._detail_params = (5, 3, 0)
+        rolled._detail_tn = 25
+
+        lines = fmt.format_history([rolled])
+        self.assertTrue(any("Counterattack:" in ln for ln in lines))
+        self.assertTrue(any("HIT!" in ln for ln in lines))
+
+    def test_daidoji_take_counterattack_event_rendered(self):
+        """DaidojiTakeCounterattackActionEvent (subclass) is also rendered."""
+        fmt = DetailedEventFormatter()
+        action = self._make_counterattack_action()
+
+        take = DaidojiTakeCounterattackActionEvent(action)
+        rolled = CounterattackRolledEvent(action, 35)
+        rolled._detail_dice = [10, 9, 8, 5, 3]
+        rolled._detail_params = (5, 3, 0)
+        rolled._detail_tn = 25
+
+        lines = fmt.format_history([take, rolled])
+        ca_lines = [ln for ln in lines if "counterattacks" in ln]
+        self.assertEqual(1, len(ca_lines))
+        self.assertIn("HIT!", ca_lines[0])
+
+    def test_counterattack_declared_skipped(self):
+        """CounterattackDeclaredEvent should be silently skipped."""
+        fmt = DetailedEventFormatter()
+        action = self._make_counterattack_action()
+        event = CounterattackDeclaredEvent(action)
+        lines = fmt.format_history([event])
+        self.assertEqual([], lines)
+
+    def test_counterattack_succeeded_skipped(self):
+        """CounterattackSucceededEvent should be silently skipped."""
+        fmt = DetailedEventFormatter()
+        action = self._make_counterattack_action()
+        event = CounterattackSucceededEvent(action)
+        lines = fmt.format_history([event])
+        self.assertEqual([], lines)
+
+    def test_counterattack_failed_skipped(self):
+        """CounterattackFailedEvent should be silently skipped."""
+        fmt = DetailedEventFormatter()
+        action = self._make_counterattack_action()
+        event = CounterattackFailedEvent(action)
+        lines = fmt.format_history([event])
+        self.assertEqual([], lines)
+
+
+class TestFormatterDoubleAttackSWLabel(unittest.TestCase):
+    def test_double_attack_sw_shows_penalty_label(self):
+        """SeriousWoundsDamageEvent with _from_double_attack shows '(double attack penalty)'."""
+        fmt = DetailedEventFormatter()
+        attacker = MagicMock()
+        attacker.name.return_value = "Bayushi"
+        target = MagicMock()
+        target.name.return_value = "Daidoji"
+
+        sw_dmg = events.SeriousWoundsDamageEvent(attacker, target, 1)
+        sw_dmg._from_double_attack = True
+
+        lines = fmt.format_history([sw_dmg])
+        sw_line = [ln for ln in lines if "serious" in ln.lower()][0]
+        self.assertIn("double attack penalty", sw_line)
+
+    def test_normal_sw_no_penalty_label(self):
+        """Normal SeriousWoundsDamageEvent should NOT show '(double attack penalty)'."""
+        fmt = DetailedEventFormatter()
+        attacker = MagicMock()
+        attacker.name.return_value = "Bayushi"
+        target = MagicMock()
+        target.name.return_value = "Daidoji"
+
+        sw_dmg = events.SeriousWoundsDamageEvent(attacker, target, 1)
+
+        lines = fmt.format_history([sw_dmg])
+        sw_line = [ln for ln in lines if "serious" in ln.lower()][0]
+        self.assertNotIn("double attack penalty", sw_line)
 
 
 if __name__ == "__main__":

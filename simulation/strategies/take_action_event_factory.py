@@ -12,8 +12,8 @@
 
 from abc import ABC, abstractmethod
 
-from simulation.actions import AttackAction, ParryAction
-from simulation.events import TakeAttackActionEvent, TakeParryActionEvent
+from simulation.actions import AttackAction, CounterattackAction, ParryAction
+from simulation.events import TakeAttackActionEvent, TakeCounterattackActionEvent, TakeParryActionEvent
 
 
 class TakeActionEventFactory(ABC):
@@ -31,13 +31,18 @@ class TakeActionEventFactory(ABC):
         pass
 
     @abstractmethod
+    def get_take_counterattack_action_event(self, action):
+        pass
+
+    @abstractmethod
     def get_take_parry_action_event(self, action):
         pass
 
 
 class DefaultTakeActionEventFactory(TakeActionEventFactory):
     """
-    Provider for standard TakeAttackActionEvent and TakeParryActionEvent.
+    Provider for standard TakeAttackActionEvent, TakeCounterattackActionEvent,
+    and TakeParryActionEvent.
     """
 
     def get_take_attack_action_event(self, action):
@@ -51,6 +56,18 @@ class DefaultTakeActionEventFactory(TakeActionEventFactory):
             return TakeAttackActionEvent(action)
         else:
             raise ValueError("get_take_attack_action_event only supports TakeAttackAction")
+
+    def get_take_counterattack_action_event(self, action):
+        """
+        get_take_counterattack_action_event(action) -> TakeCounterattackActionEvent
+          action (CounterattackAction): a CounterattackAction
+
+        Returns a TakeCounterattackActionEvent to run a counterattack.
+        """
+        if isinstance(action, CounterattackAction):
+            return TakeCounterattackActionEvent(action)
+        else:
+            raise ValueError("get_take_counterattack_action_event requires CounterattackAction")
 
     def get_take_parry_action_event(self, action):
         """

@@ -2,6 +2,7 @@
 
 from simulation import events
 from simulation.engine import CombatEngine
+from simulation.events import CounterattackRolledEvent, TakeCounterattackActionEvent
 from simulation.mechanics.roll import DEFAULT_DIE_PROVIDER, DieProvider
 from simulation.mechanics.roll_provider import RollProvider
 from simulation.schools.kakita_school import ContestedIaijutsuAttackRolledEvent
@@ -149,8 +150,12 @@ class CombatObserver:
             self._first_phase_of_round = True
         elif isinstance(event, events.NewPhaseEvent):
             self._annotate_phase(event, context)
+        elif isinstance(event, TakeCounterattackActionEvent):
+            self._annotate_take_attack(event, context)
         elif isinstance(event, events.TakeAttackActionEvent):
             self._annotate_take_attack(event, context)
+        elif isinstance(event, CounterattackRolledEvent):
+            self._annotate_counterattack_rolled(event)
         elif isinstance(event, events.AttackRolledEvent):
             self._annotate_attack_rolled(event)
         elif isinstance(event, events.AttackSucceededEvent):
@@ -215,7 +220,16 @@ class CombatObserver:
         info = provider.last_skill_info() if hasattr(provider, "last_skill_info") else None
         event._detail_dice = info["dice"] if info else []
         event._detail_params = event.action.skill_roll_params()
-        event._detail_tn = event.action.target().tn_to_hit()
+        event._detail_tn = event.action.tn()
+        event._detail_base_tn = event.action.target().tn_to_hit()
+
+    def _annotate_counterattack_rolled(self, event):
+        subject = event.action.subject()
+        provider = subject.roll_provider()
+        info = provider.last_skill_info() if hasattr(provider, "last_skill_info") else None
+        event._detail_dice = info["dice"] if info else []
+        event._detail_params = event.action.skill_roll_params()
+        event._detail_tn = event.action.tn()
 
     def _annotate_parry_rolled(self, event):
         subject = event.action.subject()

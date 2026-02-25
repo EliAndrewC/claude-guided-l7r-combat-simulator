@@ -1,6 +1,13 @@
 """DetailedEventFormatter for rich combat play-by-play output with emojis and combined events."""
 
 from simulation import events
+from simulation.events import (
+    CounterattackDeclaredEvent,
+    CounterattackFailedEvent,
+    CounterattackRolledEvent,
+    CounterattackSucceededEvent,
+    TakeCounterattackActionEvent,
+)
 from simulation.schools.kakita_school import (
     ContestedIaijutsuAttackDeclaredEvent,
     ContestedIaijutsuAttackRolledEvent,
@@ -26,6 +33,7 @@ _SKIP_EVENTS = (
     events.AttackSucceededEvent,
     events.AttackFailedEvent,
     events.ParryDeclaredEvent,
+    events.SpendActionEvent,
     events.WoundCheckDeclaredEvent,
     events.WoundCheckSucceededEvent,
     events.WoundCheckFailedEvent,
@@ -34,6 +42,9 @@ _SKIP_EVENTS = (
     events.YourMoveEvent,
     events.HoldActionEvent,
     events.NoActionEvent,
+    CounterattackDeclaredEvent,
+    CounterattackSucceededEvent,
+    CounterattackFailedEvent,
     ContestedIaijutsuAttackDeclaredEvent,
     TakeContestedIaijutsuAttackAction,
 )
@@ -104,7 +115,35 @@ class DetailedEventFormatter:
                 # Lookahead for matching AttackRolledEvent
                 rolled_idx = self._find_attack_rolled(history, i + 1, event.action)
                 if rolled_idx is not None:
-                    # Collect VP events between, and consume them
+                    # Check if counterattack events are interleaved
+                    has_counter = self._has_counterattack_between(history, i + 1, rolled_idx)
+                    if has_counter:
+                        # Don't combine — show declaration only; counterattack
+                        # and AttackRolledEvent will render in order
+                        lines.extend(self._format_take_attack(event))
+                    else:
+                        # Collect VP events between, filtering by attacker subject
+                        # to avoid consuming counterattacker's VP events
+                        vp_events: list = []
+                        attacker = event.action.subject()
+                        for j in range(i + 1, rolled_idx):
+                            if j in consumed:
+                                continue
+                            if isinstance(history[j], events.SpendVoidPointsEvent):
+                                if history[j].subject == attacker:
+                                    vp_events.append(history[j])
+                                    consumed.add(j)
+                        vp_infix = self._build_vp_infix(vp_events)
+                        lines.extend(self._format_combined_attack(event, history[rolled_idx], vp_infix=vp_infix))
+                        consumed.add(rolled_idx)
+                else:
+                    lines.extend(self._format_take_attack(event))
+                combat_output_since_status = True
+
+            elif isinstance(event, TakeCounterattackActionEvent):
+                # Lookahead for matching CounterattackRolledEvent
+                rolled_idx = self._find_counterattack_rolled(history, i + 1, event.action)
+                if rolled_idx is not None:
                     vp_events: list = []
                     for j in range(i + 1, rolled_idx):
                         if j in consumed:
@@ -113,10 +152,14 @@ class DetailedEventFormatter:
                             vp_events.append(history[j])
                             consumed.add(j)
                     vp_infix = self._build_vp_infix(vp_events)
-                    lines.extend(self._format_combined_attack(event, history[rolled_idx], vp_infix=vp_infix))
+                    lines.extend(self._format_combined_counterattack(event, history[rolled_idx], vp_infix=vp_infix))
                     consumed.add(rolled_idx)
                 else:
-                    lines.extend(self._format_take_attack(event))
+                    lines.extend(self._format_take_counterattack(event))
+                combat_output_since_status = True
+
+            elif isinstance(event, CounterattackRolledEvent):
+                lines.extend(self._format_counterattack_rolled(event))
                 combat_output_since_status = True
 
             elif isinstance(event, events.AttackRolledEvent):
@@ -229,6 +272,11 @@ class DetailedEventFormatter:
         skill = event.action.skill()
         return [f"{self._phase_prefix(subj)} ⚔️ attacks {tgt} ({skill})"]
 
+    def _format_take_counterattack(self, event) -> list[str]:
+        subj = event.action.subject().name()
+        tgt = event.action.target().name()
+        return [f"{self._phase_prefix(subj)} ⚔️ counterattacks {tgt}"]
+
     def _format_take_parry(self, event) -> list[str]:
         subj = event.action.subject().name()
         tgt = event.action.target().name()
@@ -242,6 +290,8 @@ class DetailedEventFormatter:
         dice = event._detail_dice
         rolled, kept, mod = event._detail_params
         tn = event._detail_tn
+        base_tn = getattr(event, "_detail_base_tn", tn)
+        tn_str = self._format_tn(tn, base_tn)
         name = event.action.subject().name()
 
         kept_sum = sum(dice[:kept]) if dice else event.roll
@@ -259,10 +309,9 @@ class DetailedEventFormatter:
         if hit:
             emoji = "🎯"
             result = "HIT!"
-            # Add extra info for hits
-            # Pass captured TN so extra dice are computed against the TN at roll
-            # time, not the target's current (possibly changed) tn_to_hit().
-            extra_dice = event.action.calculate_extra_damage_dice(tn=tn)
+            # Use base TN for extra dice calculation (double attack computes
+            # extra dice against the base TN, not the inflated +20 TN).
+            extra_dice = event.action.calculate_extra_damage_dice(tn=base_tn)
             subject = event.action.subject()
             target = event.action.target()
             damage_params = subject.get_damage_roll_params(
@@ -278,11 +327,32 @@ class DetailedEventFormatter:
                 dr, dk, dm = damage_params
                 extras.append(f"damage will be {dr}k{dk}")
             extra_str = f" ({', '.join(extras)})" if extras else ""
-            return [f"{self._phase_prefix(name)} {emoji} Attack: {roll_str} vs TN {tn} — {result}{extra_str}"]
+            return [f"{self._phase_prefix(name)} {emoji} Attack: {roll_str} vs {tn_str} — {result}{extra_str}"]
         else:
             emoji = "❌"
             result = "MISS"
-            return [f"{self._phase_prefix(name)} {emoji} Attack: {roll_str} vs TN {tn} — {result}"]
+            return [f"{self._phase_prefix(name)} {emoji} Attack: {roll_str} vs {tn_str} — {result}"]
+
+    def _format_counterattack_rolled(self, event) -> list[str]:
+        """Standalone counterattack roll with hit/miss result."""
+        if not hasattr(event, "_detail_dice"):
+            return [f"  Counterattack Roll: {event.roll}"]
+
+        dice = event._detail_dice
+        rolled, kept, mod = event._detail_params
+        tn = event._detail_tn
+        name = event.action.subject().name()
+
+        roll_str, total = self._build_roll_str(dice, rolled, kept, mod, event.roll)
+
+        hit = event.action.is_hit()
+        if hit:
+            emoji = "🎯"
+            result = "HIT!"
+        else:
+            emoji = "❌"
+            result = "MISS"
+        return [f"{self._phase_prefix(name)} {emoji} Counterattack: {roll_str} vs TN {tn} — {result}"]
 
     def _format_contested_iaijutsu_rolled(self, event) -> list[str]:
         """Format a contested iaijutsu attack rolled event."""
@@ -390,7 +460,8 @@ class DetailedEventFormatter:
         name = event.target.name()
         hearts = "💔" * event.damage
         noun = "wound" if event.damage == 1 else "wounds"
-        return [f"{self._phase_prefix(name)} {hearts} {name} takes {event.damage} serious {noun}"]
+        suffix = " (double attack penalty)" if getattr(event, "_from_double_attack", False) else ""
+        return [f"{self._phase_prefix(name)} {hearts} {name} takes {event.damage} serious {noun}{suffix}"]
 
     def _format_wound_check_rolled(self, event, emoji: str | None = None, vp_infix: str = "") -> list[str]:
         """Combine wound check roll with pass/fail."""
@@ -429,14 +500,40 @@ class DetailedEventFormatter:
 
     # ── Lookahead helpers ──────────────────────────────────────────────
 
+    @staticmethod
+    def _has_counterattack_between(history: list, start: int, end: int) -> bool:
+        """Check if any TakeCounterattackActionEvent exists in [start, end)."""
+        for j in range(start, end):
+            if isinstance(history[j], TakeCounterattackActionEvent):
+                return True
+        return False
+
     def _find_attack_rolled(
         self, history: list, start: int, action: object,
     ) -> int | None:
-        """Scan forward up to 5 events for a matching AttackRolledEvent."""
-        limit = min(start + 5, len(history))
+        """Scan forward for a matching AttackRolledEvent.
+
+        With counterattack events now interleaved between TakeAttackActionEvent
+        and AttackRolledEvent, we scan up to 40 events and stop only at
+        round/phase boundaries.
+        """
+        limit = min(start + 40, len(history))
         for j in range(start, limit):
             evt = history[j]
             if isinstance(evt, events.AttackRolledEvent) and evt.action is action:
+                return j
+            if isinstance(evt, (events.NewRoundEvent, events.NewPhaseEvent)):
+                break
+        return None
+
+    def _find_counterattack_rolled(
+        self, history: list, start: int, action: object,
+    ) -> int | None:
+        """Scan forward up to 5 events for a matching CounterattackRolledEvent."""
+        limit = min(start + 5, len(history))
+        for j in range(start, limit):
+            evt = history[j]
+            if isinstance(evt, CounterattackRolledEvent) and evt.action is action:
                 return j
             if isinstance(evt, _SKIP_EVENTS) or isinstance(evt, events.SpendVoidPointsEvent):
                 continue
@@ -562,6 +659,13 @@ class DetailedEventFormatter:
         return roll_str, total
 
     @staticmethod
+    def _format_tn(tn: int, base_tn: int | None = None) -> str:
+        """Format TN for display, showing base TN when it differs (e.g. double attack)."""
+        if base_tn is not None and base_tn != tn:
+            return f"TN {tn} (base TN {base_tn})"
+        return f"TN {tn}"
+
+    @staticmethod
     def _build_vp_infix(vp_events: list) -> str:
         """Build a VP prefix like '⬛ spends 1 VP on attack → ' (or '' if empty)."""
         if not vp_events:
@@ -584,10 +688,51 @@ class DetailedEventFormatter:
         dice = rolled_event._detail_dice
         rolled, kept, mod = rolled_event._detail_params
         tn = rolled_event._detail_tn
+        base_tn = getattr(rolled_event, "_detail_base_tn", tn)
+        tn_str = self._format_tn(tn, base_tn)
 
         roll_str, total = self._build_roll_str(dice, rolled, kept, mod, rolled_event.roll)
 
         hit = action.is_hit() and not action.parried()
+        if hit:
+            result = "HIT!"
+            extra_dice = action.calculate_extra_damage_dice(tn=base_tn)
+            subject = action.subject()
+            target = action.target()
+            damage_params = subject.get_damage_roll_params(
+                target, action.skill(), extra_dice, action.vp()
+            )
+            extras = []
+            margin = total - tn
+            if margin > 0:
+                extras.append(f"+{margin} over TN")
+            if extra_dice > 0:
+                extras.append(f"{extra_dice} extra damage {'die' if extra_dice == 1 else 'dice'}")
+            if damage_params:
+                dr, dk, _dm = damage_params
+                extras.append(f"damage will be {dr}k{dk}")
+            extra_str = f" ({', '.join(extras)})" if extras else ""
+            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ attacks {tgt} ({skill}) — {roll_str} vs {tn_str} — {result}{extra_str}"]
+        else:
+            result = "MISS"
+            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ attacks {tgt} ({skill}) — {roll_str} vs {tn_str} — {result}"]
+
+    def _format_combined_counterattack(self, take_event: object, rolled_event: object, vp_infix: str = "") -> list[str]:
+        """Build a combined 'counterattacks TARGET — roll vs TN — RESULT' line."""
+        action = take_event.action
+        subj = action.subject().name()
+        tgt = action.target().name()
+
+        if not hasattr(rolled_event, "_detail_dice"):
+            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ counterattacks {tgt} — Roll: {rolled_event.roll}"]
+
+        dice = rolled_event._detail_dice
+        rolled, kept, mod = rolled_event._detail_params
+        tn = rolled_event._detail_tn
+
+        roll_str, total = self._build_roll_str(dice, rolled, kept, mod, rolled_event.roll)
+
+        hit = action.is_hit()
         if hit:
             result = "HIT!"
             extra_dice = action.calculate_extra_damage_dice(tn=tn)
@@ -606,10 +751,10 @@ class DetailedEventFormatter:
                 dr, dk, _dm = damage_params
                 extras.append(f"damage will be {dr}k{dk}")
             extra_str = f" ({', '.join(extras)})" if extras else ""
-            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ attacks {tgt} ({skill}) — {roll_str} vs TN {tn} — {result}{extra_str}"]
+            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ counterattacks {tgt} — {roll_str} vs TN {tn} — {result}{extra_str}"]
         else:
             result = "MISS"
-            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ attacks {tgt} ({skill}) — {roll_str} vs TN {tn} — {result}"]
+            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ counterattacks {tgt} — {roll_str} vs TN {tn} — {result}"]
 
     def _format_combined_parry(self, take_event: object, rolled_event: object) -> list[str]:
         """Build a combined 'parries TARGET — roll vs TN — RESULT' line."""

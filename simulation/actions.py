@@ -214,7 +214,9 @@ class DoubleAttackAction(AttackAction):
     def direct_damage(self):
         if self.parry_attempted():
             return None
-        return SeriousWoundsDamageEvent(self.subject(), self.target(), 1)
+        event = SeriousWoundsDamageEvent(self.subject(), self.target(), 1)
+        event._from_double_attack = True
+        return event
 
     def tn(self):
         return self.target().tn_to_hit() + 20

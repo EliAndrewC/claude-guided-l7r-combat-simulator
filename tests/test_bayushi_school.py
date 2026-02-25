@@ -54,35 +54,55 @@ class TestBayushiActionFactory(unittest.TestCase):
 
 
 class TestBayushiWoundCheckProvider(unittest.TestCase):
-    def test_default_lw(self):
-        # provider should return 0 SW for 50 LW with a roll of 30
+    def test_halved_lw_still_fails(self):
+        # 50 LW, roll 30: check fails (30 < 50).
+        # Halved LW = 25, so default provider would say 0 SW (30 >= 25).
+        # But a failed check always results in at least 1 SW.
         provider = bayushi_school.BayushiWoundCheckProvider()
-        self.assertEqual(0, provider.wound_check(30, 50))
-        # set up the same test using a character with the provider
+        self.assertEqual(1, provider.wound_check(30, 50))
+        # same test using a character with the provider
         bayushi = Character("Bayushi")
         bayushi.set_wound_check_provider(provider)
         bayushi.take_lw(50)
-        roll = 30
-        # Bayushi would take 3 SW from a normal Wound Check, but takes 0 from the school wound check
-        self.assertEqual(0, bayushi.wound_check(roll))
+        self.assertEqual(1, bayushi.wound_check(30))
 
     def test_large_damage(self):
-        # provider should return 0 SW for 50 LW with a roll of 30
+        # 100 LW, roll 30: check fails badly (30 < 100).
+        # Halved LW = 50, default provider: 1 + ((50 - 30) // 10) = 3 SW.
         provider = bayushi_school.BayushiWoundCheckProvider()
         self.assertEqual(3, provider.wound_check(30, 100))
-        # set up the same test using a character with the provider
+        # same test using a character with the provider
         bayushi = Character("Bayushi")
         bayushi.set_wound_check_provider(provider)
         bayushi.take_lw(100)
-        # Bayushi would take 8 SW from a normal Wound Check, but takes 3 from the school wound check
+        # Normal would be 8 SW, Bayushi takes 3 SW
         self.assertEqual(3, bayushi.wound_check(30))
+
+    def test_roll_between_halved_and_actual_lw(self):
+        # 58 LW, roll 32: check fails (32 < 58).
+        # Halved LW = 29, default provider would say 0 SW (32 >= 29).
+        # But a failed check always results in at least 1 SW.
+        provider = bayushi_school.BayushiWoundCheckProvider()
+        self.assertEqual(1, provider.wound_check(32, 58))
+
+    def test_successful_wound_check(self):
+        # 20 LW, roll 25: check succeeds (25 >= 20), 0 SW.
+        # Halving doesn't matter here since the check passed.
+        provider = bayushi_school.BayushiWoundCheckProvider()
+        self.assertEqual(0, provider.wound_check(25, 20))
+
+    def test_example_from_rules(self):
+        # 58 LW, roll 22: check fails badly (22 < 58).
+        # Normal: 1 + ((58 - 22) // 10) = 4 SW.
+        # Halved LW = 29: 1 + ((29 - 22) // 10) = 1 SW.
+        provider = bayushi_school.BayushiWoundCheckProvider()
+        self.assertEqual(1, provider.wound_check(22, 58))
 
     def test_specified_lw(self):
         bayushi = Character("Bayushi")
         bayushi.set_wound_check_provider(bayushi_school.BayushiWoundCheckProvider())
-        roll = 30
-        # Bayushi would take 3 SW from a normal Wound Check, but takes 0 from the school wound check
-        self.assertEqual(0, bayushi.wound_check(roll, lw=50))
+        # 50 LW, roll 30: fails (30 < 50), at least 1 SW
+        self.assertEqual(1, bayushi.wound_check(30, lw=50))
 
 
 class TestBayushiFeintAction(unittest.TestCase):

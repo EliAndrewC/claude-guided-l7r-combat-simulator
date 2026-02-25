@@ -79,7 +79,9 @@ class AttackDeclaredListener(Listener):
     def handle(self, character, event, context):
         if isinstance(event, events.AttackDeclaredEvent):
             if character != event.action.subject():
-                # TODO: implement something for predeclaring parries
+                # Counterattack interrupt opportunity (before attack rolls)
+                yield from character.interrupt_strategy().recommend(character, event, context)
+                # Lunge modifier handling
                 if event.action.skill() == "lunge":
                     if event.action.subject() not in character.group():
                         # gain expiring modifier for lunge
@@ -97,7 +99,7 @@ class AttackRolledListener(Listener):
         if isinstance(event, events.AttackRolledEvent):
             if character != event.action.subject():
                 character.knowledge().observe_attack_roll(event.action.subject(), event.roll)
-                yield from character.parry_strategy().recommend(character, event, context)
+                yield from character.interrupt_strategy().recommend(character, event, context)
 
 
 class FeintSucceededListener(Listener):

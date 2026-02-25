@@ -49,9 +49,7 @@ class TestTargetFinder(unittest.TestCase):
 
     def test_find_easiest_target(self):
         finder = TargetFinder()
-        # initial knowledge should find hida easier to hit, because the default tn to hit is 20
-        self.akodo.knowledge().observe_tn_to_hit(self.bayushi, 25)
-        self.assertEqual(self.hida, finder.find_easiest_target(self.akodo, "attack", self.initiative_action, self.context))
-        # with fuller knowledge, bayushi is the best target
-        self.akodo.knowledge().observe_tn_to_hit(self.hida, 30)
+        # After initialization, Akodo knows actual TNs:
+        # Bayushi (parry 4) = TN 25, Hida (parry 5) = TN 30
+        # So Bayushi is the easier target
         self.assertEqual(self.bayushi, finder.find_easiest_target(self.akodo, "attack", self.initiative_action, self.context))

@@ -36,9 +36,9 @@ FIELDNAMES = [
     "control_keep_lw_total_sum",
     "control_keep_lw_total_sumsquares",
     "control_sw",
-    "control_take_sw_total_count",
-    "control_take_sw_total_sum",
-    "control_take_sw_total_sumsquares",
+    "control_lw_at_voluntary_sw_count",
+    "control_lw_at_voluntary_sw_sum",
+    "control_lw_at_voluntary_sw_sumsquares",
     "control_vp_spent",
     "control_vp_spent_attacks",
     "control_vp_spent_wound_checks",
@@ -69,9 +69,9 @@ FIELDNAMES = [
     "test_keep_lw_total_sum",
     "test_keep_lw_total_sumsquares",
     "test_sw",
-    "test_take_sw_total_count",
-    "test_take_sw_total_sum",
-    "test_take_sw_total_sumsquares",
+    "test_lw_at_voluntary_sw_count",
+    "test_lw_at_voluntary_sw_sum",
+    "test_lw_at_voluntary_sw_sumsquares",
     "test_vp_spent",
     "test_vp_spent_attacks",
     "test_vp_spent_wound_checks",
@@ -260,6 +260,10 @@ class SummaryFeatures:
 
     def summarize_sw_remaining(self, datad, summaryd, n):
         #
+        # summarize sw taken
+        summaryd["control_sw_taken_mean"] = self.mean(datad["control_sw"], n)
+        summaryd["test_sw_taken_mean"] = self.mean(datad["test_sw"], n)
+        #
         # summarize sw remaining
         summaryd["test_sw_remaining_mean"] = self.mean(datad["test_sw_remaining"], n)
         summaryd["control_sw_remaining_mean"] = self.mean(datad["control_sw_remaining"], n)
@@ -268,8 +272,8 @@ class SummaryFeatures:
     def summarize_take_sw(self, datad, summaryd, n):
         #
         # mean LW total when taking a SW after successful Wound Check
-        summaryd["control_take_sw_total_mean"] = self.mean(datad["control_take_sw_total_sum"], datad["control_take_sw_total_count"])
-        summaryd["test_take_sw_total_mean"] = self.mean(datad["test_take_sw_total_sum"], datad["test_take_sw_total_count"])
+        summaryd["control_lw_at_voluntary_sw_mean"] = self.mean(datad["control_lw_at_voluntary_sw_sum"], datad["control_lw_at_voluntary_sw_count"])
+        summaryd["test_lw_at_voluntary_sw_mean"] = self.mean(datad["test_lw_at_voluntary_sw_sum"], datad["test_lw_at_voluntary_sw_count"])
         return
 
     def summarize_vp(self, datad, summaryd, n):
@@ -321,6 +325,7 @@ class SummaryFeatures:
         print("")
         # test group stats
         print("Test group stats:")
+        print("\tSW taken mean: {:.2f}".format(self._summary["test_sw_taken_mean"]))
         print("\tSW remaining mean: {:.2f}".format(self._summary["test_sw_remaining_mean"]))
         print("\tDamage roll mean: {:.2f}".format(self._summary["test_damage_mean"]))
         print("\tDamage roll stdev: {:.2f}".format(self._summary["test_damage_stdev"]))
@@ -337,10 +342,11 @@ class SummaryFeatures:
         print("\tFailed wound check mean LW: {:.2f}".format(self._summary["test_wc_failed_lw_total_mean"]))
         print("\tFailed wound check mean margin: {:.2f}".format(self._summary["test_wc_failed_margin_mean"]))
         print("\tMean LW kept: {:.2f}".format(self._summary["test_keep_lw_total_mean"]))
-        print("\tMean LW when voluntarily taking SW: {:.2f}".format(self._summary["test_take_sw_total_mean"]))
+        print("\tMean LW when voluntarily taking SW: {:.2f}".format(self._summary["test_lw_at_voluntary_sw_mean"]))
         print("")
         # control group stats
         print("Control group stats:")
+        print("\tSW taken mean: {:.2f}".format(self._summary["control_sw_taken_mean"]))
         print("\tSW remaining mean: {:.2f}".format(self._summary["control_sw_remaining_mean"]))
         print("\tDamage roll mean: {:.2f}".format(self._summary["control_damage_mean"]))
         print("\tDamage roll stdev: {:.2f}".format(self._summary["control_damage_stdev"]))
@@ -357,7 +363,7 @@ class SummaryFeatures:
         print("\tFailed wound check mean LW: {:.2f}".format(self._summary["control_wc_failed_lw_total_mean"]))
         print("\tFailed wound check mean margin: {:.2f}".format(self._summary["control_wc_failed_margin_mean"]))
         print("\tMean LW kept: {:.2f}".format(self._summary["control_keep_lw_total_mean"]))
-        print("\tMean LW when voluntarily taking SW: {:.2f}".format(self._summary["control_take_sw_total_mean"]))
+        print("\tMean LW when voluntarily taking SW: {:.2f}".format(self._summary["control_lw_at_voluntary_sw_mean"]))
         if self._test_victories > 0:
             # stats given test group victory
             print("")
@@ -366,6 +372,7 @@ class SummaryFeatures:
             print("\tAverage combat duration in phases: {:.2f}".format(self._test_summary["duration_phases_mean"]))
             print("\t")
             print("\tTest group stats:")
+            print("\t\tSW taken mean: {:.2f}".format(self._test_summary["test_sw_taken_mean"]))
             print("\t\tSW remaining mean: {:.2f}".format(self._test_summary["test_sw_remaining_mean"]))
             print("\t\tDamage roll mean: {:.2f}".format(self._test_summary["test_damage_mean"]))
             print("\t\tDamage roll stdev: {:.2f}".format(self._test_summary["test_damage_stdev"]))
@@ -382,9 +389,10 @@ class SummaryFeatures:
             print("\t\tFailed wound check mean LW: {:.2f}".format(self._test_summary["test_wc_failed_lw_total_mean"]))
             print("\t\tFailed wound check mean margin: {:.2f}".format(self._test_summary["test_wc_failed_margin_mean"]))
             print("\t\tMean LW kept: {:.2f}".format(self._test_summary["test_keep_lw_total_mean"]))
-            print("\t\tMean LW when voluntarily taking SW: {:.2f}".format(self._test_summary["test_take_sw_total_mean"]))
+            print("\t\tMean LW when voluntarily taking SW: {:.2f}".format(self._test_summary["test_lw_at_voluntary_sw_mean"]))
             print("\t")
             print("\tControl group stats:")
+            print("\t\tSW taken mean: {:.2f}".format(self._test_summary["control_sw_taken_mean"]))
             print("\t\tSW remaining mean: {:.2f}".format(self._test_summary["control_sw_remaining_mean"]))
             print("\t\tDamage roll mean: {:.2f}".format(self._test_summary["control_damage_mean"]))
             print("\t\tDamage roll stdev: {:.2f}".format(self._test_summary["control_damage_stdev"]))
@@ -401,7 +409,7 @@ class SummaryFeatures:
             print("\t\tFailed wound check mean LW: {:.2f}".format(self._test_summary["control_wc_failed_lw_total_mean"]))
             print("\t\tFailed wound check mean margin: {:.2f}".format(self._test_summary["control_wc_failed_margin_mean"]))
             print("\t\tMean LW kept: {:.2f}".format(self._test_summary["control_keep_lw_total_mean"]))
-            print("\t\tMean LW when voluntarily taking SW: {:.2f}".format(self._test_summary["control_take_sw_total_mean"]))
+            print("\t\tMean LW when voluntarily taking SW: {:.2f}".format(self._test_summary["control_lw_at_voluntary_sw_mean"]))
         if self._control_victories > 0:
             # stats given control group victory
             print("")
@@ -410,6 +418,7 @@ class SummaryFeatures:
             print("\tAverage combat duration in phases: {:.2f}".format(self._control_summary["duration_phases_mean"]))
             print("\t")
             print("\tTest group stats:")
+            print("\t\tSW taken mean: {:.2f}".format(self._control_summary["test_sw_taken_mean"]))
             print("\t\tSW remaining mean: {:.2f}".format(self._control_summary["test_sw_remaining_mean"]))
             print("\t\tDamage roll mean: {:.2f}".format(self._control_summary["test_damage_mean"]))
             print("\t\tDamage roll stdev: {:.2f}".format(self._control_summary["test_damage_stdev"]))
@@ -426,9 +435,10 @@ class SummaryFeatures:
             print("\t\tFailed wound check mean LW: {:.2f}".format(self._control_summary["test_wc_failed_lw_total_mean"]))
             print("\t\tFailed wound check mean margin: {:.2f}".format(self._control_summary["test_wc_failed_margin_mean"]))
             print("\t\tMean LW kept: {:.2f}".format(self._control_summary["test_keep_lw_total_mean"]))
-            print("\t\tMean LW when voluntarily taking SW: {:.2f}".format(self._control_summary["test_take_sw_total_mean"]))
+            print("\t\tMean LW when voluntarily taking SW: {:.2f}".format(self._control_summary["test_lw_at_voluntary_sw_mean"]))
             print("\t")
             print("\tControl group stats:")
+            print("\t\tSW taken mean: {:.2f}".format(self._control_summary["control_sw_taken_mean"]))
             print("\t\tSW remaining mean: {:.2f}".format(self._control_summary["control_sw_remaining_mean"]))
             print("\t\tDamage roll mean: {:.2f}".format(self._control_summary["control_damage_mean"]))
             print("\t\tDamage roll stdev: {:.2f}".format(self._control_summary["control_damage_stdev"]))
@@ -445,7 +455,7 @@ class SummaryFeatures:
             print("\t\tFailed wound check mean LW: {:.2f}".format(self._control_summary["control_wc_failed_lw_total_mean"]))
             print("\t\tFailed wound check mean margin: {:.2f}".format(self._control_summary["control_wc_failed_margin_mean"]))
             print("\t\tMean LW kept: {:.2f}".format(self._control_summary["control_keep_lw_total_mean"]))
-            print("\t\tMean LW when voluntarily taking SW: {:.2f}".format(self._control_summary["control_take_sw_total_mean"]))
+            print("\t\tMean LW when voluntarily taking SW: {:.2f}".format(self._control_summary["control_lw_at_voluntary_sw_mean"]))
         return
 
 
@@ -520,7 +530,7 @@ class TrialFeatures:
         self._data["control_sw_remaining"] = 0
         # control's wound checks
         self._data["control_keep_lw_total"] = []
-        self._data["control_take_sw_total"] = []
+        self._data["control_lw_at_voluntary_sw"] = []
         self._data["control_wc_failed"] = 0
         self._data["control_wc_failed_margin"] = []
         self._data["control_wc_failed_lw_total"] = []
@@ -548,7 +558,7 @@ class TrialFeatures:
         self._data["test_sw_remaining"] = 0
         # test's wound checks
         self._data["test_keep_lw_total"] = []
-        self._data["test_take_sw_total"] = []
+        self._data["test_lw_at_voluntary_sw"] = []
         self._data["test_wc_failed"] = 0
         self._data["test_wc_failed_margin"] = []
         self._data["test_wc_failed_lw_total"] = []
@@ -652,9 +662,9 @@ class TrialFeatures:
     def observe_take_sw(self, event, context):
         # observes LW total when character takes SW voluntarily
         if event.subject in context.test_group():
-            self._data["test_take_sw_total"].append(event.damage)
+            self._data["test_lw_at_voluntary_sw"].append(event.damage)
         else:
-            self._data["control_take_sw_total"].append(event.damage)
+            self._data["control_lw_at_voluntary_sw"].append(event.damage)
 
     def observe_vp_spent(self, event, context):
         if event.subject in context.test_group():
@@ -745,17 +755,17 @@ class TrialFeatures:
     def complete_take_sw(self, context):
         # get count, sum, and sum of squares for control LW total
         # when voluntarily taking SW after a successful wound check
-        control_take_sw_total = self._data["control_take_sw_total"]
-        self._data["control_take_sw_total_sum"] = sum(control_take_sw_total)
-        self._data["control_take_sw_total_sumsquares"] = sum([x * x for x in control_take_sw_total])
-        self._data["control_take_sw_total_count"] = len(control_take_sw_total)
-        self._data.pop("control_take_sw_total")
+        control_lw_at_voluntary_sw = self._data["control_lw_at_voluntary_sw"]
+        self._data["control_lw_at_voluntary_sw_sum"] = sum(control_lw_at_voluntary_sw)
+        self._data["control_lw_at_voluntary_sw_sumsquares"] = sum([x * x for x in control_lw_at_voluntary_sw])
+        self._data["control_lw_at_voluntary_sw_count"] = len(control_lw_at_voluntary_sw)
+        self._data.pop("control_lw_at_voluntary_sw")
         # same for test group
-        test_take_sw_total = self._data["test_take_sw_total"]
-        self._data["test_take_sw_total_sum"] = sum(test_take_sw_total)
-        self._data["test_take_sw_total_sumsquares"] = sum([x * x for x in test_take_sw_total])
-        self._data["test_take_sw_total_count"] = len(test_take_sw_total)
-        self._data.pop("test_take_sw_total")
+        test_lw_at_voluntary_sw = self._data["test_lw_at_voluntary_sw"]
+        self._data["test_lw_at_voluntary_sw_sum"] = sum(test_lw_at_voluntary_sw)
+        self._data["test_lw_at_voluntary_sw_sumsquares"] = sum([x * x for x in test_lw_at_voluntary_sw])
+        self._data["test_lw_at_voluntary_sw_count"] = len(test_lw_at_voluntary_sw)
+        self._data.pop("test_lw_at_voluntary_sw")
 
     def complete_vp_remaining(self, context):
         control_vp_remaining = sum([character.vp() for character in context.groups()[0]])

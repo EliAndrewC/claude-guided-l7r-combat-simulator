@@ -80,6 +80,7 @@ class Character:
             "spend_vp": listeners.SpendVoidPointsListener(),
             "sw_damage": listeners.SeriousWoundsDamageListener(),
             "take_attack": action_taken_listener,
+            "take_counterattack": action_taken_listener,
             "take_parry": action_taken_listener,
             "take_sw": listeners.TakeSeriousWoundListener(),
             "wound_check_declared": listeners.WoundCheckDeclaredListener(),
@@ -102,6 +103,7 @@ class Character:
             "attack": strategies.UniversalAttackStrategy(),
             "attack_rolled": strategies.AttackRolledStrategy(),
             "contested_iaijutsu_attack_declared": kakita_school.ContestedIaijutsuAttackDeclaredStrategy(),
+            "interrupt": strategies.DefaultInterruptStrategy(),
             "light_wounds": strategies.KeepLightWoundsStrategy(),
             "parry": strategies.ReluctantParryStrategy(),
             "parry_rolled": strategies.ParryRolledStrategy(),
@@ -346,6 +348,9 @@ class Character:
         using the given skill.
         """
         return self._interrupt_costs.get(skill, 2)
+
+    def interrupt_strategy(self):
+        return self._strategies["interrupt"]
 
     def initiative_priority(self, max_actions):
         """

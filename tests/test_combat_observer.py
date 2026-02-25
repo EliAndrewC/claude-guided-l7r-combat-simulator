@@ -51,6 +51,7 @@ class TestCombatObserverAttackRolled(unittest.TestCase):
         target = _make_character("Bayushi")
         action.target.return_value = target
         target.tn_to_hit.return_value = 15
+        action.tn.return_value = 15
         event = events.AttackRolledEvent(action, 29)
 
         context = MagicMock()
@@ -59,6 +60,33 @@ class TestCombatObserverAttackRolled(unittest.TestCase):
         self.assertEqual([9, 8, 7, 6, 4, 3, 2], event._detail_dice)
         self.assertEqual((7, 3, 5), event._detail_params)
         self.assertEqual(15, event._detail_tn)
+        self.assertEqual(15, event._detail_base_tn)
+
+    def test_double_attack_tn_uses_action_tn(self):
+        """For double attacks, _detail_tn should use action.tn() (base + 20)."""
+        observer = CombatObserver()
+        td = TestDice()
+        provider = DefaultRollProvider(die_provider=td)
+        char = _make_character("Akodo")
+        char.roll_provider.return_value = provider
+
+        td.extend([9, 8, 7, 6, 4, 3, 2])
+        provider.get_skill_roll("double attack", 7, 3)
+
+        action = MagicMock()
+        action.subject.return_value = char
+        action.skill_roll_params.return_value = (7, 3, 5)
+        target = _make_character("Bayushi")
+        action.target.return_value = target
+        target.tn_to_hit.return_value = 15
+        action.tn.return_value = 35  # base TN 15 + 20 for double attack
+        event = events.AttackRolledEvent(action, 29)
+
+        context = MagicMock()
+        observer.on_event(event, context)
+
+        self.assertEqual(35, event._detail_tn)
+        self.assertEqual(15, event._detail_base_tn)
 
     def test_no_annotation_when_no_last_roll(self):
         observer = CombatObserver()

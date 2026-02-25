@@ -1,0 +1,15 @@
+name: Hida
+school: Hida Bushi School
+xp: 450
+rings:
+  air: 4
+  earth: 5
+  fire: 4
+  water: 6
+  void: 4
+skills:
+  attack: 5
+  counterattack: 5
+  iaijutsu: 5
+  lunge: 5
+  parry: 5

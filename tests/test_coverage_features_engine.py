@@ -305,13 +305,13 @@ class TestSummaryFeaturesSummarizeMethods(unittest.TestCase):
 
     def test_summarize_take_sw(self):
         summary = {}
-        self.data["control_take_sw_total_sum"] = 60
-        self.data["control_take_sw_total_count"] = 3
-        self.data["test_take_sw_total_sum"] = 80
-        self.data["test_take_sw_total_count"] = 4
+        self.data["control_lw_at_voluntary_sw_sum"] = 60
+        self.data["control_lw_at_voluntary_sw_count"] = 3
+        self.data["test_lw_at_voluntary_sw_sum"] = 80
+        self.data["test_lw_at_voluntary_sw_count"] = 4
         self.sf.summarize_take_sw(self.data, summary, 5)
-        self.assertAlmostEqual(20.0, summary["control_take_sw_total_mean"])
-        self.assertAlmostEqual(20.0, summary["test_take_sw_total_mean"])
+        self.assertAlmostEqual(20.0, summary["control_lw_at_voluntary_sw_mean"])
+        self.assertAlmostEqual(20.0, summary["test_lw_at_voluntary_sw_mean"])
 
 
 class TestSummaryFeaturesSummarize(unittest.TestCase):
@@ -356,12 +356,12 @@ class TestSummaryFeaturesSummarize(unittest.TestCase):
             row1["test_keep_lw_total_count"] = 1
             row1["test_keep_lw_total_sum"] = 15
             row1["test_keep_lw_total_sumsquares"] = 225
-            row1["control_take_sw_total_count"] = 0
-            row1["control_take_sw_total_sum"] = 0
-            row1["control_take_sw_total_sumsquares"] = 0
-            row1["test_take_sw_total_count"] = 1
-            row1["test_take_sw_total_sum"] = 20
-            row1["test_take_sw_total_sumsquares"] = 400
+            row1["control_lw_at_voluntary_sw_count"] = 0
+            row1["control_lw_at_voluntary_sw_sum"] = 0
+            row1["control_lw_at_voluntary_sw_sumsquares"] = 0
+            row1["test_lw_at_voluntary_sw_count"] = 1
+            row1["test_lw_at_voluntary_sw_sum"] = 20
+            row1["test_lw_at_voluntary_sw_sumsquares"] = 400
             row1["control_vp_remaining"] = 1
             row1["test_vp_remaining"] = 0
             row1["control_vp_spent"] = 1
@@ -431,12 +431,12 @@ class TestSummaryFeaturesSummarize(unittest.TestCase):
             row2["test_keep_lw_total_count"] = 2
             row2["test_keep_lw_total_sum"] = 25
             row2["test_keep_lw_total_sumsquares"] = 325
-            row2["control_take_sw_total_count"] = 1
-            row2["control_take_sw_total_sum"] = 25
-            row2["control_take_sw_total_sumsquares"] = 625
-            row2["test_take_sw_total_count"] = 0
-            row2["test_take_sw_total_sum"] = 0
-            row2["test_take_sw_total_sumsquares"] = 0
+            row2["control_lw_at_voluntary_sw_count"] = 1
+            row2["control_lw_at_voluntary_sw_sum"] = 25
+            row2["control_lw_at_voluntary_sw_sumsquares"] = 625
+            row2["test_lw_at_voluntary_sw_count"] = 0
+            row2["test_lw_at_voluntary_sw_sum"] = 0
+            row2["test_lw_at_voluntary_sw_sumsquares"] = 0
             row2["control_vp_remaining"] = 0
             row2["test_vp_remaining"] = 1
             row2["control_vp_spent"] = 2
@@ -718,14 +718,14 @@ class TestTrialFeaturesObserveEvents(unittest.TestCase):
     def test_observe_take_sw_test_group(self):
         event = TakeSeriousWoundEvent(self.test_char, self.control_char, 25)
         self.tf.observe_take_sw(event, self.context)
-        self.assertEqual([25], self.tf.data()["test_take_sw_total"])
-        self.assertEqual([], self.tf.data()["control_take_sw_total"])
+        self.assertEqual([25], self.tf.data()["test_lw_at_voluntary_sw"])
+        self.assertEqual([], self.tf.data()["control_lw_at_voluntary_sw"])
 
     def test_observe_take_sw_control_group(self):
         event = TakeSeriousWoundEvent(self.control_char, self.test_char, 30)
         self.tf.observe_take_sw(event, self.context)
-        self.assertEqual([], self.tf.data()["test_take_sw_total"])
-        self.assertEqual([30], self.tf.data()["control_take_sw_total"])
+        self.assertEqual([], self.tf.data()["test_lw_at_voluntary_sw"])
+        self.assertEqual([30], self.tf.data()["control_lw_at_voluntary_sw"])
 
     def test_observe_vp_spent_test_group_attack(self):
         event = SpendVoidPointsEvent(self.test_char, "attack", 1)
@@ -839,7 +839,7 @@ class TestTrialFeaturesObserveEvents(unittest.TestCase):
         # Test the observe_event dispatch for TakeSeriousWoundEvent
         event = TakeSeriousWoundEvent(self.test_char, self.control_char, 25)
         self.tf.observe_event(event, self.context)
-        self.assertEqual([25], self.tf.data()["test_take_sw_total"])
+        self.assertEqual([25], self.tf.data()["test_lw_at_voluntary_sw"])
 
     def test_observe_event_lw_damage(self):
         # Test the observe_event dispatch for LightWoundsDamageEvent
@@ -922,15 +922,15 @@ class TestTrialFeaturesComplete(unittest.TestCase):
         self.assertEqual(3, self.tf.data()["test_sw_remaining"])
 
     def test_complete_take_sw(self):
-        self.tf._data["control_take_sw_total"] = [20, 30]
-        self.tf._data["test_take_sw_total"] = [25]
+        self.tf._data["control_lw_at_voluntary_sw"] = [20, 30]
+        self.tf._data["test_lw_at_voluntary_sw"] = [25]
         self.tf.complete_take_sw(self.context)
-        self.assertEqual(50, self.tf.data()["control_take_sw_total_sum"])
-        self.assertEqual(1300, self.tf.data()["control_take_sw_total_sumsquares"])
-        self.assertEqual(2, self.tf.data()["control_take_sw_total_count"])
-        self.assertEqual(25, self.tf.data()["test_take_sw_total_sum"])
-        self.assertEqual(625, self.tf.data()["test_take_sw_total_sumsquares"])
-        self.assertEqual(1, self.tf.data()["test_take_sw_total_count"])
+        self.assertEqual(50, self.tf.data()["control_lw_at_voluntary_sw_sum"])
+        self.assertEqual(1300, self.tf.data()["control_lw_at_voluntary_sw_sumsquares"])
+        self.assertEqual(2, self.tf.data()["control_lw_at_voluntary_sw_count"])
+        self.assertEqual(25, self.tf.data()["test_lw_at_voluntary_sw_sum"])
+        self.assertEqual(625, self.tf.data()["test_lw_at_voluntary_sw_sumsquares"])
+        self.assertEqual(1, self.tf.data()["test_lw_at_voluntary_sw_count"])
 
     def test_complete_vp_remaining(self):
         self.tf.complete_vp_remaining(self.context)
@@ -980,8 +980,8 @@ class TestTrialFeaturesComplete(unittest.TestCase):
         self.tf._data["test_damage_rolls"] = [20]
         self.tf._data["control_keep_lw_total"] = [15]
         self.tf._data["test_keep_lw_total"] = [25]
-        self.tf._data["control_take_sw_total"] = [30]
-        self.tf._data["test_take_sw_total"] = [35]
+        self.tf._data["control_lw_at_voluntary_sw"] = [30]
+        self.tf._data["test_lw_at_voluntary_sw"] = [35]
         self.tf._data["control_wc_failed_margin"] = [5]
         self.tf._data["test_wc_failed_margin"] = [3]
         self.tf._data["control_wc_failed_lw_total"] = [20]
@@ -996,8 +996,8 @@ class TestTrialFeaturesComplete(unittest.TestCase):
         self.assertIn("test_keep_lw_total_sum", self.tf.data())
         self.assertIn("control_sw_remaining", self.tf.data())
         self.assertIn("test_sw_remaining", self.tf.data())
-        self.assertIn("control_take_sw_total_sum", self.tf.data())
-        self.assertIn("test_take_sw_total_sum", self.tf.data())
+        self.assertIn("control_lw_at_voluntary_sw_sum", self.tf.data())
+        self.assertIn("test_lw_at_voluntary_sw_sum", self.tf.data())
         self.assertIn("control_vp_remaining", self.tf.data())
         self.assertIn("test_vp_remaining", self.tf.data())
         self.assertIn("control_wc_failed_margin_sum", self.tf.data())
@@ -1013,8 +1013,8 @@ class TestTrialFeaturesWrite(unittest.TestCase):
         tf._data["test_damage_rolls"] = []
         tf._data["control_keep_lw_total"] = []
         tf._data["test_keep_lw_total"] = []
-        tf._data["control_take_sw_total"] = []
-        tf._data["test_take_sw_total"] = []
+        tf._data["control_lw_at_voluntary_sw"] = []
+        tf._data["test_lw_at_voluntary_sw"] = []
         tf._data["control_wc_failed_margin"] = []
         tf._data["test_wc_failed_margin"] = []
         tf._data["control_wc_failed_lw_total"] = []
@@ -1580,8 +1580,8 @@ class TestTrialFeaturesDisplayData(unittest.TestCase):
         tf._data["test_damage_rolls"] = damage_rolls
         tf._data["control_keep_lw_total"] = []
         tf._data["test_keep_lw_total"] = keep_lw or []
-        tf._data["control_take_sw_total"] = []
-        tf._data["test_take_sw_total"] = take_sw or []
+        tf._data["control_lw_at_voluntary_sw"] = []
+        tf._data["test_lw_at_voluntary_sw"] = take_sw or []
         tf._data["control_wc_failed_margin"] = []
         tf._data["test_wc_failed_margin"] = wc_failed_margin or []
         tf._data["control_wc_failed_lw_total"] = []

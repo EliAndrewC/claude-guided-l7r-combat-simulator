@@ -141,6 +141,92 @@ BAYUSHI_PRIORITIES: list[tuple[str, str, int]] = [
     ("ring", "air", 5),
 ]
 
+# Daidoji Yojimbo School (school_ring: water, knacks: counterattack, double attack, iaijutsu)
+DAIDOJI_PRIORITIES: list[tuple[str, str, int]] = [
+    # Dan 2
+    ("skill", "counterattack", 2),
+    ("skill", "double attack", 2),
+    ("skill", "iaijutsu", 2),
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    # Dan 3
+    ("skill", "counterattack", 3),
+    ("skill", "double attack", 3),
+    ("skill", "iaijutsu", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "earth", 3),
+    # Dan 4
+    ("skill", "counterattack", 4),
+    ("skill", "double attack", 4),
+    ("skill", "iaijutsu", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("ring", "void", 3),
+    ("ring", "fire", 3),
+    ("ring", "air", 3),
+    ("ring", "earth", 4),
+    # Dan 5
+    ("skill", "counterattack", 5),
+    ("skill", "double attack", 5),
+    ("skill", "iaijutsu", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Max rings — ordered by cost: 20 > 25
+    ("ring", "water", 5),      # school ring discounted: 20
+    ("ring", "void", 4),
+    ("ring", "fire", 4),
+    ("ring", "air", 4),
+    ("ring", "earth", 5),
+    ("ring", "water", 6),      # school ring discounted: 25
+    ("ring", "void", 5),
+    ("ring", "fire", 5),
+    ("ring", "air", 5),
+]
+
+# Hida Bushi School (school_ring: water, knacks: counterattack, iaijutsu, lunge)
+HIDA_PRIORITIES: list[tuple[str, str, int]] = [
+    # Dan 2
+    ("skill", "counterattack", 2),
+    ("skill", "iaijutsu", 2),
+    ("skill", "lunge", 2),
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    # Dan 3
+    ("skill", "counterattack", 3),
+    ("skill", "iaijutsu", 3),
+    ("skill", "lunge", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "earth", 3),
+    # Dan 4
+    ("skill", "counterattack", 4),
+    ("skill", "iaijutsu", 4),
+    ("skill", "lunge", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("ring", "void", 3),
+    ("ring", "fire", 3),
+    ("ring", "air", 3),
+    ("ring", "earth", 4),
+    # Dan 5
+    ("skill", "counterattack", 5),
+    ("skill", "iaijutsu", 5),
+    ("skill", "lunge", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Max rings — ordered by cost: 20 > 25
+    ("ring", "water", 5),      # school ring discounted: 20
+    ("ring", "void", 4),
+    ("ring", "fire", 4),
+    ("ring", "air", 4),
+    ("ring", "earth", 5),
+    ("ring", "water", 6),      # school ring discounted: 25
+    ("ring", "void", 5),
+    ("ring", "fire", 5),
+    ("ring", "air", 5),
+]
+
 # Shiba Bushi School (school_ring: air, knacks: counterattack, double attack, iaijutsu)
 SHIBA_PRIORITIES: list[tuple[str, str, int]] = [
     # Dan 2
@@ -244,6 +330,8 @@ WAVE_MAN_ABILITIES: list[str] = [
 SCHOOL_PRIORITIES: dict[str, list[tuple[str, str, int]]] = {
     "Akodo Bushi School": AKODO_PRIORITIES,
     "Bayushi Bushi School": BAYUSHI_PRIORITIES,
+    "Daidoji Yojimbo School": DAIDOJI_PRIORITIES,
+    "Hida Bushi School": HIDA_PRIORITIES,
     "Kakita Bushi School": KAKITA_PRIORITIES,
     "Shiba Bushi School": SHIBA_PRIORITIES,
     "Wave Man": WAVE_MAN_PRIORITIES,
@@ -253,6 +341,8 @@ SCHOOL_PRIORITIES: dict[str, list[tuple[str, str, int]]] = {
 SCHOOL_NAMES: dict[str, str] = {
     "akodo": "Akodo Bushi School",
     "bayushi": "Bayushi Bushi School",
+    "daidoji": "Daidoji Yojimbo School",
+    "hida": "Hida Bushi School",
     "kakita": "Kakita Bushi School",
     "shiba": "Shiba Bushi School",
     "wave_man": "Wave Man",

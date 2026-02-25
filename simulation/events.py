@@ -113,6 +113,9 @@ class TakeAttackActionEvent(TakeActionEvent):
 
     def play(self, context):
         yield self._declare_attack()
+        # Counterattack may have killed/incapacitated the attacker
+        if not self.action.subject().is_fighting():
+            return
         yield from self._roll_attack(context)
         if self.action.parried():
             yield self._failed()
@@ -139,6 +142,11 @@ class TakeAttackActionEvent(TakeActionEvent):
 
     def _roll_attack(self, context):
         attack_roll = self.action.roll_skill()
+        # Apply any pending counterattack roll bonus (e.g. Hida school +5)
+        bonus = getattr(self.action, '_counterattack_roll_bonus', 0)
+        if bonus:
+            attack_roll += bonus
+            self.action.set_skill_roll(attack_roll)
         if self.action.vp() > 0:
             yield SpendVoidPointsEvent(self.action.subject(), self.action.skill(), self.action.vp())
         initial_event = AttackRolledEvent(self.action, attack_roll)
@@ -234,6 +242,46 @@ class ParrySucceededEvent(ActionEvent):
 class ParryFailedEvent(ActionEvent):
     def __init__(self, action):
         super().__init__("parry_failed", action)
+
+
+class TakeCounterattackActionEvent(TakeActionEvent):
+    def __init__(self, action):
+        super().__init__("take_counterattack", action)
+
+    def play(self, context):
+        yield CounterattackDeclaredEvent(self.action)
+        self.action.roll_skill()
+        if self.action.vp() > 0:
+            yield SpendVoidPointsEvent(self.action.subject(), self.action.skill(), self.action.vp())
+        yield CounterattackRolledEvent(self.action, self.action.skill_roll())
+        if self.action.is_hit():
+            yield CounterattackSucceededEvent(self.action)
+            if self.action.target().is_fighting():
+                damage = self.action.roll_damage()
+                yield LightWoundsDamageEvent(self.action.subject(), self.action.target(), damage)
+        else:
+            yield CounterattackFailedEvent(self.action)
+
+
+class CounterattackDeclaredEvent(ActionEvent):
+    def __init__(self, action):
+        super().__init__("counterattack_declared", action)
+
+
+class CounterattackRolledEvent(ActionEvent):
+    def __init__(self, action, roll):
+        super().__init__("counterattack_rolled", action)
+        self.roll = roll
+
+
+class CounterattackSucceededEvent(ActionEvent):
+    def __init__(self, action):
+        super().__init__("counterattack_succeeded", action)
+
+
+class CounterattackFailedEvent(ActionEvent):
+    def __init__(self, action):
+        super().__init__("counterattack_failed", action)
 
 
 class DamageEvent(Event):

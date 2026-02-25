@@ -8,6 +8,8 @@
 
 from simulation.schools.akodo_school import AkodoBushiSchool
 from simulation.schools.bayushi_school import BayushiBushiSchool
+from simulation.schools.daidoji_school import DaidojiYojimboSchool
+from simulation.schools.hida_school import HidaBushiSchool
 from simulation.schools.kakita_school import KakitaBushiSchool
 from simulation.schools.shiba_school import ShibaBushiSchool
 
@@ -19,6 +21,10 @@ def get_school(name):
         return AkodoBushiSchool()
     elif name == "Bayushi Bushi School":
         return BayushiBushiSchool()
+    elif name == "Daidoji Yojimbo School":
+        return DaidojiYojimboSchool()
+    elif name == "Hida Bushi School":
+        return HidaBushiSchool()
     elif name == "Kakita Bushi School":
         return KakitaBushiSchool()
     elif name == "Shiba Bushi School":

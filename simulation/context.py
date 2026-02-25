@@ -60,6 +60,14 @@ class EngineContext:
 
     def initialize(self):
         self.probability_provider().initialize()
+        # Share TN knowledge so strategies can make informed decisions
+        for character in self._characters:
+            group = character.group()
+            if group is None:
+                continue
+            for other in self._characters:
+                if other not in group:
+                    character.knowledge().observe_tn_to_hit(other, other.tn_to_hit())
 
     def is_anybody_still_moving(self):
         return len(self._still_moving) > 0

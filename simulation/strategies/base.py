@@ -671,3 +671,75 @@ class StingyWoundCheckStrategy(Strategy):
             if event.target == character:
                 logger.info(f"{character.name()} never spends VP on wound checks.")
                 yield events.WoundCheckDeclaredEvent(character, event.subject, event.damage, tn=event.wound_check_tn)
+
+
+class DefaultInterruptStrategy(Strategy):
+    """Unified interrupt strategy that delegates to the parry strategy.
+
+    Used by characters who do not have counterattack capability.
+    """
+
+    def recommend(self, character, event, context):
+        if isinstance(event, events.AttackRolledEvent):
+            yield from character.parry_strategy().recommend(character, event, context)
+
+
+class CounterattackInterruptStrategy(Strategy):
+    """Unified interrupt strategy for counterattack schools.
+
+    Considers counterattacking when attacked, falls back to parry otherwise.
+    Only characters with the counterattack school knack may counterattack.
+    """
+
+    def _should_counterattack(self, character, event, context):
+        """Decide whether to counterattack."""
+        # Must have counterattack skill
+        if character.skill("counterattack") <= 0:
+            return False
+        # Target must be in our group (defend friends)
+        if event.action.target() not in character.group():
+            return False
+        # Must have action dice available
+        if not (character.has_action(context) or character.has_interrupt_action("counterattack", context)):
+            return False
+        return True
+
+    def _choose_action(self, character, context):
+        """Choose action dice for the counterattack."""
+        if character.has_action(context):
+            die = max([d for d in character.actions() if d <= context.phase()])
+            return InitiativeAction([die], die)
+        elif character.has_interrupt_action("counterattack", context):
+            cost = character.interrupt_cost("counterattack", context)
+            action_dice = []
+            unspent = list(character.actions())
+            while len(action_dice) < cost:
+                die = max(unspent)
+                unspent.remove(die)
+                action_dice.append(die)
+            return InitiativeAction(action_dice, context.phase(), is_interrupt=True)
+        else:
+            raise NotEnoughActions()
+
+    def _do_counterattack(self, character, event, context):
+        """Execute the counterattack."""
+        initiative_action = self._choose_action(character, context)
+        counterattack = character.action_factory().get_counterattack_action(
+            character, event.action.subject(), event.action,
+            "counterattack", initiative_action, context,
+        )
+        logger.info(f"{character.name()} is counterattacking {event.action.subject().name()}")
+        yield events.SpendActionEvent(character, "counterattack", initiative_action)
+        yield character.take_action_event_factory().get_take_counterattack_action_event(counterattack)
+
+    def recommend(self, character, event, context):
+        if isinstance(event, events.AttackDeclaredEvent):
+            if self._should_counterattack(character, event, context):
+                try:
+                    yield from self._do_counterattack(character, event, context)
+                    return
+                except NotEnoughActions:
+                    pass
+        elif isinstance(event, events.AttackRolledEvent):
+            # Counterattack already handled at declaration time; only parry here
+            yield from character.parry_strategy().recommend(character, event, context)

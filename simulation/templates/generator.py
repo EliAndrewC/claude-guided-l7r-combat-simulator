@@ -26,6 +26,8 @@ COMBAT_XP_FRACTION = 0.8
 SCHOOL_KNACK_LOOKUP: dict[str, list[str]] = {
     "Akodo Bushi School": ["double attack", "feint", "iaijutsu"],
     "Bayushi Bushi School": ["double attack", "feint", "iaijutsu"],
+    "Daidoji Yojimbo School": ["counterattack", "double attack", "iaijutsu"],
+    "Hida Bushi School": ["counterattack", "iaijutsu", "lunge"],
     "Kakita Bushi School": ["double attack", "iaijutsu", "lunge"],
     "Shiba Bushi School": ["counterattack", "double attack", "iaijutsu"],
 }
@@ -33,6 +35,8 @@ SCHOOL_KNACK_LOOKUP: dict[str, list[str]] = {
 SCHOOL_RING_LOOKUP: dict[str, str] = {
     "Akodo Bushi School": "water",
     "Bayushi Bushi School": "fire",
+    "Daidoji Yojimbo School": "water",
+    "Hida Bushi School": "water",
     "Kakita Bushi School": "fire",
     "Shiba Bushi School": "air",
 }
