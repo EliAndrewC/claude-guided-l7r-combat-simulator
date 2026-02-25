@@ -5,8 +5,7 @@
 ```bash
 podman run --interactive --tty --rm \
   --name claude-guided \
-  --userns keep-id \
-  --user "$(id -u):$(id -g)" \
+  --userns keep-id:uid=1000,gid=1000 \
   --volume "$(pwd)":/home/agent/workspace/l7r \
   --publish 8502:8501 \
   docker.io/docker/sandbox-templates:claude-code \
