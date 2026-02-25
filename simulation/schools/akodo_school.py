@@ -32,7 +32,7 @@ class AkodoBushiSchool(BaseSchool):
         character.set_listener("attack_succeeded", AkodoAttackSucceededListener())
 
     def extra_rolled(self):
-        return ["double attack", "feint", "wound check"]
+        return ["attack", "double attack", "wound check"]
 
     def free_raise_skills(self):
         return ["wound check"]
@@ -104,7 +104,8 @@ class AkodoFifthDanStrategy(Strategy):
             if event.target == character:
                 # calculate max vp spendable on damage
                 available_vp = character.void_point_manager().vp("damage")
-                max_vp = min(available_vp, character.max_vp_per_roll())
+                max_vp_for_damage = event.damage // 10
+                max_vp = min(available_vp, character.max_vp_per_roll(), max_vp_for_damage)
                 # TODO: implement a little more intelligence
                 if max_vp > 0:
                     yield events.SpendVoidPointsEvent(character, "damage", max_vp)

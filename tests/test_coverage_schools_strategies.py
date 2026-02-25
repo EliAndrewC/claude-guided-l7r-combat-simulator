@@ -86,8 +86,8 @@ class TestBaseSchoolMethods(unittest.TestCase):
 
     def test_extra_rolled(self):
         extra = self.school.extra_rolled()
+        self.assertIn("attack", extra)
         self.assertIn("double attack", extra)
-        self.assertIn("feint", extra)
         self.assertIn("wound check", extra)
 
     def test_free_raise_skills(self):
@@ -127,12 +127,12 @@ class TestBaseSchoolApplyRankOneAbility(unittest.TestCase):
         school = AkodoBushiSchool()
         character = Character("TestChar")
         school.apply_rank_one_ability(character)
-        # Akodo gets extra rolled in "double attack", "feint", "wound check"
+        # Akodo gets extra rolled in "attack", "double attack", "wound check"
+        self.assertEqual(1, character.extra_rolled("attack"))
         self.assertEqual(1, character.extra_rolled("double attack"))
-        self.assertEqual(1, character.extra_rolled("feint"))
         self.assertEqual(1, character.extra_rolled("wound check"))
         # No extra rolled for things not in the list
-        self.assertEqual(0, character.extra_rolled("attack"))
+        self.assertEqual(0, character.extra_rolled("feint"))
 
 
 class TestBaseSchoolApplyRankTwoAbility(unittest.TestCase):
@@ -470,6 +470,15 @@ class TestBayushiRollParameterProvider(unittest.TestCase):
         # kept = weapon_kept(2) + extra_kept(0) + vp(0) = 2
         self.assertEqual(10, rolled)
         self.assertEqual(2, kept)
+
+    def test_damage_roll_params_includes_modifier(self):
+        """Damage modifier should be included in the result."""
+        provider = BayushiRollParameterProvider()
+        self.bayushi.add_modifier(Modifier(self.bayushi, None, "damage", 7))
+        (rolled, kept, mod) = provider.get_damage_roll_params(
+            self.bayushi, self.target, "attack", 0, vp=0
+        )
+        self.assertEqual(7, mod)
 
 
 class TestBayushiAttackFailedListener(unittest.TestCase):

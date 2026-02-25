@@ -105,8 +105,8 @@ class TestSummaryFeaturesMeanStdev(unittest.TestCase):
         self.assertAlmostEqual(0, self.sf.stdev(100, 4, 5))
 
     def test_stdev_nonzero_positive(self):
-        # sumsquares=200, n=4, mean=5 => 50 - 25 = 25
-        self.assertAlmostEqual(25.0, self.sf.stdev(200, 4, 5))
+        # sumsquares=200, n=4, mean=5 => variance = 50 - 25 = 25, stdev = sqrt(25) = 5
+        self.assertAlmostEqual(5.0, self.sf.stdev(200, 4, 5))
 
     def test_stdev_zero_n(self):
         self.assertEqual(0, self.sf.stdev(100, 0, 5))
@@ -214,12 +214,12 @@ class TestSummaryFeaturesSummarizeMethods(unittest.TestCase):
         self.data["test_damage_rolls_count"] = 10
         self.data["test_damage_rolls_sumsquares"] = 5000
         self.sf.summarize_damage(self.data, summary, 10)
-        # control: mean = 100/5 = 20, stdev = 2500/5 - 20*20 = 500 - 400 = 100
+        # control: mean = 100/5 = 20, variance = 2500/5 - 400 = 100, stdev = sqrt(100) = 10
         self.assertAlmostEqual(20.0, summary["control_damage_mean"])
-        self.assertAlmostEqual(100.0, summary["control_damage_stdev"])
-        # test: mean = 200/10 = 20, stdev = 5000/10 - 20*20 = 500 - 400 = 100
+        self.assertAlmostEqual(10.0, summary["control_damage_stdev"])
+        # test: mean = 200/10 = 20, variance = 5000/10 - 400 = 100, stdev = sqrt(100) = 10
         self.assertAlmostEqual(20.0, summary["test_damage_mean"])
-        self.assertAlmostEqual(100.0, summary["test_damage_stdev"])
+        self.assertAlmostEqual(10.0, summary["test_damage_stdev"])
 
     def test_summarize_damage_zero_count(self):
         summary = {}

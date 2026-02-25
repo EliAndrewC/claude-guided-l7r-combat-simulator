@@ -63,7 +63,7 @@ class BayushiRollParameterProvider(DefaultRollParameterProvider):
         # calculate extra kept dice
         kept = character.weapon().kept() + character.extra_kept("damage") + vp
         # calculate modifier
-        mod = character.modifier("damage", None)
+        mod = character.modifier(None, "damage")
         return normalize_roll_params(rolled, kept, mod)
 
 

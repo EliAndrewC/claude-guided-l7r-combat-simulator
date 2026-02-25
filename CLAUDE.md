@@ -15,6 +15,8 @@ implementation of the rules engine.  Our goal is to gradually extend its
 capabilities using a TDD philosophy.
 
 The rules are at https://github.com/EliAndrewC/l7r/tree/master/rules
+You should ignore everything outside of the "rules" directory of that git repo,
+as none of it is relevant to this project.
 
 ## Tech Stack
 - Language: Python 3.12+

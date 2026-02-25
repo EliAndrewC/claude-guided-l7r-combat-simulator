@@ -358,10 +358,14 @@ class TestCounterattackAction(unittest.TestCase):
         self.assertEqual(expected_tn, counter.tn())
 
     def test_tn_when_target_is_not_subject(self):
-        """Lines 193-195: tn has penalty when attack target != counterattack subject"""
+        """Lines 193-195: tn has penalty when attack target != counterattack subject.
+        The penalty uses the attacker's parry skill, not attack skill."""
         # Create a third character
         third = Character("third")
         third.set_skill("counterattack", 3)
+        # Set different attack and parry skills on the attacker to verify parry is used
+        self.attacker.set_skill("attack", 4)
+        self.attacker.set_skill("parry", 6)
         # Need to create a context with three characters
         groups = [
             Group("group1", [self.attacker, third]),
@@ -378,10 +382,13 @@ class TestCounterattackAction(unittest.TestCase):
             third, self.attacker, "counterattack",
             self.ia, context3, original_attack
         )
-        # penalty = 5 * attack subject's "attack" skill
-        penalty = 5 * self.attacker.skill("attack")
+        # penalty = 5 * attack subject's "parry" skill (not attack)
+        penalty = 5 * self.attacker.skill("parry")
         expected_tn = self.attacker.tn_to_hit() + penalty
         self.assertEqual(expected_tn, counter.tn())
+        # Verify it's NOT using attack skill
+        wrong_penalty = 5 * self.attacker.skill("attack")
+        self.assertNotEqual(self.attacker.tn_to_hit() + wrong_penalty, counter.tn())
 
 
 class TestDoubleAttackAction(unittest.TestCase):
@@ -424,7 +431,7 @@ class TestDoubleAttackAction(unittest.TestCase):
         self.assertEqual(5, da.calculate_extra_damage_dice())
 
     def test_calculate_extra_damage_dice_parried_by_target(self):
-        """Lines 205-210: parry by target reduces damage dice by 4"""
+        """On unsuccessful parry by target, extra dice = flat 2."""
         da = DoubleAttackAction(
             self.attacker, self.target, "double attack", self.ia, self.context
         )
@@ -437,11 +444,11 @@ class TestDoubleAttackAction(unittest.TestCase):
         mock_parry_event.action = MagicMock()
         mock_parry_event.action.subject.return_value = self.target
         da.add_parry_declared(mock_parry_event)
-        # (75 - 30) // 5 - 4 = 5
-        self.assertEqual(5, da.calculate_extra_damage_dice())
+        # flat 2 extra dice when target parried
+        self.assertEqual(2, da.calculate_extra_damage_dice())
 
     def test_calculate_extra_damage_dice_parried_by_third_party(self):
-        """Lines 212-215: parry by third party reduces damage dice by 2"""
+        """On unsuccessful parry by third party, extra dice = flat 4."""
         third = Character("third")
         da = DoubleAttackAction(
             self.attacker, self.target, "double attack", self.ia, self.context
@@ -453,11 +460,11 @@ class TestDoubleAttackAction(unittest.TestCase):
         mock_parry_event.action = MagicMock()
         mock_parry_event.action.subject.return_value = third  # not the target
         da.add_parry_declared(mock_parry_event)
-        # (75 - 30) // 5 - 2 = 7
-        self.assertEqual(7, da.calculate_extra_damage_dice())
+        # flat 4 extra dice when third party parried
+        self.assertEqual(4, da.calculate_extra_damage_dice())
 
-    def test_direct_damage(self):
-        """Lines 218-219: direct_damage returns SeriousWoundsDamageEvent"""
+    def test_direct_damage_no_parry(self):
+        """When no parry attempted, direct_damage returns 1 SW."""
         da = DoubleAttackAction(
             self.attacker, self.target, "double attack", self.ia, self.context
         )
@@ -467,6 +474,18 @@ class TestDoubleAttackAction(unittest.TestCase):
         self.assertEqual(self.attacker, direct.subject)
         self.assertEqual(self.target, direct.target)
         self.assertEqual(1, direct.damage)
+
+    def test_direct_damage_with_parry_attempted(self):
+        """When parry was attempted, direct_damage returns None (no 1 SW)."""
+        da = DoubleAttackAction(
+            self.attacker, self.target, "double attack", self.ia, self.context
+        )
+        da.set_parry_attempted()
+        mock_parry_event = MagicMock()
+        mock_parry_event.action = MagicMock()
+        mock_parry_event.action.subject.return_value = self.target
+        da.add_parry_declared(mock_parry_event)
+        self.assertIsNone(da.direct_damage())
 
     def test_set_direct_damage_via_set_damage_roll(self):
         """Lines 170-173: set_damage_roll validation"""
@@ -574,6 +593,82 @@ class TestParryActionTn(unittest.TestCase):
             self.target, self.attacker, "parry", self.ia, self.context, attack
         )
         self.assertEqual(42, parry.tn())
+
+
+class TestParryActionForOthersPenalty(unittest.TestCase):
+    """Test ParryAction penalty when parrying for someone else."""
+
+    def test_parry_for_self_no_penalty(self):
+        """Parrying for yourself has no penalty."""
+        attacker = Character("attacker")
+        attacker.set_ring("fire", 5)
+        attacker.set_skill("attack", 4)
+        target = Character("target")
+        target.set_ring("air", 5)
+        target.set_skill("parry", 5)
+        context = _make_context(attacker, target)
+        ia = _make_initiative_action()
+        attack = AttackAction(attacker, target, "attack", ia, context)
+        attack.set_skill_roll(42)
+        roll_provider = TestRollProvider()
+        roll_provider.put_skill_roll("parry", 50)
+        target.set_roll_provider(roll_provider)
+        parry = ParryAction(target, attacker, "parry", ia, context, attack)
+        result = parry.roll_skill()
+        # no penalty: result should be the raw roll (50)
+        self.assertEqual(50, result)
+
+    def test_parry_for_others_penalty_scales_with_attack_skill(self):
+        """Parrying for someone else has penalty = 5 * attacker's attack skill."""
+        attacker = Character("attacker")
+        attacker.set_ring("fire", 5)
+        attacker.set_skill("attack", 3)
+        target = Character("target")
+        third = Character("third")
+        third.set_ring("air", 5)
+        third.set_skill("parry", 5)
+        groups = [
+            Group("group1", [target, third]),
+            Group("group2", attacker),
+        ]
+        context = EngineContext(groups, round=1, phase=1)
+        context.initialize()
+        ia = _make_initiative_action()
+        attack = AttackAction(attacker, target, "attack", ia, context)
+        attack.set_skill_roll(42)
+        roll_provider = TestRollProvider()
+        roll_provider.put_skill_roll("parry", 50)
+        third.set_roll_provider(roll_provider)
+        # third parries for target; penalty = 5 * 3 = 15
+        parry = ParryAction(third, attacker, "parry", ia, context, attack)
+        result = parry.roll_skill()
+        self.assertEqual(50 - 15, result)
+
+    def test_parry_for_others_penalty_with_higher_attack_skill(self):
+        """Verify penalty scales: attacker with skill 5 → penalty 25."""
+        attacker = Character("attacker")
+        attacker.set_ring("fire", 5)
+        attacker.set_skill("attack", 5)
+        target = Character("target")
+        third = Character("third")
+        third.set_ring("air", 5)
+        third.set_skill("parry", 5)
+        groups = [
+            Group("group1", [target, third]),
+            Group("group2", attacker),
+        ]
+        context = EngineContext(groups, round=1, phase=1)
+        context.initialize()
+        ia = _make_initiative_action()
+        attack = AttackAction(attacker, target, "attack", ia, context)
+        attack.set_skill_roll(42)
+        roll_provider = TestRollProvider()
+        roll_provider.put_skill_roll("parry", 60)
+        third.set_roll_provider(roll_provider)
+        # penalty = 5 * 5 = 25
+        parry = ParryAction(third, attacker, "parry", ia, context, attack)
+        result = parry.roll_skill()
+        self.assertEqual(60 - 25, result)
 
 
 # ============================================================================

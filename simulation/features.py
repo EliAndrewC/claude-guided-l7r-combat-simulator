@@ -8,6 +8,7 @@
 #
 
 import csv
+import math
 
 from simulation import events
 from simulation.mechanics.skills import ATTACK_SKILLS
@@ -150,7 +151,7 @@ class SummaryFeatures:
         if n == 0:
             return 0
         else:
-            return (sumsquares / n) - (mean * mean)
+            return math.sqrt((sumsquares / n) - (mean * mean))
 
     def summarize(self, feature_fpath, ntrials):
         # load data

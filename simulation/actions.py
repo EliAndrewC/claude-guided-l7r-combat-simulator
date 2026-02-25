@@ -191,7 +191,7 @@ class CounterattackAction(AttackAction):
         return self._original_attack
 
     def tn(self):
-        penalty = 0 if self.attack().target() == self.subject() else 5 * self.attack().subject().skill("attack")
+        penalty = 0 if self.attack().target() == self.subject() else 5 * self.attack().subject().skill("parry")
         return self.target().tn_to_hit() + penalty
 
 
@@ -201,21 +201,19 @@ class DoubleAttackAction(AttackAction):
             skill_roll = self.skill_roll()
         if tn is None:
             tn = self.tn() - 20
-        penalty = 0
         if self.parry_attempted():
+            # on unsuccessful parry, the 1 SW becomes flat extra rolled damage dice:
+            # 2 if the target parried, 4 if a third party parried
             for parry_event in self.parries_declared():
                 if parry_event.action.subject() == self.target():
-                    # if the target attempts to parry,
-                    # double attack does 4 fewer dice of damage
-                    penalty = 4
-                    break
+                    return 2
                 else:
-                    # if a third character parries on behalf of the target,
-                    # double attack does 2 fewer dice of damage
-                    penalty = 2
-        return ((skill_roll - tn) // 5) - penalty
+                    return 4
+        return (skill_roll - tn) // 5
 
     def direct_damage(self):
+        if self.parry_attempted():
+            return None
         return SeriousWoundsDamageEvent(self.subject(), self.target(), 1)
 
     def tn(self):
@@ -254,8 +252,8 @@ class ParryAction(Action):
     def roll_skill(self):
         penalty = 0
         if self._attack.target() != self.subject():
-            # parry on behalf of others has a penalty
-            penalty = 10
+            # parry on behalf of others has a penalty of 5 * attacker's attack skill
+            penalty = 5 * self._attack.subject().skill("attack")
         # roll parry
         self.set_skill_roll(self.subject().roll_skill(self.target(), self.skill(), ring=self.ring(), vp=self.vp()) - penalty)
         return self.skill_roll()

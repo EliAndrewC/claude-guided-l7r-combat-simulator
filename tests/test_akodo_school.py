@@ -24,6 +24,14 @@ logger.addHandler(stream_handler)
 logger.setLevel(logging.DEBUG)
 
 
+class TestAkodoBushiSchoolExtraRolled(unittest.TestCase):
+    def test_extra_rolled_returns_correct_skills(self):
+        school = akodo_school.AkodoBushiSchool()
+        extra = school.extra_rolled()
+        self.assertEqual(["attack", "double attack", "wound check"], extra)
+        self.assertNotIn("feint", extra)
+
+
 class TestAkodoAttackFailedListener(unittest.TestCase):
     def setUp(self):
         self.akodo = Character("Akodo")
@@ -82,7 +90,7 @@ class TestAkodoFifthDanStrategy(unittest.TestCase):
         self.context = EngineContext(groups)
 
     def test_inflict_lw(self):
-        event = events.LightWoundsDamageEvent(self.bayushi, self.akodo, 7)
+        event = events.LightWoundsDamageEvent(self.bayushi, self.akodo, 25)
         strategy = akodo_school.AkodoFifthDanStrategy()
         responses = list(strategy.recommend(self.akodo, event, self.context))
         self.assertEqual(2, len(responses))
@@ -96,10 +104,32 @@ class TestAkodoFifthDanStrategy(unittest.TestCase):
         self.assertEqual(self.bayushi, second_event.target)
         self.assertEqual(20, second_event.damage)
 
+    def test_damage_caps_vp(self):
+        """Counter-damage (10 * VP) must not exceed damage taken."""
+        # damage=15 means max_vp_for_damage = 15//10 = 1
+        # character has 2 VP available and max_vp_per_roll=2, but cap limits to 1
+        event = events.LightWoundsDamageEvent(self.bayushi, self.akodo, 15)
+        strategy = akodo_school.AkodoFifthDanStrategy()
+        responses = list(strategy.recommend(self.akodo, event, self.context))
+        self.assertEqual(2, len(responses))
+        first_event = responses[0]
+        self.assertTrue(isinstance(first_event, events.SpendVoidPointsEvent))
+        self.assertEqual(1, first_event.amount)
+        second_event = responses[1]
+        self.assertTrue(isinstance(second_event, events.LightWoundsDamageEvent))
+        self.assertEqual(10, second_event.damage)
+
+    def test_no_counter_when_damage_too_low(self):
+        """When damage < 10, no VP can be spent on counter-damage."""
+        event = events.LightWoundsDamageEvent(self.bayushi, self.akodo, 7)
+        strategy = akodo_school.AkodoFifthDanStrategy()
+        responses = list(strategy.recommend(self.akodo, event, self.context))
+        self.assertEqual([], responses)
+
     def test_no_vp(self):
         self.akodo.spend_vp(2)
         self.bayushi = Character("Bayushi")
-        event = events.LightWoundsDamageEvent(self.bayushi, self.akodo, 7)
+        event = events.LightWoundsDamageEvent(self.bayushi, self.akodo, 25)
         strategy = akodo_school.AkodoFifthDanStrategy()
         responses = list(strategy.recommend(self.akodo, event, self.context))
         self.assertEqual([], responses)
