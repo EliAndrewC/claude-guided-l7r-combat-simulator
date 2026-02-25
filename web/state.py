@@ -1,8 +1,9 @@
 """Per-session state management for the Streamlit web interface.
 
-Each browser session gets a unique UUID stored in st.query_params["session_id"].
-Groups are persisted to per-session JSON files under web/.sessions/ so they
-survive server restarts without cross-session contamination.
+Each browser session gets a unique UUID persisted as a browser cookie
+(``l7r_session_id``).  Groups are persisted to per-session JSON files
+under ``web/.sessions/`` so they survive page refreshes and server
+restarts without cross-session contamination.
 """
 
 import json
@@ -17,16 +18,49 @@ from web.models import GroupConfig
 
 _SESSIONS_DIR = Path(__file__).resolve().parent / ".sessions"
 _STALE_SECONDS = 7 * 24 * 60 * 60  # 7 days
+_COOKIE_NAME = "l7r_session_id"
+_COOKIE_MAX_AGE = 7 * 24 * 60 * 60  # 7 days
 
 
 def _get_session_id() -> str:
-    """Return the current session's UUID, creating one if needed."""
-    params = st.query_params
-    sid = params.get("session_id")
-    if not sid:
-        sid = uuid.uuid4().hex
-        params["session_id"] = sid
+    """Return the current session's UUID, creating one if needed.
+
+    Checks two sources in priority order:
+    1. st.session_state  – survives reruns within the same browser tab
+    2. Browser cookie     – survives page refreshes and navigation
+    3. Generate new UUID  – first visit
+    """
+    if "_session_id" in st.session_state:
+        return st.session_state["_session_id"]
+
+    try:
+        sid = st.context.cookies.get(_COOKIE_NAME)
+    except Exception:
+        sid = None
+
+    if sid:
+        st.session_state["_session_id"] = sid
+        return sid
+
+    sid = uuid.uuid4().hex
+    st.session_state["_session_id"] = sid
     return sid
+
+
+def set_session_cookie() -> None:
+    """Inject JavaScript to set/refresh the session cookie in the browser.
+
+    Call once per page load (in app.py) so the cookie stays fresh.
+    Uses st.html with unsafe_allow_javascript which renders directly in the
+    DOM (not iframed), so document.cookie targets the app's origin.
+    """
+    sid = _get_session_id()
+    st.html(
+        f'<script>document.cookie="{_COOKIE_NAME}={sid}'
+        f";path=/;max-age={_COOKIE_MAX_AGE}"
+        ';SameSite=Strict";</script>',
+        unsafe_allow_javascript=True,
+    )
 
 
 def _session_file(session_id: str | None = None) -> Path:
@@ -78,11 +112,11 @@ def save_state() -> None:
 def restore_state() -> None:
     """Load groups from per-session disk file into session_state (only if keys missing)."""
     _cleanup_stale_sessions()
+    path = _session_file()
     needs_control = "control_group" not in st.session_state
     needs_test = "test_group" not in st.session_state
     if not needs_control and not needs_test:
         return
-    path = _session_file()
     if not path.exists():
         return
     try:
@@ -100,10 +134,10 @@ def restore_state() -> None:
 
 def clear_state() -> None:
     """Remove session keys from session_state and delete the session file."""
-    for key in ("characters", "control_group", "test_group"):
-        if key in st.session_state:
-            del st.session_state[key]
     try:
         _session_file().unlink(missing_ok=True)
     except OSError:
         pass
+    for key in ("characters", "control_group", "test_group", "_session_id"):
+        if key in st.session_state:
+            del st.session_state[key]

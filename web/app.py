@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import streamlit as st
 
 from web.adapters.character_adapter import load_data_directory
-from web.state import _validate_groups, clear_state, restore_state, save_state
+from web.state import _validate_groups, clear_state, restore_state, save_state, set_session_cookie
 
 st.set_page_config(page_title="L7R Combat Simulator", page_icon="⚔️", layout="wide")
 
@@ -43,6 +43,9 @@ if not st.session_state.characters:
 
 # Validate groups against loaded characters (handles deleted characters)
 _validate_groups(st.session_state.characters)
+
+# Persist session cookie so the browser can identify this session on refresh
+set_session_cookie()
 
 # Sidebar clear button
 with st.sidebar:

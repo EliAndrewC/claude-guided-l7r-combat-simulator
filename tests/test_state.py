@@ -6,6 +6,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+# Cookie name must match the constant in web.state.
+_COOKIE = "l7r_session_id"
+
 
 @pytest.fixture(autouse=True)
 def _mock_streamlit(tmp_path):
@@ -16,9 +19,9 @@ def _mock_streamlit(tmp_path):
     session_state: dict = {}
     mock_st.session_state = session_state
 
-    # query_params as a real dict (holds session_id)
-    query_params: dict = {}
-    mock_st.query_params = query_params
+    # context.cookies as a real dict (browser cookies sent on page load)
+    cookies: dict = {}
+    mock_st.context.cookies = cookies
 
     with patch.dict("sys.modules", {"streamlit": mock_st}):
         import importlib
@@ -27,18 +30,18 @@ def _mock_streamlit(tmp_path):
         importlib.reload(web.state)
         # Point sessions dir to temp directory
         web.state._SESSIONS_DIR = tmp_path / ".sessions"
-        yield mock_st, session_state, query_params
+        yield mock_st, session_state, cookies
 
 
 class TestSaveAndRestore:
     """save_state persists groups to disk; restore_state loads them back."""
 
     def test_save_and_restore(self, _mock_streamlit):
-        _, session_state, query_params = _mock_streamlit
+        _, session_state, cookies = _mock_streamlit
         from web.models import GroupConfig
         from web.state import restore_state, save_state
 
-        query_params["session_id"] = "test-session-1"
+        cookies[_COOKIE] = "test-session-1"
         session_state["control_group"] = GroupConfig(
             name="ctrl", is_control=True, character_names=["A"],
         )
@@ -48,7 +51,7 @@ class TestSaveAndRestore:
 
         save_state()
 
-        # Clear session state, then restore
+        # Clear session state, then restore (cookie provides session identity)
         session_state.clear()
         restore_state()
 
@@ -61,10 +64,10 @@ class TestRestoreEmptyStore:
     """restore_state is a no-op when no session file exists."""
 
     def test_restore_no_file_is_noop(self, _mock_streamlit):
-        _, session_state, query_params = _mock_streamlit
+        _, session_state, cookies = _mock_streamlit
         from web.state import restore_state
 
-        query_params["session_id"] = "nonexistent-session"
+        cookies[_COOKIE] = "nonexistent-session"
         session_state.clear()
 
         restore_state()
@@ -78,12 +81,11 @@ class TestDiskPersistence:
 
     def test_groups_survive_session_state_clear(self, _mock_streamlit):
         """After clearing session_state (simulating restart), groups load from disk."""
-        _, session_state, query_params = _mock_streamlit
+        _, session_state, cookies = _mock_streamlit
         from web.models import GroupConfig
         from web.state import restore_state, save_state
 
-        query_params["session_id"] = "persist-test"
-        session_state["characters"] = {"A": "a", "B": "b"}
+        cookies[_COOKIE] = "persist-test"
         session_state["control_group"] = GroupConfig(
             name="ctrl", is_control=True, character_names=["A"],
         )
@@ -139,11 +141,11 @@ class TestClearState:
     """clear_state wipes session state and removes the session file."""
 
     def test_clear_state(self, _mock_streamlit):
-        _, session_state, query_params = _mock_streamlit
+        _, session_state, cookies = _mock_streamlit
         from web.models import GroupConfig
         from web.state import _session_file, clear_state, save_state
 
-        query_params["session_id"] = "clear-test"
+        cookies[_COOKIE] = "clear-test"
         session_state["characters"] = {"Bayushi": "rogue"}
         session_state["control_group"] = GroupConfig(
             name="ctrl", is_control=True, character_names=["Bayushi"],
@@ -167,12 +169,13 @@ class TestSessionIsolation:
     """Two different session IDs produce independent state."""
 
     def test_sessions_are_independent(self, _mock_streamlit):
-        _, session_state, query_params = _mock_streamlit
+        _, session_state, cookies = _mock_streamlit
         from web.models import GroupConfig
         from web.state import restore_state, save_state
 
         # Session A saves its groups
-        query_params["session_id"] = "session-a"
+        cookies[_COOKIE] = "session-a"
+        session_state["_session_id"] = "session-a"
         session_state["control_group"] = GroupConfig(
             name="A-ctrl", is_control=True, character_names=["A1"],
         )
@@ -182,8 +185,8 @@ class TestSessionIsolation:
         save_state()
 
         # Session B saves different groups
-        query_params["session_id"] = "session-b"
         session_state.clear()
+        cookies[_COOKIE] = "session-b"
         session_state["control_group"] = GroupConfig(
             name="B-ctrl", is_control=True, character_names=["B1"],
         )
@@ -193,15 +196,15 @@ class TestSessionIsolation:
         save_state()
 
         # Restore session A — should get A's groups, not B's
-        query_params["session_id"] = "session-a"
         session_state.clear()
+        cookies[_COOKIE] = "session-a"
         restore_state()
         assert session_state["control_group"].name == "A-ctrl"
         assert session_state["test_group"].name == "A-test"
 
         # Restore session B — should get B's groups
-        query_params["session_id"] = "session-b"
         session_state.clear()
+        cookies[_COOKIE] = "session-b"
         restore_state()
         assert session_state["control_group"].name == "B-ctrl"
         assert session_state["test_group"].name == "B-test"
@@ -241,20 +244,98 @@ class TestCleanupStaleSessions:
 
 
 class TestSessionIdGeneration:
-    """A new session_id is generated when none exists in query_params."""
+    """_get_session_id returns a UUID from session_state, cookies, or generates new."""
 
-    def test_creates_session_id(self, _mock_streamlit):
-        _, _, query_params = _mock_streamlit
+    def test_creates_new_session_id(self, _mock_streamlit):
+        _, session_state, _ = _mock_streamlit
         from web.state import _get_session_id
 
-        assert "session_id" not in query_params
         sid = _get_session_id()
         assert len(sid) == 32  # uuid4().hex is 32 hex chars
-        assert query_params["session_id"] == sid
+        assert session_state["_session_id"] == sid
 
-    def test_reuses_existing_session_id(self, _mock_streamlit):
-        _, _, query_params = _mock_streamlit
+    def test_reuses_from_session_state(self, _mock_streamlit):
+        _, session_state, _ = _mock_streamlit
         from web.state import _get_session_id
 
-        query_params["session_id"] = "my-custom-id"
-        assert _get_session_id() == "my-custom-id"
+        session_state["_session_id"] = "cached-id"
+        assert _get_session_id() == "cached-id"
+
+    def test_reads_from_cookie(self, _mock_streamlit):
+        _, session_state, cookies = _mock_streamlit
+        from web.state import _get_session_id
+
+        cookies[_COOKIE] = "cookie-id"
+        assert _get_session_id() == "cookie-id"
+        assert session_state["_session_id"] == "cookie-id"
+
+    def test_session_state_takes_priority_over_cookie(self, _mock_streamlit):
+        _, session_state, cookies = _mock_streamlit
+        from web.state import _get_session_id
+
+        session_state["_session_id"] = "state-id"
+        cookies[_COOKIE] = "cookie-id"
+        assert _get_session_id() == "state-id"
+
+
+class TestCookieBasedPersistence:
+    """Session ID persists via browser cookies across page refreshes."""
+
+    def test_refresh_restores_from_cookie(self, _mock_streamlit):
+        """Groups survive page refresh: session_state cleared, cookie preserved."""
+        _, session_state, cookies = _mock_streamlit
+        from web.models import GroupConfig
+        from web.state import _get_session_id, restore_state, save_state
+
+        # Initial visit: generate session_id, configure groups
+        sid = _get_session_id()
+        session_state["control_group"] = GroupConfig(
+            name="ctrl", is_control=True, character_names=["A"],
+        )
+        session_state["test_group"] = GroupConfig(
+            name="test", is_control=False, character_names=["B"],
+        )
+        save_state()
+
+        # Simulate page refresh: session_state cleared, cookie preserved
+        session_state.clear()
+        cookies[_COOKIE] = sid
+
+        restore_state()
+        assert isinstance(session_state.get("control_group"), GroupConfig)
+        assert session_state["control_group"].character_names == ["A"]
+        assert session_state["test_group"].character_names == ["B"]
+
+    def test_navigation_preserves_session_via_session_state(self, _mock_streamlit):
+        """Within a single browser tab, session_state keeps the session alive."""
+        _, session_state, _ = _mock_streamlit
+        from web.models import GroupConfig
+        from web.state import _get_session_id, save_state
+
+        sid = _get_session_id()
+        session_state["control_group"] = GroupConfig(
+            name="ctrl", is_control=True, character_names=["A"],
+        )
+        session_state["test_group"] = GroupConfig(
+            name="test", is_control=False, character_names=["B"],
+        )
+        save_state()
+
+        # Navigate to another page: session_state preserved, _session_id intact
+        assert _get_session_id() == sid
+        assert session_state["control_group"].character_names == ["A"]
+
+    def test_set_session_cookie_injects_script(self, _mock_streamlit):
+        """set_session_cookie calls st.html with the session ID in a cookie script."""
+        mock_st, session_state, _ = _mock_streamlit
+        from web.state import set_session_cookie
+
+        session_state["_session_id"] = "test-sid"
+        set_session_cookie()
+
+        mock_st.html.assert_called_once()
+        call_args = mock_st.html.call_args
+        html_body = call_args[0][0]
+        assert "test-sid" in html_body
+        assert _COOKIE in html_body
+        assert call_args[1]["unsafe_allow_javascript"] is True
