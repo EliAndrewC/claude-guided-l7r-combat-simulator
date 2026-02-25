@@ -1568,6 +1568,105 @@ class TestRiskyKeepLightWoundsOptimizerFallThrough(unittest.TestCase):
         self.assertIsInstance(should_keep, bool)
 
 
+class TestTrialFeaturesDisplayData(unittest.TestCase):
+    """Tests for TrialFeatures.display_data()."""
+
+    def _make_completed_features(self, damage_rolls, keep_lw=None, take_sw=None,
+                                  wc_failed_margin=None, wc_failed_lw=None,
+                                  wc_succeeded_margin=None):
+        """Helper: create a TrialFeatures, populate lists, and complete()."""
+        tf = TrialFeatures()
+        tf._data["control_damage_rolls"] = []
+        tf._data["test_damage_rolls"] = damage_rolls
+        tf._data["control_keep_lw_total"] = []
+        tf._data["test_keep_lw_total"] = keep_lw or []
+        tf._data["control_take_sw_total"] = []
+        tf._data["test_take_sw_total"] = take_sw or []
+        tf._data["control_wc_failed_margin"] = []
+        tf._data["test_wc_failed_margin"] = wc_failed_margin or []
+        tf._data["control_wc_failed_lw_total"] = []
+        tf._data["test_wc_failed_lw_total"] = wc_failed_lw or []
+        tf._data["control_wc_succeeded_margin"] = []
+        tf._data["test_wc_succeeded_margin"] = wc_succeeded_margin or []
+        test_char = Character("T")
+        control_char = Character("C")
+        groups = [Group("c", control_char), Group("t", test_char)]
+        ctx = EngineContext(groups)
+        ctx.initialize()
+        tf.complete(ctx)
+        return tf
+
+    def test_nonempty_list_avg_stdev(self):
+        """Damage rolls [10, 20, 30] → count=3, avg=20, stdev=sqrt(200/3 - ... )."""
+        import math
+        tf = self._make_completed_features([10, 20, 30])
+        display = tf.display_data()
+        self.assertEqual(3, display["test_damage_rolls_count"])
+        self.assertAlmostEqual(20.0, display["test_damage_rolls_avg"])
+        # variance = (100+400+900)/3 - 20^2 = 1400/3 - 400 = 66.666...
+        expected_stdev = math.sqrt(1400 / 3 - 400)
+        self.assertAlmostEqual(expected_stdev, display["test_damage_rolls_stdev"], places=5)
+
+    def test_empty_list_avg_stdev(self):
+        """Empty damage rolls → count=0, avg=0, stdev=0."""
+        tf = self._make_completed_features([])
+        display = tf.display_data()
+        self.assertEqual(0, display["test_damage_rolls_count"])
+        self.assertEqual(0, display["test_damage_rolls_avg"])
+        self.assertEqual(0, display["test_damage_rolls_stdev"])
+
+    def test_single_element_avg_stdev(self):
+        """Single damage roll [15] → count=1, avg=15, stdev=0."""
+        tf = self._make_completed_features([15])
+        display = tf.display_data()
+        self.assertEqual(1, display["test_damage_rolls_count"])
+        self.assertAlmostEqual(15.0, display["test_damage_rolls_avg"])
+        self.assertAlmostEqual(0.0, display["test_damage_rolls_stdev"])
+
+    def test_non_stat_fields_pass_through(self):
+        """Fields like duration_rounds and winner pass through unchanged."""
+        tf = self._make_completed_features([10])
+        tf._data["duration_rounds"] = 5
+        tf._data["winner"] = 1
+        display = tf.display_data()
+        self.assertEqual(5, display["duration_rounds"])
+        self.assertEqual(1, display["winner"])
+
+    def test_sum_and_sumsquares_absent(self):
+        """Output should not contain _sum or _sumsquares keys."""
+        tf = self._make_completed_features([10, 20])
+        display = tf.display_data()
+        for key in display:
+            self.assertFalse(key.endswith("_sum"), f"Key {key} should not end with _sum")
+            self.assertFalse(key.endswith("_sumsquares"), f"Key {key} should not end with _sumsquares")
+
+    def test_avg_and_stdev_present(self):
+        """Output should contain _avg and _stdev for each stat group."""
+        tf = self._make_completed_features([10, 20])
+        display = tf.display_data()
+        self.assertIn("test_damage_rolls_avg", display)
+        self.assertIn("test_damage_rolls_stdev", display)
+        self.assertIn("control_damage_rolls_avg", display)
+        self.assertIn("control_damage_rolls_stdev", display)
+
+    def test_multiple_stat_groups(self):
+        """Verify display_data works across multiple stat groups."""
+        tf = self._make_completed_features(
+            damage_rolls=[10, 20],
+            keep_lw=[5, 15],
+            wc_failed_margin=[3, 7],
+        )
+        display = tf.display_data()
+        # keep_lw
+        self.assertIn("test_keep_lw_total_avg", display)
+        self.assertIn("test_keep_lw_total_stdev", display)
+        self.assertAlmostEqual(10.0, display["test_keep_lw_total_avg"])
+        # wc_failed_margin
+        self.assertIn("test_wc_failed_margin_avg", display)
+        self.assertIn("test_wc_failed_margin_stdev", display)
+        self.assertAlmostEqual(5.0, display["test_wc_failed_margin_avg"])
+
+
 class TestDefaultKeepLightWoundsOptimizerAdditional(unittest.TestCase):
     """Additional tests for DefaultKeepLightWoundsOptimizer."""
 

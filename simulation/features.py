@@ -465,6 +465,27 @@ class TrialFeatures:
     def data(self):
         return self._data
 
+    def display_data(self):
+        """Return data with _sum/_sumsquares replaced by _avg/_stdev."""
+        result = {}
+        for k, v in self._data.items():
+            if k.endswith("_sum"):
+                prefix = k[:-4]
+                count = self._data.get(prefix + "_count", 0)
+                result[prefix + "_avg"] = v / count if count > 0 else 0
+            elif k.endswith("_sumsquares"):
+                prefix = k[:-11]
+                count = self._data.get(prefix + "_count", 0)
+                sum_val = self._data.get(prefix + "_sum", 0)
+                if count > 0:
+                    avg = sum_val / count
+                    result[prefix + "_stdev"] = math.sqrt(v / count - avg * avg)
+                else:
+                    result[prefix + "_stdev"] = 0
+            else:
+                result[k] = v
+        return result
+
     def winner(self):
         return self._winner
 

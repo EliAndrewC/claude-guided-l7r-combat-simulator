@@ -109,7 +109,7 @@ def run_single(characters: list[CharacterConfig], groups: list[GroupConfig]) -> 
         play_by_play=play_by_play,
         group_names=group_names,
         winner=winner,
-        features=dict(features.data()),
+        features=dict(features.display_data()),
         duration_rounds=duration_rounds,
         duration_phases=duration_phases,
     )
