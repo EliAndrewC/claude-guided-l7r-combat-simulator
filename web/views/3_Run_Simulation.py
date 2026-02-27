@@ -86,16 +86,34 @@ else:
                 # Summary stats
                 if result.summary:
                     st.subheader("Summary Statistics")
-                    summary_items = {k: f"{v:.2f}" for k, v in sorted(result.summary.items())}
+
+                    # Duration stats (not group-specific) at the top
+                    duration_keys = sorted(
+                        k for k in result.summary if k.startswith("duration_")
+                    )
+                    if duration_keys:
+                        for k in duration_keys:
+                            st.write(f"**{k}:** {result.summary[k]:.2f}")
+                        st.markdown(
+                            '<hr style="margin-top:0.5em;margin-bottom:0.5em">',
+                            unsafe_allow_html=True,
+                        )
+
+                    # Group-specific stats
+                    group_items = {
+                        k: f"{v:.2f}"
+                        for k, v in sorted(result.summary.items())
+                        if not k.startswith("duration_")
+                    }
                     col1, col2 = st.columns(2)
-                    keys = list(summary_items.keys())
+                    keys = list(group_items.keys())
                     mid = len(keys) // 2
                     with col1:
                         for k in keys[:mid]:
-                            st.write(f"**{k}:** {summary_items[k]}")
+                            st.write(f"**{k}:** {group_items[k]}")
                     with col2:
                         for k in keys[mid:]:
-                            st.write(f"**{k}:** {summary_items[k]}")
+                            st.write(f"**{k}:** {group_items[k]}")
 
     with tab_single:
         if st.button("Run Single Combat"):

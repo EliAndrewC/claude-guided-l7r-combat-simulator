@@ -619,6 +619,16 @@ class Character:
             raise ValueError("Character action factory must be an ActionFactory")
         self._action_factory = factory
 
+    def set_ap_base_skill(self, skill):
+        if not isinstance(skill, str):
+            raise ValueError("set_ap_base_skill requires str")
+        self._ap_base_skill = skill
+
+    def set_ap_skills(self, skills):
+        if not isinstance(skills, list):
+            raise ValueError("set_ap_skills requires list")
+        self._ap_skills = skills
+
     def set_action_strategy(self, strategy):
         if not isinstance(strategy, Strategy):
             raise ValueError("Character action strategy must be a Strategy")

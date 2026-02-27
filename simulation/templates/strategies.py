@@ -326,15 +326,373 @@ WAVE_MAN_ABILITIES: list[str] = [
     "wound check penalty",
 ]
 
+# Hiruma Scout School (school_ring: air, knacks: double attack, feint, iaijutsu)
+HIRUMA_PRIORITIES: list[tuple[str, str, int]] = [
+    # Dan 2
+    ("skill", "double attack", 2),
+    ("skill", "feint", 2),
+    ("skill", "iaijutsu", 2),
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    # Dan 3
+    ("skill", "double attack", 3),
+    ("skill", "feint", 3),
+    ("skill", "iaijutsu", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "earth", 3),
+    # Dan 4
+    ("skill", "double attack", 4),
+    ("skill", "feint", 4),
+    ("skill", "iaijutsu", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("ring", "void", 3),
+    ("ring", "fire", 3),
+    ("ring", "water", 3),
+    ("ring", "earth", 4),
+    # Dan 5
+    ("skill", "double attack", 5),
+    ("skill", "feint", 5),
+    ("skill", "iaijutsu", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Max rings
+    ("ring", "air", 5),
+    ("ring", "void", 4),
+    ("ring", "fire", 4),
+    ("ring", "water", 4),
+    ("ring", "earth", 5),
+    ("ring", "air", 6),
+    ("ring", "void", 5),
+    ("ring", "fire", 5),
+    ("ring", "water", 5),
+]
+
+# Isawa Duelist School (school_ring: water, knacks: double attack, iaijutsu, lunge)
+ISAWA_PRIORITIES: list[tuple[str, str, int]] = [
+    # Dan 2
+    ("skill", "double attack", 2),
+    ("skill", "iaijutsu", 2),
+    ("skill", "lunge", 2),
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    # Dan 3
+    ("skill", "double attack", 3),
+    ("skill", "iaijutsu", 3),
+    ("skill", "lunge", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "earth", 3),
+    # Dan 4
+    ("skill", "double attack", 4),
+    ("skill", "iaijutsu", 4),
+    ("skill", "lunge", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("ring", "void", 3),
+    ("ring", "fire", 3),
+    ("ring", "air", 3),
+    ("ring", "earth", 4),
+    # Dan 5
+    ("skill", "double attack", 5),
+    ("skill", "iaijutsu", 5),
+    ("skill", "lunge", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Max rings
+    ("ring", "water", 5),
+    ("ring", "void", 4),
+    ("ring", "fire", 4),
+    ("ring", "air", 4),
+    ("ring", "earth", 5),
+    ("ring", "water", 6),
+    ("ring", "void", 5),
+    ("ring", "fire", 5),
+    ("ring", "air", 5),
+]
+
+# Kuni Witch Hunter School (school_ring: earth, knacks: detect taint, iaijutsu, presence)
+# investigation set to 5 at all tiers (non-combat but AP base skill)
+KUNI_PRIORITIES: list[tuple[str, str, int]] = [
+    # investigation for AP system (bought early)
+    ("skill", "investigation", 2),
+    ("skill", "investigation", 3),
+    # Dan 2
+    ("skill", "detect taint", 2),
+    ("skill", "iaijutsu", 2),
+    ("skill", "presence", 2),
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    ("skill", "investigation", 4),
+    # Dan 3
+    ("skill", "detect taint", 3),
+    ("skill", "iaijutsu", 3),
+    ("skill", "presence", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "void", 3),
+    ("skill", "investigation", 5),
+    # Dan 4
+    ("skill", "detect taint", 4),
+    ("skill", "iaijutsu", 4),
+    ("skill", "presence", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("ring", "fire", 3),
+    ("ring", "water", 3),
+    ("ring", "air", 3),
+    ("ring", "void", 4),
+    # Dan 5
+    ("skill", "detect taint", 5),
+    ("skill", "iaijutsu", 5),
+    ("skill", "presence", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Max rings
+    ("ring", "earth", 5),
+    ("ring", "fire", 4),
+    ("ring", "water", 4),
+    ("ring", "air", 4),
+    ("ring", "void", 5),
+    ("ring", "earth", 6),
+    ("ring", "fire", 5),
+    ("ring", "water", 5),
+    ("ring", "air", 5),
+]
+
+# Matsu Bushi School (school_ring: fire, knacks: double attack, iaijutsu, lunge)
+MATSU_PRIORITIES: list[tuple[str, str, int]] = [
+    # Dan 2
+    ("skill", "double attack", 2),
+    ("skill", "iaijutsu", 2),
+    ("skill", "lunge", 2),
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    # Dan 3
+    ("skill", "double attack", 3),
+    ("skill", "iaijutsu", 3),
+    ("skill", "lunge", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "earth", 3),
+    # Dan 4
+    ("skill", "double attack", 4),
+    ("skill", "iaijutsu", 4),
+    ("skill", "lunge", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("ring", "void", 3),
+    ("ring", "water", 3),
+    ("ring", "air", 3),
+    ("ring", "earth", 4),
+    # Dan 5
+    ("skill", "double attack", 5),
+    ("skill", "iaijutsu", 5),
+    ("skill", "lunge", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Max rings
+    ("ring", "fire", 5),
+    ("ring", "void", 4),
+    ("ring", "water", 4),
+    ("ring", "air", 4),
+    ("ring", "earth", 5),
+    ("ring", "fire", 6),
+    ("ring", "void", 5),
+    ("ring", "water", 5),
+    ("ring", "air", 5),
+]
+
+# Mirumoto Bushi School (school_ring: void, knacks: counterattack, double attack, iaijutsu)
+MIRUMOTO_PRIORITIES: list[tuple[str, str, int]] = [
+    # Dan 2
+    ("skill", "counterattack", 2),
+    ("skill", "double attack", 2),
+    ("skill", "iaijutsu", 2),
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    # Dan 3
+    ("skill", "counterattack", 3),
+    ("skill", "double attack", 3),
+    ("skill", "iaijutsu", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "earth", 3),
+    # Dan 4
+    ("skill", "counterattack", 4),
+    ("skill", "double attack", 4),
+    ("skill", "iaijutsu", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("ring", "fire", 3),
+    ("ring", "water", 3),
+    ("ring", "air", 3),
+    ("ring", "earth", 4),
+    # Dan 5
+    ("skill", "counterattack", 5),
+    ("skill", "double attack", 5),
+    ("skill", "iaijutsu", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Max rings
+    ("ring", "void", 5),
+    ("ring", "fire", 4),
+    ("ring", "water", 4),
+    ("ring", "air", 4),
+    ("ring", "earth", 5),
+    ("ring", "void", 6),
+    ("ring", "fire", 5),
+    ("ring", "water", 5),
+    ("ring", "air", 5),
+]
+
+# Otaku Bushi School (school_ring: fire, knacks: double attack, iaijutsu, lunge)
+OTAKU_PRIORITIES: list[tuple[str, str, int]] = [
+    # Dan 2
+    ("skill", "double attack", 2),
+    ("skill", "iaijutsu", 2),
+    ("skill", "lunge", 2),
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    # Dan 3
+    ("skill", "double attack", 3),
+    ("skill", "iaijutsu", 3),
+    ("skill", "lunge", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "earth", 3),
+    # Dan 4
+    ("skill", "double attack", 4),
+    ("skill", "iaijutsu", 4),
+    ("skill", "lunge", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("ring", "void", 3),
+    ("ring", "water", 3),
+    ("ring", "air", 3),
+    ("ring", "earth", 4),
+    # Dan 5
+    ("skill", "double attack", 5),
+    ("skill", "iaijutsu", 5),
+    ("skill", "lunge", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Max rings
+    ("ring", "fire", 5),
+    ("ring", "void", 4),
+    ("ring", "water", 4),
+    ("ring", "air", 4),
+    ("ring", "earth", 5),
+    ("ring", "fire", 6),
+    ("ring", "void", 5),
+    ("ring", "water", 5),
+    ("ring", "air", 5),
+]
+
+# Shinjo Bushi School (school_ring: air, knacks: double attack, iaijutsu, lunge)
+SHINJO_PRIORITIES: list[tuple[str, str, int]] = [
+    # Dan 2
+    ("skill", "double attack", 2),
+    ("skill", "iaijutsu", 2),
+    ("skill", "lunge", 2),
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    # Dan 3
+    ("skill", "double attack", 3),
+    ("skill", "iaijutsu", 3),
+    ("skill", "lunge", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "earth", 3),
+    # Dan 4
+    ("skill", "double attack", 4),
+    ("skill", "iaijutsu", 4),
+    ("skill", "lunge", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("ring", "void", 3),
+    ("ring", "fire", 3),
+    ("ring", "water", 3),
+    ("ring", "earth", 4),
+    # Dan 5
+    ("skill", "double attack", 5),
+    ("skill", "iaijutsu", 5),
+    ("skill", "lunge", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Max rings
+    ("ring", "air", 5),
+    ("ring", "void", 4),
+    ("ring", "fire", 4),
+    ("ring", "water", 4),
+    ("ring", "earth", 5),
+    ("ring", "air", 6),
+    ("ring", "void", 5),
+    ("ring", "fire", 5),
+    ("ring", "water", 5),
+]
+
+# Yogo Warden School (school_ring: earth, knacks: double attack, feint, iaijutsu)
+YOGO_PRIORITIES: list[tuple[str, str, int]] = [
+    # Dan 2
+    ("skill", "double attack", 2),
+    ("skill", "feint", 2),
+    ("skill", "iaijutsu", 2),
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    # Dan 3
+    ("skill", "double attack", 3),
+    ("skill", "feint", 3),
+    ("skill", "iaijutsu", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "void", 3),
+    # Dan 4
+    ("skill", "double attack", 4),
+    ("skill", "feint", 4),
+    ("skill", "iaijutsu", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("ring", "fire", 3),
+    ("ring", "water", 3),
+    ("ring", "air", 3),
+    ("ring", "void", 4),
+    # Dan 5
+    ("skill", "double attack", 5),
+    ("skill", "feint", 5),
+    ("skill", "iaijutsu", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Max rings
+    ("ring", "earth", 5),
+    ("ring", "fire", 4),
+    ("ring", "water", 4),
+    ("ring", "air", 4),
+    ("ring", "void", 5),
+    ("ring", "earth", 6),
+    ("ring", "fire", 5),
+    ("ring", "water", 5),
+    ("ring", "air", 5),
+]
+
 # Map school names to their priority lists
 SCHOOL_PRIORITIES: dict[str, list[tuple[str, str, int]]] = {
     "Akodo Bushi School": AKODO_PRIORITIES,
     "Bayushi Bushi School": BAYUSHI_PRIORITIES,
     "Daidoji Yojimbo School": DAIDOJI_PRIORITIES,
     "Hida Bushi School": HIDA_PRIORITIES,
+    "Hiruma Scout School": HIRUMA_PRIORITIES,
+    "Isawa Duelist School": ISAWA_PRIORITIES,
     "Kakita Bushi School": KAKITA_PRIORITIES,
+    "Kuni Witch Hunter School": KUNI_PRIORITIES,
+    "Matsu Bushi School": MATSU_PRIORITIES,
+    "Mirumoto Bushi School": MIRUMOTO_PRIORITIES,
+    "Otaku Bushi School": OTAKU_PRIORITIES,
     "Shiba Bushi School": SHIBA_PRIORITIES,
+    "Shinjo Bushi School": SHINJO_PRIORITIES,
     "Wave Man": WAVE_MAN_PRIORITIES,
+    "Yogo Warden School": YOGO_PRIORITIES,
 }
 
 # Short name to full school/profession name
@@ -343,9 +701,17 @@ SCHOOL_NAMES: dict[str, str] = {
     "bayushi": "Bayushi Bushi School",
     "daidoji": "Daidoji Yojimbo School",
     "hida": "Hida Bushi School",
+    "hiruma": "Hiruma Scout School",
+    "isawa": "Isawa Duelist School",
     "kakita": "Kakita Bushi School",
+    "kuni": "Kuni Witch Hunter School",
+    "matsu": "Matsu Bushi School",
+    "mirumoto": "Mirumoto Bushi School",
+    "otaku": "Otaku Bushi School",
     "shiba": "Shiba Bushi School",
+    "shinjo": "Shinjo Bushi School",
     "wave_man": "Wave Man",
+    "yogo": "Yogo Warden School",
 }
 
 XP_TIERS: list[int] = [150, 200, 250, 300, 350, 400, 450]

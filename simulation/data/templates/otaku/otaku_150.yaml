@@ -1,0 +1,27 @@
+# XP Breakdown (150 XP total):
+#   Combat budget: 120 XP (80%), Non-combat reserve: 30 XP (20%)
+#   Free: fire ring starts at 3 (school ring); school knacks start at 1; attack/parry start at 1
+#   Free: fire +1 free at 4th Dan
+#   Rings (30 XP): earth 2→3 (15), void 2→3 (15)
+#   School knacks (54 XP): double attack 1→4 (18), iaijutsu 1→4 (18), lunge 1→4 (18)
+#   Attack/Parry (36 XP): attack 1→4 (18), parry 1→4 (18)
+#   Combat total: 120 XP
+#
+name: Otaku
+xp: 150
+school: Otaku Bushi School
+rings:
+  air: 2
+  earth: 3
+  fire: 4
+  water: 2
+  void: 3
+skills:
+  attack: 4
+  parry: 4
+  double attack: 4
+  iaijutsu: 4
+  lunge: 4
+template_tier: '150'
+template_earned_xp: 150
+template_school: Otaku Bushi School

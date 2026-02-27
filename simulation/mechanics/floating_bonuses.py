@@ -58,3 +58,14 @@ class AnyAttackFloatingBonus(FloatingBonus):
 
     def __init__(self, bonus):
         super().__init__(ATTACK_SKILLS, bonus)
+
+
+class WoundCheckFloatingBonus(FloatingBonus):
+    """
+    A floating bonus that may be applied to wound checks.
+
+    Used by the Isawa and Shinjo schools.
+    """
+
+    def __init__(self, bonus):
+        super().__init__("wound check", bonus)

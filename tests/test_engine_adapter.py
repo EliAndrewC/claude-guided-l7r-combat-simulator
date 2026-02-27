@@ -65,3 +65,32 @@ class TestRunSingle:
         test = GroupConfig(name="west", is_control=False, character_names=["Bayushi"])
         result = run_single([akodo, bayushi], [control, test])
         assert any("Round" in line for line in result.play_by_play)
+
+
+class TestCounterattackSchoolsDoNotCrash:
+    """Regression tests for counterattack schools.
+
+    Schools with CounterattackInterruptStrategy can cause VP spending
+    errors if a counterattack forces the original attacker to spend VP
+    on a wound check before the attack's VP are spent. Verify these
+    matchups complete without errors.
+    """
+
+    def test_mirumoto_vs_kakita_batch(self):
+        configs = _load_test_configs()
+        mirumoto = _find_config(configs, "Mirumoto")
+        kakita = _find_config(configs, "Kakita")
+        control = GroupConfig(name="east", is_control=True, character_names=["Mirumoto"])
+        test = GroupConfig(name="west", is_control=False, character_names=["Kakita"])
+        result = run_batch([mirumoto, kakita], [control, test], num_trials=10)
+        assert isinstance(result, BatchResult)
+        assert result.num_trials == 10
+
+    def test_mirumoto_vs_akodo_batch(self):
+        configs = _load_test_configs()
+        mirumoto = _find_config(configs, "Mirumoto")
+        akodo = _find_config(configs, "Akodo")
+        control = GroupConfig(name="east", is_control=True, character_names=["Mirumoto"])
+        test = GroupConfig(name="west", is_control=False, character_names=["Akodo"])
+        result = run_batch([mirumoto, akodo], [control, test], num_trials=10)
+        assert isinstance(result, BatchResult)

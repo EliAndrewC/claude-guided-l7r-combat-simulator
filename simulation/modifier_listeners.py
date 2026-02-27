@@ -70,6 +70,25 @@ class ExpireAfterNextDamageByCharacterListener(ModifierListener):
                 yield RemoveModifierEvent(character, modifier)
 
 
+class ExpireAfterNDamageRollsListener(ModifierListener):
+    """
+    Expire a modifier after N damage rolls by the attacker.
+    Used by the Hiruma 5th Dan technique.
+    """
+
+    def __init__(self, attacker, n):
+        super().__init__()
+        self._attacker = attacker
+        self._remaining = n
+
+    def handle(self, character, event, modifier, context):
+        if isinstance(event, LightWoundsDamageEvent):
+            if event.subject == self._attacker:
+                self._remaining -= 1
+                if self._remaining <= 0:
+                    yield RemoveModifierEvent(character, modifier)
+
+
 class ExpireAtEndOfRoundListener(ModifierListener):
     """
     Expire a modifier at the end of the current round.

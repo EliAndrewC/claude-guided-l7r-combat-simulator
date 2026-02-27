@@ -15,7 +15,7 @@
 # for skill rolls.
 #
 
-ADVANCED_SKILLS = ["acting", "attack", "commerce", "counterattack", "double attack", "feint", "history", "iaijutsu", "interrogation", "lunge", "manipulation", "parry", "underworld"]
+ADVANCED_SKILLS = ["acting", "attack", "commerce", "counterattack", "detect taint", "double attack", "feint", "history", "iaijutsu", "interrogation", "lunge", "manipulation", "parry", "presence", "underworld"]
 
 
 ATTACK_SKILLS = ["attack", "counterattack", "double attack", "feint", "iaijutsu", "lunge"]

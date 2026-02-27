@@ -147,8 +147,11 @@ class TakeAttackActionEvent(TakeActionEvent):
         if bonus:
             attack_roll += bonus
             self.action.set_skill_roll(attack_roll)
-        if self.action.vp() > 0:
-            yield SpendVoidPointsEvent(self.action.subject(), self.action.skill(), self.action.vp())
+        # Cap VP spending to what's actually available. VP may have been
+        # consumed by intervening events (e.g. wound checks from counterattacks).
+        vp_to_spend = min(self.action.vp(), self.action.subject().vp())
+        if vp_to_spend > 0:
+            yield SpendVoidPointsEvent(self.action.subject(), self.action.skill(), vp_to_spend)
         initial_event = AttackRolledEvent(self.action, attack_roll)
         yield from self.action.subject().attack_rolled_strategy().recommend(self.action.subject(), initial_event, context)
 
@@ -186,8 +189,10 @@ class TakeParryActionEvent(TakeActionEvent):
     def _roll_parry(self, context):
         parry_roll = self.action.roll_skill()
         self.action.set_attack_parry_attempted()
-        if self.action.vp() > 0:
-            yield SpendVoidPointsEvent(self.action.subject(), self.action.skill(), self.action.vp())
+        # Cap VP spending to what's actually available.
+        vp_to_spend = min(self.action.vp(), self.action.subject().vp())
+        if vp_to_spend > 0:
+            yield SpendVoidPointsEvent(self.action.subject(), self.action.skill(), vp_to_spend)
         initial_event = ParryRolledEvent(self.action, parry_roll)
         yield from self.action.subject().parry_rolled_strategy().recommend(self.action.subject(), initial_event, context)
 
@@ -251,8 +256,10 @@ class TakeCounterattackActionEvent(TakeActionEvent):
     def play(self, context):
         yield CounterattackDeclaredEvent(self.action)
         self.action.roll_skill()
-        if self.action.vp() > 0:
-            yield SpendVoidPointsEvent(self.action.subject(), self.action.skill(), self.action.vp())
+        # Cap VP spending to what's actually available.
+        vp_to_spend = min(self.action.vp(), self.action.subject().vp())
+        if vp_to_spend > 0:
+            yield SpendVoidPointsEvent(self.action.subject(), self.action.skill(), vp_to_spend)
         yield CounterattackRolledEvent(self.action, self.action.skill_roll())
         if self.action.is_hit():
             yield CounterattackSucceededEvent(self.action)

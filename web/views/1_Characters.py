@@ -7,7 +7,13 @@ from web.adapters.character_adapter import config_to_character
 from web.models import CharacterConfig
 from web.state import save_state
 
-SCHOOL_NAMES = ["Akodo Bushi School", "Bayushi Bushi School", "Daidoji Yojimbo School", "Hida Bushi School", "Kakita Bushi School", "Shiba Bushi School"]
+SCHOOL_NAMES = [
+    "Akodo Bushi School", "Bayushi Bushi School", "Daidoji Yojimbo School",
+    "Hida Bushi School", "Hiruma Scout School", "Isawa Duelist School",
+    "Kakita Bushi School", "Kuni Witch Hunter School", "Matsu Bushi School",
+    "Mirumoto Bushi School", "Otaku Bushi School", "Shiba Bushi School",
+    "Shinjo Bushi School", "Yogo Warden School",
+]
 WEAPON_NAMES = ["katana", "wakizashi", "tanto", "yari", "club", "unarmed", "gongfu"]
 PROFESSION_ABILITIES = [
     "crippled bonus", "damage penalty", "failed parry damage bonus",

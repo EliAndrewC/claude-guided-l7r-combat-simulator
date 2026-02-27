@@ -260,6 +260,55 @@ class TestTakeAttackActionEvent(unittest.TestCase):
         self.assertEqual(0, len(history))
 
 
+class TestVPCappingOnAttack(unittest.TestCase):
+    """Test that VP spending is capped to available VP.
+
+    When an attack action is created with VP, intervening events
+    (like counterattack wound checks) can consume those VP before
+    the SpendVoidPointsEvent is processed. The attack should cap
+    VP spending to what's actually available.
+    """
+
+    def test_attack_vp_capped_when_vp_already_spent(self):
+        """Attack with vp=2 should not crash when only 1 VP remains."""
+        attacker = Character("attacker")
+        # Set all rings to 3 so max_vp = min(3,3,3,3,3) = 3
+        for ring in ["air", "earth", "fire", "water", "void"]:
+            attacker.set_ring(ring, 3)
+        attacker.set_skill("attack", 3)
+        attacker.set_actions([1])
+        target = Character("target")
+        target.set_parry_strategy(NeverParryStrategy())
+        target.set_ring("air", 1)
+        target.set_skill("parry", 1)
+        target.set_actions([1])
+        groups = [Group("attacker", attacker), Group("target", target)]
+        context = EngineContext(groups, round=1, phase=1)
+        context.initialize()
+        initiative_action = InitiativeAction([1], 1)
+        # Create attack with 2 VP
+        attack = AttackAction(attacker, target, "attack", initiative_action, context, vp=2)
+        # Rig rolls
+        roll_provider = TestRollProvider()
+        roll_provider.put_skill_roll("attack", 20)
+        roll_provider.put_damage_roll(10)
+        attacker.set_roll_provider(roll_provider)
+        target_roll_provider = TestRollProvider()
+        target_roll_provider.put_wound_check_roll(25)
+        target.set_roll_provider(target_roll_provider)
+        # Simulate VP being consumed by a prior wound check (spend 2 of 3)
+        attacker.spend_vp(2)
+        self.assertEqual(1, attacker.vp())
+        # The attack should complete without ValueError
+        engine = CombatEngine(context)
+        event = events.TakeAttackActionEvent(attack)
+        engine.event(event)
+        # VP spending was capped: only 1 VP spent instead of 2
+        spend_vp_events = [e for e in engine.history() if isinstance(e, events.SpendVoidPointsEvent)]
+        self.assertEqual(1, len(spend_vp_events))
+        self.assertEqual(1, spend_vp_events[0].amount)
+
+
 class TestTakeParryActionEvent(unittest.TestCase):
     def setUp(self):
         # set up attacker character

@@ -28,8 +28,16 @@ SCHOOL_KNACK_LOOKUP: dict[str, list[str]] = {
     "Bayushi Bushi School": ["double attack", "feint", "iaijutsu"],
     "Daidoji Yojimbo School": ["counterattack", "double attack", "iaijutsu"],
     "Hida Bushi School": ["counterattack", "iaijutsu", "lunge"],
+    "Hiruma Scout School": ["double attack", "feint", "iaijutsu"],
+    "Isawa Duelist School": ["double attack", "iaijutsu", "lunge"],
     "Kakita Bushi School": ["double attack", "iaijutsu", "lunge"],
+    "Kuni Witch Hunter School": ["detect taint", "iaijutsu", "presence"],
+    "Matsu Bushi School": ["double attack", "iaijutsu", "lunge"],
+    "Mirumoto Bushi School": ["counterattack", "double attack", "iaijutsu"],
+    "Otaku Bushi School": ["double attack", "iaijutsu", "lunge"],
     "Shiba Bushi School": ["counterattack", "double attack", "iaijutsu"],
+    "Shinjo Bushi School": ["double attack", "iaijutsu", "lunge"],
+    "Yogo Warden School": ["double attack", "feint", "iaijutsu"],
 }
 
 SCHOOL_RING_LOOKUP: dict[str, str] = {
@@ -37,8 +45,16 @@ SCHOOL_RING_LOOKUP: dict[str, str] = {
     "Bayushi Bushi School": "fire",
     "Daidoji Yojimbo School": "water",
     "Hida Bushi School": "water",
+    "Hiruma Scout School": "air",
+    "Isawa Duelist School": "water",
     "Kakita Bushi School": "fire",
+    "Kuni Witch Hunter School": "earth",
+    "Matsu Bushi School": "fire",
+    "Mirumoto Bushi School": "void",
+    "Otaku Bushi School": "fire",
     "Shiba Bushi School": "air",
+    "Shinjo Bushi School": "air",
+    "Yogo Warden School": "earth",
 }
 
 
@@ -234,7 +250,8 @@ def generate_template(
 
     # Include school knacks and other combat skills
     combat_skills = [
-        "counterattack", "double attack", "feint", "iaijutsu", "lunge",
+        "counterattack", "detect taint", "double attack", "feint",
+        "iaijutsu", "investigation", "lunge", "presence",
     ]
     for skill_name in combat_skills:
         rank = character.skill(skill_name)
