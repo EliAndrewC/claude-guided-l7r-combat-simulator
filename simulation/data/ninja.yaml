@@ -1,0 +1,21 @@
+name: Ninja
+profession: Ninja
+xp: 350
+rings:
+  air: 4
+  earth: 4
+  fire: 4
+  water: 4
+  void: 4
+skills:
+  attack: 4
+  parry: 3
+abilities:
+  defense bonus: 2
+  attack bonus: 2
+  damage keeping bonus: 1
+  wound check ninja bonus: 1
+  initiative reduction: 1
+strategies:
+  action: AlwaysAttackActionStrategy
+  wound_check: WoundCheckStrategy02

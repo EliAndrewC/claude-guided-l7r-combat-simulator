@@ -48,6 +48,7 @@ class Character:
         # everything else
         self._actions = []
         self._action_factory = DEFAULT_ACTION_FACTORY
+        self._attack_rolled_penalty = 0
         self._advantages = []
         self._ap_base_skill = None
         self._ap_multiplier = 2
@@ -55,6 +56,7 @@ class Character:
         self._ap_spent = 0
         self._attack_optimizer_factory = DEFAULT_ATTACK_OPTIMIZER_FACTORY
         self._conviction_spent = 0
+        self._damage_reroll_reduction = 0
         self._disadvantages = []
         self._discounts = {}
         self._extra_kept = {}
@@ -195,6 +197,15 @@ class Character:
     def attack_optimizer_factory(self):
         return self._attack_optimizer_factory
 
+    def attack_rolled_penalty(self):
+        """
+        attack_rolled_penalty() -> int
+
+        Returns the penalty to the number of rolled dice an attacker uses
+        when attacking this character (Ninja ability).
+        """
+        return self._attack_rolled_penalty
+
     def attack_rolled_strategy(self):
         return self._strategies["attack_rolled"]
 
@@ -224,6 +235,15 @@ class Character:
 
     def contested_iaijutsu_attack_declared_strategy(self):
         return self._strategies["contested_iaijutsu_attack_declared"]
+
+    def damage_reroll_reduction(self):
+        """
+        damage_reroll_reduction() -> int
+
+        Returns the reduction to the number of 10s an attacker rerolls
+        on damage rolls against this character (Ninja ability).
+        """
+        return self._damage_reroll_reduction
 
     def crippled(self):
         """
@@ -571,7 +591,11 @@ class Character:
         make a Character roll damage.
         """
         rolled, kept, mod = self.get_damage_roll_params(target, skill, attack_extra_rolled, vp)
-        roll = self.roll_provider().get_damage_roll(rolled, kept) + mod
+        reduction = target.damage_reroll_reduction() if target is not None else 0
+        if reduction > 0:
+            roll = self.roll_provider().get_damage_reduction_roll(rolled, kept, reduction) + mod
+        else:
+            roll = self.roll_provider().get_damage_roll(rolled, kept) + mod
         logger.info(f"{self._name} rolled damage: {roll}")
         return roll
 
@@ -669,10 +693,34 @@ class Character:
                 raise ValueError("Character set_actions requires list of ints")
         self._actions = actions
 
+    def set_attack_rolled_penalty(self, n):
+        """
+        set_attack_rolled_penalty(n)
+          n (int): penalty to attacker's rolled dice
+
+        Set the penalty to rolled dice that attackers suffer when
+        attacking this character (Ninja ability).
+        """
+        if not isinstance(n, int):
+            raise ValueError("set_attack_rolled_penalty requires int")
+        self._attack_rolled_penalty = n
+
     def set_attack_optimizer_factory(self, factory):
         if not isinstance(factory, AttackOptimizerFactory):
             raise ValueError("set_attack_optimizer_factory requires AttackOptimizerFactory")
         self._attack_optimizer_factory = factory
+
+    def set_damage_reroll_reduction(self, n):
+        """
+        set_damage_reroll_reduction(n)
+          n (int): reduction to the number of 10s rerolled on damage
+
+        Set the reduction to the number of 10s an attacker rerolls
+        on damage rolls against this character (Ninja ability).
+        """
+        if not isinstance(n, int):
+            raise ValueError("set_damage_reroll_reduction requires int")
+        self._damage_reroll_reduction = n
 
     def set_extra_rolled(self, skill, extra_rolled=1):
         """

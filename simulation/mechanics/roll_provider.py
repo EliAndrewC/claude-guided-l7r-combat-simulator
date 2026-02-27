@@ -8,12 +8,17 @@
 
 from abc import ABC, abstractmethod
 
+from simulation.mechanics.ninja_rolls import NinjaDamageReductionRoll
 from simulation.mechanics.roll import InitiativeRoll, Roll
 
 
 class RollProvider(ABC):
     @abstractmethod
     def die_provider(self):
+        pass
+
+    @abstractmethod
+    def get_damage_reduction_roll(self, rolled, kept, reduction):
         pass
 
     @abstractmethod
@@ -51,6 +56,21 @@ class DefaultRollProvider(RollProvider):
 
     def die_provider(self):
         return self._die_provider
+
+    def get_damage_reduction_roll(self, rolled, kept, reduction):
+        """
+        get_damage_reduction_roll(rolled, kept, reduction) -> int
+          rolled (int): number of rolled dice
+          kept (int): number of kept dice
+          reduction (int): reduction to number of 10s rerolled
+
+        Return a damage roll where the attacker rerolls fewer 10s (Ninja ability).
+        """
+        roll = NinjaDamageReductionRoll(rolled, kept, reduction=reduction, die_provider=self.die_provider())
+        result = roll.roll()
+        self._last_damage_roll = roll
+        self._last_damage_info = {"rolled": rolled, "kept": kept, "dice": list(roll.dice())}
+        return result
 
     def get_damage_roll(self, rolled, kept):
         """
@@ -155,6 +175,12 @@ class TestRollProvider(RollProvider):
 
     def die_provider(self):
         return None
+
+    def get_damage_reduction_roll(self, rolled, kept, reduction):
+        if len(self._queues["damage"]) == 0:
+            raise IndexError("No roll queued for damage")
+        self._observed_params["damage"].append((rolled, kept))
+        return self._queues["damage"].pop(0)
 
     def get_damage_roll(self, rolled, kept):
         if len(self._queues["damage"]) == 0:

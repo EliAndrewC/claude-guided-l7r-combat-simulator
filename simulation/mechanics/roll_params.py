@@ -10,6 +10,8 @@
 
 from abc import ABC, abstractmethod
 
+from simulation.mechanics.skills import ATTACK_SKILLS
+
 
 def normalize_roll_params(rolled, kept, bonus=0):
     """
@@ -136,6 +138,11 @@ class DefaultRollParameterProvider(RollParameterProvider):
             your_skill = target.skill(contested_skill)
             if my_skill > your_skill:
                 modifier += 5 * (my_skill - your_skill)
+        # Apply attack rolled penalty from target (Ninja ability)
+        if target is not None and skill in ATTACK_SKILLS:
+            penalty = target.attack_rolled_penalty()
+            if penalty > 0:
+                rolled = max(rolled - penalty, character.ring("fire"))
         return normalize_roll_params(rolled, kept, modifier)
 
     def get_wound_check_roll_params(self, character, vp=0):

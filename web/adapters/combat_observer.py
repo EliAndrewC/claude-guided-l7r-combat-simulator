@@ -75,6 +75,15 @@ class TrackingRollProvider(RollProvider):
         self._last_damage_info = {"rolled": rolled, "kept": kept, "dice": sorted(dice, reverse=True)}
         return result
 
+    def get_damage_reduction_roll(self, rolled, kept, reduction):
+        result, recorded = self._with_recording(
+            lambda: self._inner.get_damage_reduction_roll(rolled, kept, reduction)
+        )
+        inner_info = self._inner.last_damage_info() if hasattr(self._inner, "last_damage_info") else None
+        dice = inner_info["dice"] if inner_info and inner_info.get("dice") else recorded
+        self._last_damage_info = {"rolled": rolled, "kept": kept, "dice": sorted(dice, reverse=True)}
+        return result
+
     def get_wound_check_roll(self, rolled, kept):
         result, recorded = self._with_recording(
             lambda: self._inner.get_wound_check_roll(rolled, kept)

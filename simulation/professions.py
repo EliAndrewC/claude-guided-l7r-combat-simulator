@@ -9,17 +9,19 @@
 from abc import ABC, abstractmethod
 
 from simulation.actions import AttackAction
-from simulation.events import AddModifierEvent, AttackSucceededEvent, LightWoundsDamageEvent, TakeAttackActionEvent
+from simulation.events import AddModifierEvent, AttackSucceededEvent, LightWoundsDamageEvent, NewRoundEvent, TakeAttackActionEvent
 from simulation.listeners import Listener
-from simulation.mechanics.modifiers import Modifier
+from simulation.mechanics.modifiers import FreeRaise, Modifier
+from simulation.mechanics.ninja_rolls import NinjaDamageKeepRoll, NinjaWoundCheckRoll
 from simulation.mechanics.roll import BaseRoll
 from simulation.mechanics.roll_params import DefaultRollParameterProvider, normalize_roll_params
 from simulation.mechanics.roll_provider import DefaultRollProvider
+from simulation.mechanics.skills import ATTACK_SKILLS
 from simulation.modifier_listeners import ExpireAfterNextDamageByCharacterListener
 from simulation.strategies.action_factory import DefaultActionFactory
 from simulation.strategies.take_action_event_factory import DefaultTakeActionEventFactory
 
-# supported ability names
+# supported ability names - Wave Man
 CRIPPLED_BONUS = "crippled bonus"
 DAMAGE_PENALTY = "damage penalty"
 FAILED_PARRY_DAMAGE_BONUS = "failed parry damage bonus"
@@ -31,8 +33,30 @@ WEAPON_DAMAGE_BONUS = "weapon damage bonus"
 WOUND_CHECK_BONUS = "wound check bonus"
 WOUND_CHECK_PENALTY = "wound check penalty"
 
+# supported ability names - Ninja
+ATTACK_BONUS = "attack bonus"
+ATTACK_PENALTY = "attack penalty"
+DAMAGE_KEEPING_BONUS = "damage keeping bonus"
+DAMAGE_REDUCTION = "damage reduction"
+DEFENSE_BONUS = "defense bonus"
+INITIATIVE_REDUCTION = "initiative reduction"
+SINCERITY_BONUS = "sincerity bonus"
+STEALTH_INVISIBILITY = "stealth (invisibility)"
+STEALTH_MEMORABILITY = "stealth (memorability)"
+WOUND_CHECK_NINJA_BONUS = "wound check ninja bonus"
+
 # list of supported ability names
-ABILITY_NAMES = [CRIPPLED_BONUS, DAMAGE_PENALTY, FAILED_PARRY_DAMAGE_BONUS, INITIATIVE_BONUS, MISSED_ATTACK_BONUS, PARRY_PENALTY, ROLLED_DAMAGE_BONUS, WEAPON_DAMAGE_BONUS, WOUND_CHECK_BONUS, WOUND_CHECK_PENALTY]
+ABILITY_NAMES = [
+    ATTACK_BONUS, ATTACK_PENALTY, CRIPPLED_BONUS,
+    DAMAGE_KEEPING_BONUS, DAMAGE_PENALTY, DAMAGE_REDUCTION,
+    DEFENSE_BONUS, FAILED_PARRY_DAMAGE_BONUS,
+    INITIATIVE_BONUS, INITIATIVE_REDUCTION,
+    MISSED_ATTACK_BONUS, PARRY_PENALTY,
+    ROLLED_DAMAGE_BONUS, SINCERITY_BONUS,
+    STEALTH_INVISIBILITY, STEALTH_MEMORABILITY,
+    WEAPON_DAMAGE_BONUS, WOUND_CHECK_BONUS,
+    WOUND_CHECK_NINJA_BONUS, WOUND_CHECK_PENALTY,
+]
 
 
 class Profession:
@@ -113,6 +137,7 @@ def get_profession_ability(name):
     """
     if not isinstance(name, str):
         raise ValueError("get_profession_ability requires str")
+    # Wave Man abilities
     if name == CRIPPLED_BONUS:
         return CrippledBonusAbility()
     elif name == DAMAGE_PENALTY:
@@ -133,6 +158,27 @@ def get_profession_ability(name):
         return WoundCheckBonusAbility()
     elif name == WOUND_CHECK_PENALTY:
         return WoundCheckPenaltyAbility()
+    # Ninja abilities
+    elif name == ATTACK_BONUS:
+        return NinjaAttackBonusAbility()
+    elif name == ATTACK_PENALTY:
+        return NinjaAttackPenaltyAbility()
+    elif name == DAMAGE_KEEPING_BONUS:
+        return NinjaDamageKeepingBonusAbility()
+    elif name == DAMAGE_REDUCTION:
+        return NinjaDamageReductionAbility()
+    elif name == DEFENSE_BONUS:
+        return NinjaDefenseBonusAbility()
+    elif name == INITIATIVE_REDUCTION:
+        return NinjaInitiativeReductionAbility()
+    elif name == SINCERITY_BONUS:
+        return NinjaSincerityBonusAbility()
+    elif name == STEALTH_INVISIBILITY:
+        return NinjaStealthInvisibilityAbility()
+    elif name == STEALTH_MEMORABILITY:
+        return NinjaStealthMemorabilityAbility()
+    elif name == WOUND_CHECK_NINJA_BONUS:
+        return NinjaWoundCheckBonusAbility()
     else:
         raise ValueError(f"{name} is not a valid profession ability")
 
@@ -523,3 +569,230 @@ class WaveManTakeActionEventFactory(DefaultTakeActionEventFactory):
 
 
 WAVE_MAN_TAKE_ACTION_EVENT_FACTORY = WaveManTakeActionEventFactory()
+
+
+# ── Ninja profession abilities ──────────────────────────────────────────
+
+
+class NinjaAttackBonusAbility(ProfessionAbility):
+    """
+    Ninja ability: "Add Fire ring value to attack rolls."
+    """
+
+    def apply(self, character, profession):
+        modifier = NinjaFireAttackModifier(character, profession)
+        character.add_modifier(modifier)
+
+
+class NinjaAttackPenaltyAbility(ProfessionAbility):
+    """
+    Ninja ability: "Attacker rolls 1 fewer die on attacks, min Fire ring."
+    Sets the target's attack_rolled_penalty.
+    """
+
+    def apply(self, character, profession):
+        character.set_attack_rolled_penalty(profession.ability(ATTACK_PENALTY))
+
+
+class NinjaDamageKeepingBonusAbility(ProfessionAbility):
+    """
+    Ninja ability: "Keep 2 extra lowest unkept dice on damage rolls."
+    """
+
+    def apply(self, character, profession):
+        character.set_roll_provider(NinjaRollProvider(profession))
+
+
+class NinjaDamageReductionAbility(ProfessionAbility):
+    """
+    Ninja ability: "Attacker rerolls 1 fewer 10 on damage (min 1 rerolled)."
+    """
+
+    def apply(self, character, profession):
+        character.set_damage_reroll_reduction(profession.ability(DAMAGE_REDUCTION))
+
+
+class NinjaDefenseBonusAbility(ProfessionAbility):
+    """
+    Ninja ability: "+5 TN to hit ninja; if hit with extra damage,
+    attacker gets +1 rolled damage die."
+    """
+
+    def apply(self, character, profession):
+        modifier = NinjaTNModifier(character, profession)
+        character.add_modifier(modifier)
+        character.set_listener("attack_succeeded", NinjaDefenseBonusDamageListener(profession))
+
+
+class NinjaInitiativeReductionAbility(ProfessionAbility):
+    """
+    Ninja ability: "Lower all action dice by 2 after rolling."
+    """
+
+    def apply(self, character, profession):
+        character.set_listener("new_round", NinjaNewRoundListener(profession))
+
+
+class NinjaSincerityBonusAbility(ProfessionAbility):
+    """
+    Ninja ability: "4 free raises on sincerity."
+    """
+
+    def apply(self, character, profession):
+        for _ in range(4):
+            character.add_modifier(FreeRaise(character, "sincerity"))
+
+
+class NinjaStealthInvisibilityAbility(ProfessionAbility):
+    """
+    Ninja ability: "4 free raises on sneaking (not seen)."
+    """
+
+    def apply(self, character, profession):
+        for _ in range(4):
+            character.add_modifier(FreeRaise(character, "sneaking"))
+
+
+class NinjaStealthMemorabilityAbility(ProfessionAbility):
+    """
+    Ninja ability: "4 free raises on sneaking (not memorable)."
+    """
+
+    def apply(self, character, profession):
+        for _ in range(4):
+            character.add_modifier(FreeRaise(character, "sneaking"))
+
+
+class NinjaWoundCheckBonusAbility(ProfessionAbility):
+    """
+    Ninja ability: "Dice < 5 on wound checks get bonus of (5-X)."
+    """
+
+    def apply(self, character, profession):
+        character.set_roll_provider(NinjaRollProvider(profession))
+
+
+# ── Ninja support classes ───────────────────────────────────────────────
+
+
+class NinjaTNModifier(Modifier):
+    """
+    Dynamic modifier returning 5 * level for "tn to hit" skill.
+    Uses profession object for dynamic level lookup.
+    """
+
+    def __init__(self, subject, profession):
+        super().__init__(subject, None, "tn to hit", 0)
+        self._profession = profession
+
+    def apply(self, target, skill):
+        if skill in self.skills():
+            return 5 * self._profession.ability(DEFENSE_BONUS)
+        return 0
+
+
+class NinjaFireAttackModifier(Modifier):
+    """
+    Dynamic modifier returning character.ring("fire") * level for attack skills.
+    """
+
+    def __init__(self, subject, profession):
+        super().__init__(subject, None, ATTACK_SKILLS, 0)
+        self._profession = profession
+
+    def apply(self, target, skill):
+        if skill in self.skills():
+            return self._subject.ring("fire") * self._profession.ability(ATTACK_BONUS)
+        return 0
+
+
+class NinjaDefenseBonusDamageListener(Listener):
+    """
+    Listener on AttackSucceededEvent. When ninja is target and
+    action.calculate_extra_damage_dice() > 0: temporarily increments
+    attacker's extra_rolled("damage") by level.
+    """
+
+    def __init__(self, profession):
+        self._profession = profession
+
+    def handle(self, character, event, context):
+        if isinstance(event, AttackSucceededEvent):
+            if character == event.action.target():
+                level = self._profession.ability(DEFENSE_BONUS)
+                if level > 0 and event.action.calculate_extra_damage_dice() > 0:
+                    event.action.subject().set_extra_rolled("damage", level)
+                    modifier = NinjaDefenseBonusModifier(event.action.subject(), character, level)
+                    modifier_listener = ExpireAfterNextDamageByCharacterListener(event.action.subject(), character)
+                    modifier.register_listener("lw_damage", modifier_listener)
+                    yield AddModifierEvent(event.action.subject(), modifier)
+
+
+class NinjaDefenseBonusModifier(Modifier):
+    """
+    Modifier with value=0 that restores attacker's extra_rolled("damage")
+    when the modifier expires after the damage roll.
+    """
+
+    def __init__(self, subject, target, level):
+        super().__init__(subject, target, "damage", 0)
+        self._level = level
+
+    def handle(self, character, event, context):
+        if event.name in self._listeners.keys():
+            # Restore extra_rolled before yielding the remove event
+            self._subject.set_extra_rolled("damage", -self._level)
+            yield from self._listeners[event.name].handle(character, event, self, context)
+
+
+class NinjaNewRoundListener(Listener):
+    """
+    Handles NewRoundEvent. Rolls initiative normally, then subtracts
+    2 * level from each action die (minimum 1).
+    """
+
+    def __init__(self, profession):
+        self._profession = profession
+
+    def handle(self, character, event, context):
+        if isinstance(event, NewRoundEvent):
+            character.roll_initiative()
+            level = self._profession.ability(INITIATIVE_REDUCTION)
+            reduction = 2 * level
+            new_actions = [max(1, a - reduction) for a in character.actions()]
+            character.set_actions(sorted(new_actions))
+            yield from ()
+
+
+class NinjaRollProvider(DefaultRollProvider):
+    """
+    RollProvider for Ninja profession abilities.
+    Overrides damage and wound check rolls.
+    """
+
+    def __init__(self, profession, die_provider=None):
+        super().__init__(die_provider)
+        if not isinstance(profession, Profession):
+            raise ValueError("NinjaRollProvider __init__ requires Profession")
+        self._profession = profession
+
+    def get_damage_roll(self, rolled, kept):
+        level = self._profession.ability(DAMAGE_KEEPING_BONUS)
+        if level > 0:
+            extra_lowest = 2 * level
+            roll = NinjaDamageKeepRoll(rolled, kept, extra_lowest=extra_lowest, die_provider=self.die_provider())
+            result = roll.roll()
+            self._last_damage_roll = roll
+            self._last_damage_info = {"rolled": rolled, "kept": kept, "dice": list(roll.dice())}
+            return result
+        return super().get_damage_roll(rolled, kept)
+
+    def get_wound_check_roll(self, rolled, kept):
+        level = self._profession.ability(WOUND_CHECK_NINJA_BONUS)
+        if level > 0:
+            roll = NinjaWoundCheckRoll(rolled, kept, ability_level=level, die_provider=self.die_provider())
+            result = roll.roll()
+            self._last_wound_check_roll = roll
+            self._last_wound_check_info = {"rolled": rolled, "kept": kept, "dice": list(roll.dice())}
+            return result
+        return super().get_wound_check_roll(rolled, kept)

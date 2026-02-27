@@ -326,6 +326,63 @@ WAVE_MAN_ABILITIES: list[str] = [
     "wound check penalty",
 ]
 
+# Ninja (profession, no school)
+# Ordered to ensure monotonic progression: skills before rings at each tier,
+# all rank-3 rings before rank-4, etc.
+NINJA_PRIORITIES: list[tuple[str, str, int]] = [
+    # Tier 1: skills to 2, rings to 3
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    ("ring", "earth", 3),
+    ("ring", "fire", 3),
+    ("ring", "water", 3),
+    ("ring", "void", 3),
+    ("ring", "air", 3),
+    # Tier 2: skills to 3, rings to 4
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "earth", 4),
+    ("ring", "fire", 4),
+    ("ring", "water", 4),
+    ("ring", "void", 4),
+    ("ring", "air", 4),
+    # Tier 3: skills to 4-5, rings to 5
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    ("ring", "earth", 5),
+    ("ring", "fire", 5),
+    ("ring", "water", 5),
+    ("ring", "void", 5),
+    ("ring", "air", 5),
+]
+
+# Ninja profession ability priorities (taken in order as they become available)
+# Combat abilities first: defense, offense, then non-combat
+NINJA_ABILITIES: list[str] = [
+    "defense bonus",
+    "attack bonus",
+    "defense bonus",
+    "attack bonus",
+    "damage keeping bonus",
+    "wound check ninja bonus",
+    "damage keeping bonus",
+    "wound check ninja bonus",
+    "initiative reduction",
+    "initiative reduction",
+    "damage reduction",
+    "damage reduction",
+    "attack penalty",
+    "attack penalty",
+    "sincerity bonus",
+    "sincerity bonus",
+    "stealth (invisibility)",
+    "stealth (invisibility)",
+    "stealth (memorability)",
+    "stealth (memorability)",
+]
+
 # Hiruma Scout School (school_ring: air, knacks: double attack, feint, iaijutsu)
 HIRUMA_PRIORITIES: list[tuple[str, str, int]] = [
     # Dan 2
@@ -1247,6 +1304,7 @@ SCHOOL_PRIORITIES: dict[str, list[tuple[str, str, int]]] = {
     "Shinjo Bushi School": SHINJO_PRIORITIES,
     "Shosuro Actor School": SHOSURO_PRIORITIES,
     "Togashi Ise Zumi School": ISE_ZUMI_PRIORITIES,
+    "Ninja": NINJA_PRIORITIES,
     "Wave Man": WAVE_MAN_PRIORITIES,
     "Yogo Warden School": YOGO_PRIORITIES,
 }
@@ -1277,6 +1335,7 @@ SCHOOL_NAMES: dict[str, str] = {
     "shinjo": "Shinjo Bushi School",
     "shosuro": "Shosuro Actor School",
     "ise_zumi": "Togashi Ise Zumi School",
+    "ninja": "Ninja",
     "wave_man": "Wave Man",
     "yogo": "Yogo Warden School",
 }

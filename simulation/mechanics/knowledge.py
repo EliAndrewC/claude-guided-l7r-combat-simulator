@@ -309,5 +309,11 @@ class TheoreticalCharacter:
     def tn_to_hit(self):
         return self._knowledge.tn_to_hit(self._character) + self._knowledge.modifier(self._character, None, "tn to hit")
 
+    def attack_rolled_penalty(self):
+        return 0
+
+    def damage_reroll_reduction(self):
+        return 0
+
     def weapon(self):
         return self_knowledge.weapon(self._character)  # noqa: F821 - TODO: incomplete

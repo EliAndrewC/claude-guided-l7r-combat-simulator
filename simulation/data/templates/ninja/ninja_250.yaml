@@ -1,0 +1,29 @@
+# XP Breakdown (250 XP total):
+#   Combat budget: 200 XP (80%), Non-combat reserve: 50 XP (20%)
+#   Free: attack/parry start at 1
+#   Rings (175 XP): earth 2→4 (35), fire 2→4 (35), water 2→4 (35), void 2→4 (35), air 2→4 (35)
+#   Attack/Parry (20 XP): attack 1→3 (10), parry 1→3 (10)
+#   Combat total: 195 XP
+#
+name: Ninja
+xp: 250
+profession: Ninja
+rings:
+  air: 4
+  earth: 4
+  fire: 4
+  water: 4
+  void: 4
+skills:
+  attack: 3
+  parry: 3
+abilities:
+  defense bonus: 2
+  attack bonus: 2
+  damage keeping bonus: 2
+  wound check ninja bonus: 2
+  initiative reduction: 2
+  damage reduction: 1
+template_tier: '250'
+template_earned_xp: 250
+template_school: Ninja

@@ -24,10 +24,15 @@ SCHOOL_NAMES = [
 ]
 WEAPON_NAMES = ["katana", "wakizashi", "tanto", "yari", "club", "unarmed", "gongfu"]
 PROFESSION_ABILITIES = [
-    "crippled bonus", "damage penalty", "failed parry damage bonus",
-    "initiative bonus", "missed attack bonus", "parry penalty",
-    "rolled damage bonus", "weapon damage bonus", "wound check bonus",
-    "wound check penalty",
+    "attack bonus", "attack penalty", "crippled bonus",
+    "damage keeping bonus", "damage penalty", "damage reduction",
+    "defense bonus", "failed parry damage bonus",
+    "initiative bonus", "initiative reduction",
+    "missed attack bonus", "parry penalty",
+    "rolled damage bonus", "sincerity bonus",
+    "stealth (invisibility)", "stealth (memorability)",
+    "weapon damage bonus", "wound check bonus",
+    "wound check ninja bonus", "wound check penalty",
 ]
 STRATEGIES_BY_EVENT = {
     "action": [

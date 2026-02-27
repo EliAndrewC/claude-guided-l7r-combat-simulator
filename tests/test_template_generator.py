@@ -148,7 +148,7 @@ class TestGenerateAllTemplates:
         """Should produce exactly 182 configs (26 schools x 7 tiers)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             configs = generate_all_templates(base_dir=tmpdir)
-            assert len(configs) == 182
+            assert len(configs) == 189
 
     def test_all_configs_buildable(self):
         """Every generated config must build successfully."""

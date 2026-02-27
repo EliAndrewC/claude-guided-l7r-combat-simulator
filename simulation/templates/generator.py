@@ -14,6 +14,7 @@ import yaml
 from simulation.character_builder import CharacterBuilder
 from simulation.schools.factory import get_school
 from simulation.templates.strategies import (
+    NINJA_ABILITIES,
     SCHOOL_NAMES,
     SCHOOL_PRIORITIES,
     WAVE_MAN_ABILITIES,
@@ -165,7 +166,7 @@ def generate_template(
     school_name = SCHOOL_NAMES[school_key]
     if priorities is None:
         priorities = SCHOOL_PRIORITIES[school_name]
-    is_profession = school_key == "wave_man"
+    is_profession = school_key in ("wave_man", "ninja")
 
     combat_budget = int(total_xp * COMBAT_XP_FRACTION)
     non_combat_xp = total_xp - combat_budget
@@ -249,9 +250,10 @@ def generate_template(
         if free_ranks > 0:
             free_notes.append(f"{school_ring} +1 free at 4th Dan")
 
-    # For Wave Man, take profession abilities
+    # For professions, take profession abilities
     if is_profession:
-        for ability_name in WAVE_MAN_ABILITIES:
+        ability_list = NINJA_ABILITIES if school_key == "ninja" else WAVE_MAN_ABILITIES
+        for ability_name in ability_list:
             try:
                 builder.take_ability(ability_name)
             except RuntimeError:
@@ -291,7 +293,8 @@ def generate_template(
     # Build abilities dict for profession characters
     abilities: dict[str, int] = {}
     if is_profession and character.profession() is not None:
-        for ability_name in WAVE_MAN_ABILITIES:
+        ability_list = NINJA_ABILITIES if school_key == "ninja" else WAVE_MAN_ABILITIES
+        for ability_name in ability_list:
             level = character.profession().ability(ability_name)
             if level > 0:
                 abilities[ability_name] = level
@@ -309,7 +312,7 @@ def generate_template(
         abilities=abilities,
         template_tier=str(total_xp),
         template_earned_xp=total_xp,
-        template_school=school_name if not is_profession else "Wave Man",
+        template_school=school_name if not is_profession else school_name,
     )
 
     ring_xp = sum(c for _, _, _, c in ring_details)
@@ -342,7 +345,7 @@ def write_template_yaml(
     data: dict = {"name": config.name, "xp": config.xp}
 
     if config.char_type == "profession":
-        data["profession"] = "Wave Man"
+        data["profession"] = config.template_school if config.template_school else "Wave Man"
     elif config.school:
         data["school"] = config.school
 
