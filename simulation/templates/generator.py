@@ -26,34 +26,48 @@ COMBAT_XP_FRACTION = 0.8
 SCHOOL_KNACK_LOOKUP: dict[str, list[str]] = {
     "Akodo Bushi School": ["double attack", "feint", "iaijutsu"],
     "Bayushi Bushi School": ["double attack", "feint", "iaijutsu"],
+    "Brotherhood of Shinsei Monk School": ["conviction", "otherworldliness", "worldliness"],
+    "Courtier School": ["discern honor", "oppose social", "worldliness"],
     "Daidoji Yojimbo School": ["counterattack", "double attack", "iaijutsu"],
+    "Doji Artisan School": ["counterattack", "oppose social", "worldliness"],
     "Hida Bushi School": ["counterattack", "iaijutsu", "lunge"],
     "Hiruma Scout School": ["double attack", "feint", "iaijutsu"],
+    "Ikoma Bard School": ["discern honor", "oppose knowledge", "oppose social"],
     "Isawa Duelist School": ["double attack", "iaijutsu", "lunge"],
     "Kakita Bushi School": ["double attack", "iaijutsu", "lunge"],
+    "Kitsuki Magistrate School": ["discern honor", "iaijutsu", "presence"],
     "Kuni Witch Hunter School": ["detect taint", "iaijutsu", "presence"],
     "Matsu Bushi School": ["double attack", "iaijutsu", "lunge"],
+    "Merchant School": ["discern honor", "oppose knowledge", "worldliness"],
     "Mirumoto Bushi School": ["counterattack", "double attack", "iaijutsu"],
     "Otaku Bushi School": ["double attack", "iaijutsu", "lunge"],
     "Shiba Bushi School": ["counterattack", "double attack", "iaijutsu"],
     "Shinjo Bushi School": ["double attack", "iaijutsu", "lunge"],
+    "Shosuro Actor School": ["athletics", "discern honor", "pontificate"],
     "Yogo Warden School": ["double attack", "feint", "iaijutsu"],
 }
 
 SCHOOL_RING_LOOKUP: dict[str, str] = {
     "Akodo Bushi School": "water",
     "Bayushi Bushi School": "fire",
+    "Brotherhood of Shinsei Monk School": "water",
+    "Courtier School": "air",
     "Daidoji Yojimbo School": "water",
+    "Doji Artisan School": "water",
     "Hida Bushi School": "water",
     "Hiruma Scout School": "air",
+    "Ikoma Bard School": "water",
     "Isawa Duelist School": "water",
     "Kakita Bushi School": "fire",
+    "Kitsuki Magistrate School": "water",
     "Kuni Witch Hunter School": "earth",
     "Matsu Bushi School": "fire",
+    "Merchant School": "water",
     "Mirumoto Bushi School": "void",
     "Otaku Bushi School": "fire",
     "Shiba Bushi School": "air",
     "Shinjo Bushi School": "air",
+    "Shosuro Actor School": "air",
     "Yogo Warden School": "earth",
 }
 
@@ -250,10 +264,18 @@ def generate_template(
 
     # Include school knacks and other combat skills
     combat_skills = [
-        "counterattack", "detect taint", "double attack", "feint",
+        "acting", "counterattack", "detect taint", "double attack", "feint",
         "iaijutsu", "investigation", "lunge", "presence",
     ]
+    # Include AP base skills that are basic skills (always set to 5)
+    ap_base_skills = [
+        "bragging", "culture", "precepts", "sincerity", "tact",
+    ]
     for skill_name in combat_skills:
+        rank = character.skill(skill_name)
+        if rank > 0:
+            skills[skill_name] = rank
+    for skill_name in ap_base_skills:
         rank = character.skill(skill_name)
         if rank > 0:
             skills[skill_name] = rank

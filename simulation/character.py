@@ -53,6 +53,7 @@ class Character:
         self._ap_skills = []
         self._ap_spent = 0
         self._attack_optimizer_factory = DEFAULT_ATTACK_OPTIMIZER_FACTORY
+        self._conviction_spent = 0
         self._disadvantages = []
         self._discounts = {}
         self._extra_kept = {}
@@ -76,6 +77,7 @@ class Character:
             "remove_modifier": listeners.RemoveModifierListener(),
             "spend_action": listeners.SpendActionListener(),
             "spend_ap": listeners.SpendAdventurePointsListener(),
+            "spend_conviction": listeners.SpendConvictionListener(),
             "spend_floating_bonus": listeners.SpendFloatingBonusListener(),
             "spend_vp": listeners.SpendVoidPointsListener(),
             "sw_damage": listeners.SeriousWoundsDamageListener(),
@@ -209,6 +211,14 @@ class Character:
 
     def character_id(self):
         return self._character_id
+
+    def conviction(self):
+        """Return available conviction points (2 * conviction skill rank - spent)."""
+        return (2 * self.skill("conviction")) - self._conviction_spent
+
+    def max_conviction_per_roll(self):
+        """Return max conviction points spendable on a single roll."""
+        return self.skill("conviction")
 
     def contested_iaijutsu_attack_declared_strategy(self):
         return self._strategies["contested_iaijutsu_attack_declared"]
@@ -507,6 +517,7 @@ class Character:
     def reset(self):
         self._actions = []
         self._ap_spent = 0
+        self._conviction_spent = 0
         self._floating_bonuses.clear()
         self._knowledge.clear()
         self._lw = 0
@@ -822,6 +833,13 @@ class Character:
             if self.ap() < n:
                 raise ValueError("{} does not have enough Adventure Points")
             self._ap_spent += n
+
+    def spend_conviction(self, n):
+        """Spend conviction points."""
+        if n > 0:
+            if self.conviction() < n:
+                raise ValueError("Not enough conviction points")
+            self._conviction_spent += n
 
     def spend_floating_bonus(self, bonus):
         """

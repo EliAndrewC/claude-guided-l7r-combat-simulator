@@ -493,6 +493,11 @@ class SpendAdventurePointsEvent(SpendResourcesEvent):
         super().__init__("spend_ap", subject, skill, amount)
 
 
+class SpendConvictionEvent(SpendResourcesEvent):
+    def __init__(self, subject, skill, amount):
+        super().__init__("spend_conviction", subject, skill, amount)
+
+
 class SpendVoidPointsEvent(SpendResourcesEvent):
     def __init__(self, subject, skill, amount):
         super().__init__("spend_vp", subject, skill, amount)

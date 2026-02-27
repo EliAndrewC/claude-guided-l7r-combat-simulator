@@ -2,10 +2,10 @@
 #   Combat budget: 360 XP (80%), Non-combat reserve: 90 XP (20%)
 #   Free: fire ring starts at 3 (school ring); school knacks start at 1; attack/parry start at 1
 #   Free: fire +1 free at 4th Dan
-#   Rings (220 XP): fire 4→6 (55), earth 2→5 (60), void 2→4 (35), water 2→4 (35), air 2→4 (35)
+#   Rings (210 XP): earth 2→5 (60), void 2→4 (35), water 2→4 (35), air 2→4 (35), fire 4→6 (45)
 #   School knacks (84 XP): double attack 1→5 (28), iaijutsu 1→5 (28), lunge 1→5 (28)
 #   Attack/Parry (56 XP): attack 1→5 (28), parry 1→5 (28)
-#   Combat total: 360 XP
+#   Combat total: 350 XP
 #
 name: Matsu
 xp: 450

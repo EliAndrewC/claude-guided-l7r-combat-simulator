@@ -28,6 +28,11 @@ ATTACK_SKILLS = ["attack", "counterattack", "double attack", "feint", "iaijutsu"
 BASIC_SKILLS = ["bragging", "culture", "etiquette", "heraldry", "intimidation", "investigation", "law", "precepts", "sincerity", "sneaking", "strategy", "tact"]
 
 
+# School knacks that are neither advanced nor basic skills.
+# These are purchasable at advanced skill costs and determine school rank (dan).
+KNACK_SKILLS = ["athletics", "conviction", "discern honor", "oppose knowledge", "oppose social", "otherworldliness", "pontificate", "worldliness"]
+
+
 # these are not skills, but they are sometimes passed
 # as a "skill" parameter
 NON_SKILLS = ["damage", "tn to hit", "wound check"]
@@ -36,6 +41,7 @@ NON_SKILLS = ["damage", "tn to hit", "wound check"]
 SKILLS = []
 SKILLS.extend(BASIC_SKILLS)
 SKILLS.extend(ADVANCED_SKILLS)
+SKILLS.extend(KNACK_SKILLS)
 
 # skills plus "non skills"
 EXTENDED_SKILLS = []
@@ -63,6 +69,8 @@ class Skill:
             return AdvancedSkill(self.name())
         elif self.name() in BASIC_SKILLS:
             return BasicSkill(self.name())
+        elif self.name() in KNACK_SKILLS:
+            return KnackSkill(self.name())
         else:
             raise ValueError(f"{self.name()} is not a valid skill")
 
@@ -98,3 +106,20 @@ class BasicSkill(Skill):
 
     def is_advanced(self):
         return False
+
+
+class KnackSkill(Skill):
+    """School knacks that use advanced skill costs but aren't standard advanced skills."""
+
+    def __init__(self, name):
+        if name not in KNACK_SKILLS:
+            raise ValueError(f"{name} is not a valid knack skill")
+        self._name = name
+
+    def cost(self, rank, original_rank=0):
+        if rank > 5:
+            raise ValueError("May not raise a skill beyond rank 5")
+        return sum([ADVANCED_SKILL_COST[i] for i in range(original_rank + 1, rank + 1)])
+
+    def is_advanced(self):
+        return True

@@ -633,6 +633,355 @@ SHINJO_PRIORITIES: list[tuple[str, str, int]] = [
     ("ring", "water", 5),
 ]
 
+# Brotherhood of Shinsei Monk School (school_ring: water, knacks: conviction, otherworldliness, worldliness)
+# precepts set to 5 at all tiers (non-combat but AP base skill)
+MONK_PRIORITIES: list[tuple[str, str, int]] = [
+    # precepts for AP system (bought early)
+    ("skill", "precepts", 2),
+    ("skill", "precepts", 3),
+    # Dan 2
+    ("skill", "conviction", 2),
+    ("skill", "otherworldliness", 2),
+    ("skill", "worldliness", 2),
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    ("skill", "precepts", 4),
+    # Dan 3
+    ("skill", "conviction", 3),
+    ("skill", "otherworldliness", 3),
+    ("skill", "worldliness", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "earth", 3),
+    ("skill", "precepts", 5),
+    # Dan 4
+    ("skill", "conviction", 4),
+    ("skill", "otherworldliness", 4),
+    ("skill", "worldliness", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("ring", "void", 3),
+    ("ring", "fire", 3),
+    ("ring", "air", 3),
+    ("ring", "earth", 4),
+    # Dan 5
+    ("skill", "conviction", 5),
+    ("skill", "otherworldliness", 5),
+    ("skill", "worldliness", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Max rings
+    ("ring", "water", 5),
+    ("ring", "void", 4),
+    ("ring", "fire", 4),
+    ("ring", "air", 4),
+    ("ring", "earth", 5),
+    ("ring", "water", 6),
+    ("ring", "void", 5),
+    ("ring", "fire", 5),
+    ("ring", "air", 5),
+]
+
+# Courtier School (school_ring: air, knacks: discern honor, oppose social, worldliness)
+# tact set to 5 at all tiers (non-combat but AP base skill)
+COURTIER_PRIORITIES: list[tuple[str, str, int]] = [
+    # tact for AP system (bought early)
+    ("skill", "tact", 2),
+    ("skill", "tact", 3),
+    # Dan 2
+    ("skill", "discern honor", 2),
+    ("skill", "oppose social", 2),
+    ("skill", "worldliness", 2),
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    ("skill", "tact", 4),
+    # Dan 3
+    ("skill", "discern honor", 3),
+    ("skill", "oppose social", 3),
+    ("skill", "worldliness", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "earth", 3),
+    ("skill", "tact", 5),
+    # Dan 4
+    ("skill", "discern honor", 4),
+    ("skill", "oppose social", 4),
+    ("skill", "worldliness", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("ring", "void", 3),
+    ("ring", "fire", 3),
+    ("ring", "water", 3),
+    ("ring", "earth", 4),
+    # Dan 5
+    ("skill", "discern honor", 5),
+    ("skill", "oppose social", 5),
+    ("skill", "worldliness", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Max rings
+    ("ring", "air", 5),
+    ("ring", "void", 4),
+    ("ring", "fire", 4),
+    ("ring", "water", 4),
+    ("ring", "earth", 5),
+    ("ring", "air", 6),
+    ("ring", "void", 5),
+    ("ring", "fire", 5),
+    ("ring", "water", 5),
+]
+
+# Doji Artisan School (school_ring: water, knacks: counterattack, oppose social, worldliness)
+# culture set to 5 at all tiers (non-combat but AP base skill)
+DOJI_ARTISAN_PRIORITIES: list[tuple[str, str, int]] = [
+    # culture for AP system (bought early)
+    ("skill", "culture", 2),
+    ("skill", "culture", 3),
+    # Dan 2
+    ("skill", "counterattack", 2),
+    ("skill", "oppose social", 2),
+    ("skill", "worldliness", 2),
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    ("skill", "culture", 4),
+    # Dan 3
+    ("skill", "counterattack", 3),
+    ("skill", "oppose social", 3),
+    ("skill", "worldliness", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "earth", 3),
+    ("skill", "culture", 5),
+    # Dan 4
+    ("skill", "counterattack", 4),
+    ("skill", "oppose social", 4),
+    ("skill", "worldliness", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("ring", "void", 3),
+    ("ring", "fire", 3),
+    ("ring", "air", 3),
+    ("ring", "earth", 4),
+    # Dan 5
+    ("skill", "counterattack", 5),
+    ("skill", "oppose social", 5),
+    ("skill", "worldliness", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Max rings
+    ("ring", "water", 5),
+    ("ring", "void", 4),
+    ("ring", "fire", 4),
+    ("ring", "air", 4),
+    ("ring", "earth", 5),
+    ("ring", "water", 6),
+    ("ring", "void", 5),
+    ("ring", "fire", 5),
+    ("ring", "air", 5),
+]
+
+# Ikoma Bard School (school_ring: water, knacks: discern honor, oppose knowledge, oppose social)
+# bragging set to 5 at all tiers (non-combat but AP base skill)
+IKOMA_BARD_PRIORITIES: list[tuple[str, str, int]] = [
+    # bragging for AP system (bought early)
+    ("skill", "bragging", 2),
+    ("skill", "bragging", 3),
+    # Dan 2
+    ("skill", "discern honor", 2),
+    ("skill", "oppose knowledge", 2),
+    ("skill", "oppose social", 2),
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    ("skill", "bragging", 4),
+    # Dan 3
+    ("skill", "discern honor", 3),
+    ("skill", "oppose knowledge", 3),
+    ("skill", "oppose social", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "earth", 3),
+    ("skill", "bragging", 5),
+    # Dan 4
+    ("skill", "discern honor", 4),
+    ("skill", "oppose knowledge", 4),
+    ("skill", "oppose social", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("ring", "void", 3),
+    ("ring", "fire", 3),
+    ("ring", "air", 3),
+    ("ring", "earth", 4),
+    # Dan 5
+    ("skill", "discern honor", 5),
+    ("skill", "oppose knowledge", 5),
+    ("skill", "oppose social", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Max rings
+    ("ring", "water", 5),
+    ("ring", "void", 4),
+    ("ring", "fire", 4),
+    ("ring", "air", 4),
+    ("ring", "earth", 5),
+    ("ring", "water", 6),
+    ("ring", "void", 5),
+    ("ring", "fire", 5),
+    ("ring", "air", 5),
+]
+
+# Kitsuki Magistrate School (school_ring: water, knacks: discern honor, iaijutsu, presence)
+# investigation set to 5 at all tiers (non-combat but AP base skill)
+KITSUKI_PRIORITIES: list[tuple[str, str, int]] = [
+    # investigation for AP system (bought early)
+    ("skill", "investigation", 2),
+    ("skill", "investigation", 3),
+    # Dan 2
+    ("skill", "discern honor", 2),
+    ("skill", "iaijutsu", 2),
+    ("skill", "presence", 2),
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    ("skill", "investigation", 4),
+    # Dan 3
+    ("skill", "discern honor", 3),
+    ("skill", "iaijutsu", 3),
+    ("skill", "presence", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "earth", 3),
+    ("skill", "investigation", 5),
+    # Dan 4
+    ("skill", "discern honor", 4),
+    ("skill", "iaijutsu", 4),
+    ("skill", "presence", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("ring", "void", 3),
+    ("ring", "fire", 3),
+    ("ring", "air", 3),
+    ("ring", "earth", 4),
+    # Dan 5
+    ("skill", "discern honor", 5),
+    ("skill", "iaijutsu", 5),
+    ("skill", "presence", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Max rings
+    ("ring", "water", 5),
+    ("ring", "void", 4),
+    ("ring", "fire", 4),
+    ("ring", "air", 4),
+    ("ring", "earth", 5),
+    ("ring", "water", 6),
+    ("ring", "void", 5),
+    ("ring", "fire", 5),
+    ("ring", "air", 5),
+]
+
+# Merchant School (school_ring: water, knacks: discern honor, oppose knowledge, worldliness)
+# sincerity set to 5 at all tiers (non-combat but AP base skill)
+MERCHANT_PRIORITIES: list[tuple[str, str, int]] = [
+    # sincerity for AP system (bought early)
+    ("skill", "sincerity", 2),
+    ("skill", "sincerity", 3),
+    # Dan 2
+    ("skill", "discern honor", 2),
+    ("skill", "oppose knowledge", 2),
+    ("skill", "worldliness", 2),
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    ("skill", "sincerity", 4),
+    # Dan 3
+    ("skill", "discern honor", 3),
+    ("skill", "oppose knowledge", 3),
+    ("skill", "worldliness", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "earth", 3),
+    ("skill", "sincerity", 5),
+    # Dan 4
+    ("skill", "discern honor", 4),
+    ("skill", "oppose knowledge", 4),
+    ("skill", "worldliness", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("ring", "void", 3),
+    ("ring", "fire", 3),
+    ("ring", "air", 3),
+    ("ring", "earth", 4),
+    # Dan 5
+    ("skill", "discern honor", 5),
+    ("skill", "oppose knowledge", 5),
+    ("skill", "worldliness", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Max rings
+    ("ring", "water", 5),
+    ("ring", "void", 4),
+    ("ring", "fire", 4),
+    ("ring", "air", 4),
+    ("ring", "earth", 5),
+    ("ring", "water", 6),
+    ("ring", "void", 5),
+    ("ring", "fire", 5),
+    ("ring", "air", 5),
+]
+
+# Shosuro Actor School (school_ring: air, knacks: athletics, discern honor, pontificate)
+# sincerity set to 5 at all tiers (non-combat but AP base skill)
+# acting bought early (combat-relevant: extra rolled dice on attack/parry/wound check)
+SHOSURO_PRIORITIES: list[tuple[str, str, int]] = [
+    # sincerity for AP system (bought early)
+    ("skill", "sincerity", 2),
+    ("skill", "sincerity", 3),
+    # acting is combat-relevant (extra rolled dice from special ability)
+    ("skill", "acting", 2),
+    # Dan 2
+    ("skill", "athletics", 2),
+    ("skill", "discern honor", 2),
+    ("skill", "pontificate", 2),
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    ("skill", "sincerity", 4),
+    ("skill", "acting", 3),
+    # Dan 3
+    ("skill", "athletics", 3),
+    ("skill", "discern honor", 3),
+    ("skill", "pontificate", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "earth", 3),
+    ("skill", "sincerity", 5),
+    ("skill", "acting", 4),
+    # Dan 4
+    ("skill", "athletics", 4),
+    ("skill", "discern honor", 4),
+    ("skill", "pontificate", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("ring", "void", 3),
+    ("ring", "fire", 3),
+    ("ring", "water", 3),
+    ("ring", "earth", 4),
+    ("skill", "acting", 5),
+    # Dan 5
+    ("skill", "athletics", 5),
+    ("skill", "discern honor", 5),
+    ("skill", "pontificate", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Max rings
+    ("ring", "air", 5),
+    ("ring", "void", 4),
+    ("ring", "fire", 4),
+    ("ring", "water", 4),
+    ("ring", "earth", 5),
+    ("ring", "air", 6),
+    ("ring", "void", 5),
+    ("ring", "fire", 5),
+    ("ring", "water", 5),
+]
+
 # Yogo Warden School (school_ring: earth, knacks: double attack, feint, iaijutsu)
 YOGO_PRIORITIES: list[tuple[str, str, int]] = [
     # Dan 2
@@ -680,17 +1029,24 @@ YOGO_PRIORITIES: list[tuple[str, str, int]] = [
 SCHOOL_PRIORITIES: dict[str, list[tuple[str, str, int]]] = {
     "Akodo Bushi School": AKODO_PRIORITIES,
     "Bayushi Bushi School": BAYUSHI_PRIORITIES,
+    "Brotherhood of Shinsei Monk School": MONK_PRIORITIES,
+    "Courtier School": COURTIER_PRIORITIES,
     "Daidoji Yojimbo School": DAIDOJI_PRIORITIES,
+    "Doji Artisan School": DOJI_ARTISAN_PRIORITIES,
     "Hida Bushi School": HIDA_PRIORITIES,
     "Hiruma Scout School": HIRUMA_PRIORITIES,
+    "Ikoma Bard School": IKOMA_BARD_PRIORITIES,
     "Isawa Duelist School": ISAWA_PRIORITIES,
     "Kakita Bushi School": KAKITA_PRIORITIES,
+    "Kitsuki Magistrate School": KITSUKI_PRIORITIES,
     "Kuni Witch Hunter School": KUNI_PRIORITIES,
     "Matsu Bushi School": MATSU_PRIORITIES,
+    "Merchant School": MERCHANT_PRIORITIES,
     "Mirumoto Bushi School": MIRUMOTO_PRIORITIES,
     "Otaku Bushi School": OTAKU_PRIORITIES,
     "Shiba Bushi School": SHIBA_PRIORITIES,
     "Shinjo Bushi School": SHINJO_PRIORITIES,
+    "Shosuro Actor School": SHOSURO_PRIORITIES,
     "Wave Man": WAVE_MAN_PRIORITIES,
     "Yogo Warden School": YOGO_PRIORITIES,
 }
@@ -699,17 +1055,24 @@ SCHOOL_PRIORITIES: dict[str, list[tuple[str, str, int]]] = {
 SCHOOL_NAMES: dict[str, str] = {
     "akodo": "Akodo Bushi School",
     "bayushi": "Bayushi Bushi School",
+    "courtier": "Courtier School",
     "daidoji": "Daidoji Yojimbo School",
+    "doji_artisan": "Doji Artisan School",
     "hida": "Hida Bushi School",
     "hiruma": "Hiruma Scout School",
+    "ikoma_bard": "Ikoma Bard School",
     "isawa": "Isawa Duelist School",
     "kakita": "Kakita Bushi School",
+    "kitsuki": "Kitsuki Magistrate School",
     "kuni": "Kuni Witch Hunter School",
     "matsu": "Matsu Bushi School",
+    "merchant": "Merchant School",
     "mirumoto": "Mirumoto Bushi School",
+    "monk": "Brotherhood of Shinsei Monk School",
     "otaku": "Otaku Bushi School",
     "shiba": "Shiba Bushi School",
     "shinjo": "Shinjo Bushi School",
+    "shosuro": "Shosuro Actor School",
     "wave_man": "Wave Man",
     "yogo": "Yogo Warden School",
 }

@@ -2,10 +2,10 @@
 #   Combat budget: 320 XP (80%), Non-combat reserve: 80 XP (20%)
 #   Free: earth ring starts at 3 (school ring); school knacks start at 1; attack/parry start at 1
 #   Free: earth +1 free at 4th Dan
-#   Rings (165 XP): earth 4→5 (25), void 2→4 (35), fire 2→4 (35), water 2→4 (35), air 2→4 (35)
+#   Rings (160 XP): void 2→4 (35), fire 2→4 (35), water 2→4 (35), air 2→4 (35), earth 4→5 (20)
 #   School knacks (84 XP): detect taint 1→5 (28), iaijutsu 1→5 (28), presence 1→5 (28)
 #   Attack/Parry (56 XP): attack 1→5 (28), parry 1→5 (28)
-#   Combat total: 305 XP
+#   Combat total: 300 XP
 #
 name: Kuni
 xp: 400
@@ -21,8 +21,8 @@ skills:
   parry: 5
   detect taint: 5
   iaijutsu: 5
-  presence: 5
   investigation: 5
+  presence: 5
 template_tier: '400'
 template_earned_xp: 400
 template_school: Kuni Witch Hunter School

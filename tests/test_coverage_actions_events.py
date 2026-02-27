@@ -1263,8 +1263,8 @@ class TestSpendAdventurePointsListenerCoverage(unittest.TestCase):
     with only event.amount instead of (skill, amount). This causes a TypeError.
     We test that the listener reaches that code path."""
 
-    def test_spend_ap_hits_bug(self):
-        """Lines 176-181: SpendAdventurePointsListener hits bug calling spend_ap with wrong args"""
+    def test_spend_ap(self):
+        """Lines 178-183: SpendAdventurePointsListener spends AP correctly"""
         char = Character("char")
         other = Character("other")
         context = _make_context(char, other)
@@ -1273,9 +1273,8 @@ class TestSpendAdventurePointsListenerCoverage(unittest.TestCase):
         char._ap_base_skill = "attack"
         char._ap_skills = ["attack"]
         char.set_skill("attack", 5)
-        # Listener calls character.spend_ap(event.amount) but spend_ap expects (skill, n)
-        with self.assertRaises(TypeError):
-            list(listener.handle(char, event, context))
+        list(listener.handle(char, event, context))
+        self.assertEqual(9, char.ap())
 
     def test_spend_ap_non_subject_ignored(self):
         """Lines 178-179: non-subject is ignored"""

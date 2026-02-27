@@ -1,0 +1,26 @@
+# XP Breakdown (400 XP total):
+#   Combat budget: 320 XP (80%), Non-combat reserve: 80 XP (20%)
+#   Free: air ring starts at 3 (school ring); school knacks start at 1; attack/parry start at 1
+#   Free: air +1 free at 4th Dan
+#   Rings (120 XP): earth 2→4 (35), void 2→4 (35), fire 2→3 (15), water 2→3 (15), air 4→5 (20)
+#   School knacks (84 XP): athletics 1→5 (28), discern honor 1→5 (28), pontificate 1→5 (28)
+#   Attack/Parry (56 XP): attack 1→5 (28), parry 1→5 (28)
+#   Combat total: 260 XP
+#
+name: Shosuro
+xp: 400
+school: Shosuro Actor School
+rings:
+  air: 5
+  earth: 4
+  fire: 3
+  water: 3
+  void: 4
+skills:
+  attack: 5
+  parry: 5
+  acting: 5
+  sincerity: 5
+template_tier: '400'
+template_earned_xp: 400
+template_school: Shosuro Actor School

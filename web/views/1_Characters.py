@@ -8,11 +8,17 @@ from web.models import CharacterConfig
 from web.state import save_state
 
 SCHOOL_NAMES = [
-    "Akodo Bushi School", "Bayushi Bushi School", "Daidoji Yojimbo School",
-    "Hida Bushi School", "Hiruma Scout School", "Isawa Duelist School",
-    "Kakita Bushi School", "Kuni Witch Hunter School", "Matsu Bushi School",
-    "Mirumoto Bushi School", "Otaku Bushi School", "Shiba Bushi School",
-    "Shinjo Bushi School", "Yogo Warden School",
+    "Akodo Bushi School", "Bayushi Bushi School",
+    "Brotherhood of Shinsei Monk School", "Courtier School",
+    "Daidoji Yojimbo School", "Doji Artisan School",
+    "Hida Bushi School", "Hiruma Scout School",
+    "Ikoma Bard School", "Isawa Duelist School",
+    "Kakita Bushi School", "Kitsuki Magistrate School",
+    "Kuni Witch Hunter School", "Matsu Bushi School",
+    "Merchant School", "Mirumoto Bushi School",
+    "Otaku Bushi School", "Shiba Bushi School",
+    "Shinjo Bushi School", "Shosuro Actor School",
+    "Yogo Warden School",
 ]
 WEAPON_NAMES = ["katana", "wakizashi", "tanto", "yari", "club", "unarmed", "gongfu"]
 PROFESSION_ABILITIES = [

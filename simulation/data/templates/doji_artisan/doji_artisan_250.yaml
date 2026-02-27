@@ -1,0 +1,26 @@
+# XP Breakdown (250 XP total):
+#   Combat budget: 200 XP (80%), Non-combat reserve: 50 XP (20%)
+#   Free: water ring starts at 3 (school ring); school knacks start at 1; attack/parry start at 1
+#   Free: water +1 free at 4th Dan
+#   Rings (80 XP): earth 2→4 (35), void 2→3 (15), fire 2→3 (15), air 2→3 (15)
+#   School knacks (64 XP): counterattack 1→5 (28), oppose social 1→4 (18), worldliness 1→4 (18)
+#   Attack/Parry (36 XP): attack 1→4 (18), parry 1→4 (18)
+#   Combat total: 180 XP
+#
+name: Doji Artisan
+xp: 250
+school: Doji Artisan School
+rings:
+  air: 3
+  earth: 4
+  fire: 3
+  water: 4
+  void: 3
+skills:
+  attack: 4
+  parry: 4
+  counterattack: 5
+  culture: 5
+template_tier: '250'
+template_earned_xp: 250
+template_school: Doji Artisan School

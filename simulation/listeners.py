@@ -179,7 +179,15 @@ class SpendAdventurePointsListener(Listener):
     def handle(self, character, event, context):
         if isinstance(event, events.SpendAdventurePointsEvent):
             if event.subject == character:
-                character.spend_ap(event.amount)
+                character.spend_ap(event.skill, event.amount)
+                yield from ()
+
+
+class SpendConvictionListener(Listener):
+    def handle(self, character, event, context):
+        if isinstance(event, events.SpendConvictionEvent):
+            if event.subject == character:
+                character.spend_conviction(event.amount)
                 yield from ()
 
 

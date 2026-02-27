@@ -1,0 +1,13 @@
+name: Ikoma Bard
+school: Ikoma Bard School
+xp: 350
+rings:
+  air: 3
+  earth: 4
+  fire: 3
+  water: 5
+  void: 4
+skills:
+  attack: 5
+  parry: 5
+  bragging: 5

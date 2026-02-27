@@ -399,6 +399,7 @@ class SkillRolledStrategy(Strategy):
     def __init__(self):
         self._chosen_ap = 0
         self._chosen_bonuses = []
+        self._chosen_conviction = 0
 
     def event_matches(self, character, event):
         """
@@ -421,6 +422,7 @@ class SkillRolledStrategy(Strategy):
     def recommend(self, character, event, context):
         if self.event_matches(character, event):
             self.reset()
+            skill = self.get_skill(event)
             tn = self.get_tn(event)
             margin = tn - event.action.skill_roll()
             if margin <= 0:
@@ -428,19 +430,25 @@ class SkillRolledStrategy(Strategy):
                 yield event
                 return
             # use floating bonuses to try to make the TN
-            self.use_floating_bonuses(character, self.get_skill(event), margin)
+            self.use_floating_bonuses(character, skill, margin)
             margin = tn - event.action.skill_roll() - sum([b.bonus() for b in self._chosen_bonuses])
             if margin > 0:
                 # use adventure points to try to make the TN
                 self.use_ap(character, event.action.skill(), margin)
                 margin -= 5 * self._chosen_ap
+            if margin > 0:
+                # use conviction points to try to close remaining gap
+                self.use_conviction(character, margin)
+                margin -= self._chosen_conviction
             if margin <= 0:
                 # if we reached the TN, spend resources and update the event
                 for bonus in self._chosen_bonuses:
                     yield events.SpendFloatingBonusEvent(character, bonus)
                 if self._chosen_ap > 0:
-                    yield events.SpendAdventurePointsEvent(character, skill, self._chosen_ap)  # noqa: F821 - TODO: incomplete
-                new_roll = event.action.skill_roll() - sum([b.bonus() for b in self._chosen_bonuses]) - (5 * self._chosen_ap)
+                    yield events.SpendAdventurePointsEvent(character, skill, self._chosen_ap)
+                if self._chosen_conviction > 0:
+                    yield events.SpendConvictionEvent(character, skill, self._chosen_conviction)
+                new_roll = event.action.skill_roll() + sum([b.bonus() for b in self._chosen_bonuses]) + (5 * self._chosen_ap) + self._chosen_conviction
                 event.action.set_skill_roll(new_roll)
                 event.roll = new_roll
             yield event
@@ -451,6 +459,7 @@ class SkillRolledStrategy(Strategy):
         """
         self._chosen_ap = 0
         self._chosen_bonuses.clear()
+        self._chosen_conviction = 0
 
     def use_ap(self, character, skill, margin):
         if character.ap() > 0:
@@ -458,6 +467,11 @@ class SkillRolledStrategy(Strategy):
                 ap_needed = math.ceil(margin / 5)
                 max_spend = min(character.ap(), character.max_ap_per_roll())
                 self._chosen_ap = min(max_spend, ap_needed)
+
+    def use_conviction(self, character, margin):
+        if character.conviction() > 0:
+            max_spend = min(character.conviction(), character.max_conviction_per_roll())
+            self._chosen_conviction = min(max_spend, max(margin, 0))
 
     def use_floating_bonuses(self, character, skill, margin):
         available_bonuses = list(character.floating_bonuses(skill))
@@ -503,6 +517,7 @@ class WoundCheckRolledStrategy(SkillRolledStrategy):
     def __init__(self):
         self._chosen_ap = 0
         self._chosen_bonuses = []
+        self._chosen_conviction = 0
 
     def recommend(self, character, event, context):
         if isinstance(event, events.WoundCheckRolledEvent):
@@ -525,13 +540,18 @@ class WoundCheckRolledStrategy(SkillRolledStrategy):
                         # use adventure points
                         new_event = self.use_ap(character, new_event, tolerable_sw, "wound check")
                     new_expected_sw = character.wound_check(new_event.roll)
-                    # check if anything changed
+                    if new_expected_sw > tolerable_sw:
+                        # use conviction points
+                        new_event = self.use_conviction_wc(character, new_event, tolerable_sw)
                     new_expected_sw = character.wound_check(new_event.roll)
                     if new_expected_sw < expected_sw:
                         # progress: spend resources and use the new roll
                         for bonus in self._chosen_bonuses:
                             yield events.SpendFloatingBonusEvent(character, bonus)
-                        yield events.SpendAdventurePointsEvent(character, skill, self._chosen_ap)  # noqa: F821 - TODO: incomplete
+                        if self._chosen_ap > 0:
+                            yield events.SpendAdventurePointsEvent(character, "wound check", self._chosen_ap)
+                        if self._chosen_conviction > 0:
+                            yield events.SpendConvictionEvent(character, "wound check", self._chosen_conviction)
                         yield new_event
                     else:
                         # but the future refused to change
@@ -541,6 +561,7 @@ class WoundCheckRolledStrategy(SkillRolledStrategy):
     def reset(self):
         self._chosen_ap = 0
         self._chosen_bonuses.clear()
+        self._chosen_conviction = 0
 
     def use_ap(self, character, event, tolerable_sw, skill):
         ap = character.ap()
@@ -554,6 +575,17 @@ class WoundCheckRolledStrategy(SkillRolledStrategy):
                 new_expected_sw = character.wound_check(new_roll)
                 if new_expected_sw == tolerable_sw:
                     break
+        return events.WoundCheckRolledEvent(event.subject, event.attacker, event.damage, new_roll, tn=event.tn)
+
+    def use_conviction_wc(self, character, event, tolerable_sw):
+        max_spend = min(character.conviction(), character.max_conviction_per_roll())
+        new_roll = event.roll
+        while self._chosen_conviction < max_spend:
+            self._chosen_conviction += 1
+            new_roll += 1
+            new_expected_sw = character.wound_check(new_roll)
+            if new_expected_sw == tolerable_sw:
+                break
         return events.WoundCheckRolledEvent(event.subject, event.attacker, event.damage, new_roll, tn=event.tn)
 
     def use_floating_bonuses(self, character, event, tolerable_sw, skill):

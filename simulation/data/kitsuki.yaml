@@ -1,0 +1,15 @@
+name: Kitsuki
+school: Kitsuki Magistrate School
+xp: 350
+rings:
+  air: 3
+  earth: 4
+  fire: 3
+  water: 5
+  void: 4
+skills:
+  attack: 5
+  parry: 5
+  iaijutsu: 5
+  investigation: 5
+  presence: 5

@@ -1,0 +1,14 @@
+name: Shosuro
+school: Shosuro Actor School
+xp: 350
+rings:
+  air: 4
+  earth: 4
+  fire: 3
+  water: 3
+  void: 3
+skills:
+  attack: 5
+  parry: 5
+  acting: 5
+  sincerity: 5
