@@ -1,0 +1,15 @@
+name: Otaku
+school: Otaku Bushi School
+xp: 400
+rings:
+  air: 4
+  earth: 4
+  fire: 5
+  water: 4
+  void: 4
+skills:
+  attack: 5
+  double attack: 5
+  iaijutsu: 5
+  lunge: 5
+  parry: 5

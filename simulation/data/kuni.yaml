@@ -1,0 +1,16 @@
+name: Kuni
+school: Kuni Witch Hunter School
+xp: 400
+rings:
+  air: 4
+  earth: 5
+  fire: 4
+  water: 4
+  void: 4
+skills:
+  attack: 5
+  detect taint: 5
+  iaijutsu: 5
+  investigation: 5
+  parry: 5
+  presence: 5
