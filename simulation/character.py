@@ -50,6 +50,7 @@ class Character:
         self._action_factory = DEFAULT_ACTION_FACTORY
         self._advantages = []
         self._ap_base_skill = None
+        self._ap_multiplier = 2
         self._ap_skills = []
         self._ap_spent = 0
         self._attack_optimizer_factory = DEFAULT_ATTACK_OPTIMIZER_FACTORY
@@ -93,6 +94,7 @@ class Character:
         }
         self._lw = 0
         self._lw_history = []
+        self._max_vp_provider = None
         self._profession = None
         self._roll_parameter_provider = DEFAULT_ROLL_PARAMETER_PROVIDER
         self._roll_provider = DEFAULT_ROLL_PROVIDER
@@ -179,7 +181,7 @@ class Character:
 
         Return the number of Adventure Points (Third Dan Free Raises) this character has available to spend.
         """
-        return (2 * self.skill(self.ap_base_skill())) - self._ap_spent
+        return (self._ap_multiplier * self.skill(self.ap_base_skill())) - self._ap_spent
 
     def ap_base_skill(self):
         """
@@ -477,6 +479,8 @@ class Character:
 
         Return this character's capacity for Void Points, not including Temporary Void Points.
         """
+        if self._max_vp_provider is not None:
+            return self._max_vp_provider.max_vp(self)
         return min([self.ring(ring) for ring in RING_NAMES]) + self.skill("worldliness")
 
     def max_vp_per_roll(self):
@@ -488,6 +492,8 @@ class Character:
         """
         if "discordant" in self._disadvantages:
             return 0
+        if self._max_vp_provider is not None:
+            return self._max_vp_provider.max_vp_per_roll(self)
         return min([self.ring(ring) for ring in RING_NAMES])
 
     def modifier(self, target, skill):
@@ -635,6 +641,11 @@ class Character:
             raise ValueError("set_ap_base_skill requires str")
         self._ap_base_skill = skill
 
+    def set_ap_multiplier(self, n):
+        if not isinstance(n, int):
+            raise ValueError("set_ap_multiplier requires int")
+        self._ap_multiplier = n
+
     def set_ap_skills(self, skills):
         if not isinstance(skills, list):
             raise ValueError("set_ap_skills requires list")
@@ -698,6 +709,9 @@ class Character:
         Set the interrupt cost for this character to use an action.
         """
         self._interrupt_costs[skill] = actions
+
+    def set_max_vp_provider(self, provider):
+        self._max_vp_provider = provider
 
     def set_listener(self, event_name, listener):
         """

@@ -144,11 +144,11 @@ class TestWriteTemplateYaml:
 class TestGenerateAllTemplates:
     """Test bulk generation."""
 
-    def test_generates_154_templates(self):
-        """Should produce exactly 154 configs (22 schools x 7 tiers)."""
+    def test_generates_182_templates(self):
+        """Should produce exactly 182 configs (26 schools x 7 tiers)."""
         with tempfile.TemporaryDirectory() as tmpdir:
             configs = generate_all_templates(base_dir=tmpdir)
-            assert len(configs) == 154
+            assert len(configs) == 182
 
     def test_all_configs_buildable(self):
         """Every generated config must build successfully."""

@@ -30,7 +30,7 @@ BASIC_SKILLS = ["bragging", "culture", "etiquette", "heraldry", "intimidation", 
 
 # School knacks that are neither advanced nor basic skills.
 # These are purchasable at advanced skill costs and determine school rank (dan).
-KNACK_SKILLS = ["athletics", "conviction", "discern honor", "oppose knowledge", "oppose social", "otherworldliness", "pontificate", "worldliness"]
+KNACK_SKILLS = ["absorb void", "athletics", "conviction", "discern honor", "dragon tattoo", "kharmic spin", "oppose knowledge", "oppose social", "otherworldliness", "pontificate", "worldliness"]
 
 
 # these are not skills, but they are sometimes passed

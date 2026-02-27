@@ -13,8 +13,11 @@ from simulation.schools.daidoji_school import DaidojiYojimboSchool
 from simulation.schools.doji_artisan_school import DojiArtisanSchool
 from simulation.schools.hida_school import HidaBushiSchool
 from simulation.schools.hiruma_school import HirumaScoutSchool
+from simulation.schools.ide_school import IdeDiplomatSchool
 from simulation.schools.ikoma_bard_school import IkomaBardSchool
 from simulation.schools.isawa_school import IsawaDuelistSchool
+from simulation.schools.ise_zumi_school import TogashiIseZumiSchool
+from simulation.schools.ishi_school import IsawaIshiSchool
 from simulation.schools.kakita_school import KakitaBushiSchool
 from simulation.schools.kitsuki_school import KitsukiMagistrateSchool
 from simulation.schools.kuni_school import KuniWitchHunterSchool
@@ -23,6 +26,7 @@ from simulation.schools.merchant_school import MerchantSchool
 from simulation.schools.mirumoto_school import MirumotoBushiSchool
 from simulation.schools.monk_school import BrotherhoodOfShinseMonkSchool
 from simulation.schools.otaku_school import OtakuBushiSchool
+from simulation.schools.priest_school import PriestSchool
 from simulation.schools.shiba_school import ShibaBushiSchool
 from simulation.schools.shinjo_school import ShinjoBushiSchool
 from simulation.schools.shosuro_actor_school import ShosuroActorSchool
@@ -48,10 +52,14 @@ def get_school(name):
         return HidaBushiSchool()
     elif name == "Hiruma Scout School":
         return HirumaScoutSchool()
+    elif name == "Ide Diplomat School":
+        return IdeDiplomatSchool()
     elif name == "Ikoma Bard School":
         return IkomaBardSchool()
     elif name == "Isawa Duelist School":
         return IsawaDuelistSchool()
+    elif name == "Isawa Ishi School":
+        return IsawaIshiSchool()
     elif name == "Kakita Bushi School":
         return KakitaBushiSchool()
     elif name == "Kitsuki Magistrate School":
@@ -66,12 +74,16 @@ def get_school(name):
         return MirumotoBushiSchool()
     elif name == "Otaku Bushi School":
         return OtakuBushiSchool()
+    elif name == "Priest School":
+        return PriestSchool()
     elif name == "Shiba Bushi School":
         return ShibaBushiSchool()
     elif name == "Shinjo Bushi School":
         return ShinjoBushiSchool()
     elif name == "Shosuro Actor School":
         return ShosuroActorSchool()
+    elif name == "Togashi Ise Zumi School":
+        return TogashiIseZumiSchool()
     elif name == "Yogo Warden School":
         return YogoWardenSchool()
     else:
