@@ -25,7 +25,11 @@ as none of it is relevant to this project.
 - Style: PEP 8, Type Hints (Strict)
 
 ## Architecture
-1. **Core Engine**: Pure logic, implemented based on `./rules`, which has the human-readable rules
+1. **Core Engine**: Pure logic, implemented based on the human-readable rules at
+    https://github.com/EliAndrewC/l7r/tree/master/rules (all rules are in that
+    directory, so you can ignore other directories in that Git repo and also
+    ignore the Between Place and Spirit Encounter rules, which will never be
+    covered by this simulator)
 2. **API/UI**: Streamlit interface to visualize the dice rolls and outcomes.
 
 ## Project Rules
