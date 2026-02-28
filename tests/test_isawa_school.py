@@ -138,3 +138,107 @@ class TestIsawaActionFactory(unittest.TestCase):
         factory = isawa_school.IsawaActionFactory()
         action = factory.get_attack_action(self.isawa, self.target, "lunge", self.initiative_action, self.context)
         self.assertTrue(isinstance(action, isawa_school.IsawaLungeAction))
+
+    def test_get_feint_action(self):
+        factory = isawa_school.IsawaActionFactory()
+        action = factory.get_attack_action(self.isawa, self.target, "feint", self.initiative_action, self.context)
+        # Feint falls through to default FeintAction
+        from simulation.actions import FeintAction
+        self.assertTrue(isinstance(action, FeintAction))
+
+    def test_invalid_skill_raises(self):
+        factory = isawa_school.IsawaActionFactory()
+        with self.assertRaises(ValueError):
+            factory.get_attack_action(self.isawa, self.target, "nope", self.initiative_action, self.context)
+
+
+class TestIsawaDoubleAttackAction(unittest.TestCase):
+    def setUp(self):
+        self.isawa = Character("Isawa")
+        self.isawa.set_skill("attack", 5)
+        self.isawa.set_ring("fire", 3)
+        self.isawa.set_actions([1])
+        self.target = Character("target")
+        groups = [Group("Phoenix", self.isawa), Group("Enemy", self.target)]
+        self.context = EngineContext(groups)
+        self.initiative_action = InitiativeAction([1], 1)
+
+    def test_double_attack_bonus(self):
+        action = isawa_school.IsawaDoubleAttackAction(
+            self.isawa, self.target, "double attack", self.initiative_action, self.context,
+        )
+        (rolled, kept, modifier) = action.skill_roll_params()
+        # bonus = 3 * attack_skill(5) = 15
+        self.assertEqual(15, modifier)
+
+
+class TestIsawaLungeAction(unittest.TestCase):
+    def setUp(self):
+        self.isawa = Character("Isawa")
+        self.isawa.set_skill("attack", 3)
+        self.isawa.set_ring("fire", 3)
+        self.isawa.set_actions([1])
+        self.target = Character("target")
+        groups = [Group("Phoenix", self.isawa), Group("Enemy", self.target)]
+        self.context = EngineContext(groups)
+        self.initiative_action = InitiativeAction([1], 1)
+
+    def test_lunge_bonus(self):
+        action = isawa_school.IsawaLungeAction(
+            self.isawa, self.target, "lunge", self.initiative_action, self.context,
+        )
+        (rolled, kept, modifier) = action.skill_roll_params()
+        # bonus = 3 * attack_skill(3) = 9
+        self.assertEqual(9, modifier)
+
+
+class TestIsawaAttackDeclaredListener(unittest.TestCase):
+    def setUp(self):
+        self.isawa = Character("Isawa")
+        self.isawa.set_skill("attack", 4)
+        self.isawa.set_actions([1])
+        self.target = Character("target")
+        self.target.set_actions([1])
+        groups = [Group("Phoenix", self.isawa), Group("Enemy", self.target)]
+        self.context = EngineContext(groups)
+        self.initiative_action = InitiativeAction([1], 1)
+
+    def test_lowers_own_tn_after_attack(self):
+        from simulation.actions import AttackAction
+        attack = AttackAction(self.isawa, self.target, "attack", self.initiative_action, self.context)
+        event = events.AttackDeclaredEvent(attack)
+        listener = isawa_school.IsawaAttackDeclaredListener()
+        responses = list(listener.handle(self.isawa, event, self.context))
+        # Should yield an AddModifierEvent with -5 TN modifier
+        self.assertEqual(1, len(responses))
+        self.assertTrue(isinstance(responses[0], events.AddModifierEvent))
+        modifier = responses[0].modifier
+        self.assertEqual(["tn to hit"], modifier.skills())
+        self.assertEqual(-5, modifier.adjustment())
+
+    def test_no_event_when_not_subject(self):
+        from simulation.actions import AttackAction
+        attack = AttackAction(self.target, self.isawa, "attack", self.initiative_action, self.context)
+        event = events.AttackDeclaredEvent(attack)
+        listener = isawa_school.IsawaAttackDeclaredListener()
+        responses = list(listener.handle(self.isawa, event, self.context))
+        self.assertEqual(0, len(responses))
+
+
+class TestIsawaNewRoundListener(unittest.TestCase):
+    def test_resets_interrupt_lunge(self):
+        from simulation.mechanics.roll_provider import TestRollProvider
+        isawa = Character("Isawa")
+        roll_provider = TestRollProvider()
+        roll_provider.put_initiative_roll([2, 5])
+        isawa.set_roll_provider(roll_provider)
+        enemy = Character("enemy")
+        groups = [Group("Phoenix", isawa), Group("Enemy", enemy)]
+        context = EngineContext(groups)
+        # Simulate interrupt cost being consumed
+        isawa.set_interrupt_cost("lunge", 0)
+        listener = isawa_school.IsawaNewRoundListener()
+        event = events.NewRoundEvent(2)
+        list(listener.handle(isawa, event, context))
+        # Interrupt cost should be reset to 1
+        self.assertEqual(1, isawa.interrupt_cost("lunge", context))

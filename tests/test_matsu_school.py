@@ -137,3 +137,56 @@ class TestMatsuWoundCheckFailedListener(unittest.TestCase):
         self.assertTrue(isinstance(sw_event, events.SeriousWoundsDamageEvent))
         # Defender's LW should be set to 15
         self.assertEqual(15, self.defender.lw())
+
+    def test_matsu_own_wound_check_failure_standard_behavior(self):
+        """When Matsu is the defender, standard wound check failure applies."""
+        attacker = Character("attacker")
+        self.matsu._lw = 20
+        groups = [Group("Lion", self.matsu), Group("Enemy", attacker)]
+        context = EngineContext(groups)
+        listener = matsu_school.MatsuWoundCheckFailedListener()
+        event = events.WoundCheckFailedEvent(self.matsu, attacker, 20, 10)
+        responses = list(listener.handle(self.matsu, event, context))
+        # Should yield SeriousWoundsDamageEvent with standard behavior
+        self.assertEqual(1, len(responses))
+        sw_event = responses[0]
+        self.assertTrue(isinstance(sw_event, events.SeriousWoundsDamageEvent))
+        # LW should be reset to 0 (standard), not 15
+        self.assertEqual(0, self.matsu.lw())
+
+
+class TestMatsuDoubleAttackParried(unittest.TestCase):
+    def setUp(self):
+        self.matsu = Character("Matsu")
+        self.matsu.set_actions([1])
+        self.target = Character("target")
+        self.target.set_skill("parry", 3)
+        groups = [Group("Lion", self.matsu), Group("Enemy", self.target)]
+        self.context = EngineContext(groups)
+        self.initiative_action = InitiativeAction([1], 1)
+
+    def test_parried_not_hit(self):
+        action = matsu_school.MatsuDoubleAttackAction(
+            self.matsu, self.target, "double attack", self.initiative_action, self.context,
+        )
+        action.set_skill_roll(25)
+        # Simulate successful parry
+        action.set_parried()
+        self.assertFalse(action.is_hit())
+
+    def test_parry_attempted_no_direct_damage(self):
+        action = matsu_school.MatsuDoubleAttackAction(
+            self.matsu, self.target, "double attack", self.initiative_action, self.context,
+        )
+        action.set_skill_roll(45)  # Above TN
+        action.set_parry_attempted()
+        self.assertIsNone(action.direct_damage())
+
+    def test_normal_hit_extra_dice(self):
+        action = matsu_school.MatsuDoubleAttackAction(
+            self.matsu, self.target, "double attack", self.initiative_action, self.context,
+        )
+        tn = action.tn()
+        action.set_skill_roll(tn + 10)  # Exceed TN by 10
+        # Normal hit: extra dice = (roll - tn) // 5 = 10 // 5 = 2
+        self.assertEqual(2, action.calculate_extra_damage_dice())

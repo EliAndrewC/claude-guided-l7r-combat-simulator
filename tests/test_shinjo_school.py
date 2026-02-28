@@ -140,3 +140,40 @@ class TestShinjoFifthDanParryListener(unittest.TestCase):
         # But no wound check bonus
         bonuses = self.shinjo.floating_bonuses("wound check")
         self.assertEqual(0, len(bonuses))
+
+
+class TestShinjoSpendActionListener(unittest.TestCase):
+    def setUp(self):
+        self.shinjo = Character("Shinjo")
+        self.shinjo.set_actions([3, 7])
+        self.enemy = Character("enemy")
+        groups = [Group("Unicorn", self.shinjo), Group("Enemy", self.enemy)]
+        self.context = EngineContext(groups, round=1, phase=5)
+        self.context.initialize()
+
+    def test_hold_bonus_computed(self):
+        """Spending a die held since phase 3 in phase 5 gives bonus of 2*(5-3)=4."""
+        initiative_action = InitiativeAction([3], 3)
+        event = events.SpendActionEvent(self.shinjo, "attack", initiative_action)
+        listener = shinjo_school.ShinjoSpendActionListener()
+        list(listener.handle(self.shinjo, event, self.context))
+        self.assertEqual(4, self.shinjo._shinjo_hold_bonus)
+
+    def test_no_bonus_when_same_phase(self):
+        """Spending a die in the same phase it was rolled gives no bonus."""
+        # Die at phase 5, current phase is 5 → hold_phases = 0 → no bonus
+        self.shinjo.set_actions([5, 7])
+        initiative_action = InitiativeAction([5], 5)
+        event = events.SpendActionEvent(self.shinjo, "attack", initiative_action)
+        listener = shinjo_school.ShinjoSpendActionListener()
+        list(listener.handle(self.shinjo, event, self.context))
+        self.assertFalse(hasattr(self.shinjo, "_shinjo_hold_bonus") and self.shinjo._shinjo_hold_bonus > 0)
+
+    def test_no_bonus_for_other_character(self):
+        """Listener should only affect the event's subject."""
+        self.enemy.set_actions([3])
+        initiative_action = InitiativeAction([3], 3)
+        event = events.SpendActionEvent(self.enemy, "attack", initiative_action)
+        listener = shinjo_school.ShinjoSpendActionListener()
+        list(listener.handle(self.shinjo, event, self.context))
+        self.assertFalse(hasattr(self.shinjo, "_shinjo_hold_bonus"))
