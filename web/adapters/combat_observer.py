@@ -1,6 +1,11 @@
 """CombatObserver, TrackingRollProvider, and DetailedCombatEngine for rich combat output."""
 
 from simulation import events
+from simulation.duel import (
+    DuelInitiativeRolledEvent,
+    DuelStrikeRolledEvent,
+    ShowMeYourStanceRolledEvent,
+)
 from simulation.engine import CombatEngine
 from simulation.events import CounterattackRolledEvent, TakeCounterattackActionEvent
 from simulation.mechanics.roll import DEFAULT_DIE_PROVIDER, DieProvider
@@ -84,9 +89,9 @@ class TrackingRollProvider(RollProvider):
         self._last_damage_info = {"rolled": rolled, "kept": kept, "dice": sorted(dice, reverse=True)}
         return result
 
-    def get_wound_check_roll(self, rolled, kept):
+    def get_wound_check_roll(self, rolled, kept, explode=True):
         result, recorded = self._with_recording(
-            lambda: self._inner.get_wound_check_roll(rolled, kept)
+            lambda: self._inner.get_wound_check_roll(rolled, kept, explode=explode)
         )
         inner_info = self._inner.last_wound_check_info() if hasattr(self._inner, "last_wound_check_info") else None
         dice = inner_info["dice"] if inner_info and inner_info.get("dice") else recorded
@@ -183,6 +188,12 @@ class CombatObserver:
             self._annotate_keep_lw(event)
         elif isinstance(event, events.TakeSeriousWoundEvent):
             self._annotate_take_sw(event)
+        elif isinstance(event, DuelStrikeRolledEvent):
+            self._annotate_duel_strike_rolled(event)
+        elif isinstance(event, ShowMeYourStanceRolledEvent):
+            self._annotate_stance_rolled(event)
+        elif isinstance(event, DuelInitiativeRolledEvent):
+            self._annotate_duel_initiative(event, context)
 
     def _status_snapshot(self, context):
         """Capture a dict of character status keyed by name."""
@@ -296,6 +307,23 @@ class CombatObserver:
             event._detail_dice = []
             event._detail_params = (0, 0)
 
+    def _annotate_duel_strike_rolled(self, event):
+        subject = event.subject
+        provider = subject.roll_provider()
+        info = provider.last_skill_info() if hasattr(provider, "last_skill_info") else None
+        event._detail_dice = info["dice"] if info else []
+        event._detail_roll_params = info if info else None
+
+    def _annotate_stance_rolled(self, event):
+        subject = event.subject
+        provider = subject.roll_provider()
+        info = provider.last_skill_info() if hasattr(provider, "last_skill_info") else None
+        event._detail_dice = info["dice"] if info else []
+        event._detail_roll_params = info if info else None
+
+    def _annotate_duel_initiative(self, event, context):
+        event._detail_status = self._status_snapshot(context)
+
 
 class DetailedCombatEngine(CombatEngine):
     """CombatEngine subclass that calls an observer before processing each event."""
@@ -307,3 +335,8 @@ class DetailedCombatEngine(CombatEngine):
     def event(self, event):
         self._observer.on_event(event, self.context())
         super().event(event)
+
+
+class DetailedDuelEngine(DetailedCombatEngine):
+    """DetailedCombatEngine subclass that uses run_duel() instead of run()."""
+    pass

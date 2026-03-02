@@ -1,7 +1,8 @@
 from abc import abstractmethod
 
 from simulation import events
-from simulation.exceptions import CombatEnded
+from simulation.duel import IaijutsuDuelEvent
+from simulation.exceptions import CombatEnded, DuelEnded
 from simulation.log import logger
 
 
@@ -79,25 +80,23 @@ class CombatEngine(Engine):
 
     def run_duel(self):
         # validate groups and characters
-        if len(self.context.groups()) != 2:
+        if len(self.context().groups()) != 2:
             raise RuntimeError("Duel requires two groups")
-        for group in self.context.groups():
+        for group in self.context().groups():
             if len(group) != 1:
                 raise RuntimeError("Duel must be a one-on-one fight")
         # determine challenger and defender
-        # challenger is always the test group
-        challenger = self.context.test_group().get(0)
-        defender = self.context.groups().get(0).get(0)
-        # run iaijutsu duels until somebody is cut or defeated
-        while True:
-            try:
-                self.event(IaijutsuDuelEvent(challenger, defender))  # noqa: F821 - TODO: incomplete
-            except CombatEnded:
-                logger.info("---------- Combat ended ----------")
-                return
-            except DuelEnded:  # noqa: F821 - TODO: incomplete
-                logger.info("---- Duel ended, melee begins ----")
-                break
+        # challenger is always the test group, defender is the control group
+        challenger = next(iter(self.context().test_group()))
+        defender = next(iter(self.context().groups()[0]))
+        # run iaijutsu duel
+        try:
+            self.event(IaijutsuDuelEvent(challenger, defender))
+        except CombatEnded:
+            logger.info("---------- Combat ended ----------")
+            return
+        except DuelEnded:
+            logger.info("---- Duel ended, melee begins ----")
         # continue in normal melee combat
         self.run()
 

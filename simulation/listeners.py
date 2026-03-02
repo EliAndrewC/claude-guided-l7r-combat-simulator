@@ -211,7 +211,8 @@ class WoundCheckDeclaredListener(Listener):
     def handle(self, character, event, context):
         if isinstance(event, events.WoundCheckDeclaredEvent):
             if event.subject == character:
-                roll = character.roll_wound_check(event.damage, event.vp)
+                explode = not getattr(event, 'duel', False)
+                roll = character.roll_wound_check(event.damage, event.vp, explode=explode)
                 if event.vp > 0:
                     yield events.SpendVoidPointsEvent(character, "wound check", event.vp)
                 initial_roll = events.WoundCheckRolledEvent(character, event.attacker, event.damage, roll, tn=event.tn)

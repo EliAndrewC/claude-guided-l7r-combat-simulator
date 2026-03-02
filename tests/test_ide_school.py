@@ -16,7 +16,7 @@ from simulation.context import EngineContext
 from simulation.groups import Group
 from simulation.log import logger
 from simulation.mechanics.initiative_actions import InitiativeAction
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 from simulation.schools import ide_school
 
 # set up logging
@@ -121,8 +121,8 @@ class TestIdeTactSubtractListener(unittest.TestCase):
         self.initiative_action = InitiativeAction([1], 1)
 
     def test_subtract_from_enemy_attack(self):
-        # Use TestRollProvider so tact roll is predictable
-        roll_provider = TestRollProvider()
+        # Use CalvinistRollProvider so tact roll is predictable
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("tact", 7)
         self.ide.set_roll_provider(roll_provider)
         action = actions.AttackAction(self.attacker, self.ide, "attack", self.initiative_action, self.context)

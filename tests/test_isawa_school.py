@@ -227,9 +227,9 @@ class TestIsawaAttackDeclaredListener(unittest.TestCase):
 
 class TestIsawaNewRoundListener(unittest.TestCase):
     def test_resets_interrupt_lunge(self):
-        from simulation.mechanics.roll_provider import TestRollProvider
+        from simulation.mechanics.roll_provider import CalvinistRollProvider
         isawa = Character("Isawa")
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_initiative_roll([2, 5])
         isawa.set_roll_provider(roll_provider)
         enemy = Character("enemy")

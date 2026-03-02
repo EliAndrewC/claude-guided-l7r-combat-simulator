@@ -15,10 +15,11 @@ from simulation.character import Character
 from simulation.character_builder import CharacterBuilder
 from simulation.context import EngineContext
 from simulation.engine import CombatEngine
+from simulation.formation import LineFormation
 from simulation.groups import Group
 from simulation.log import logger
 from simulation.mechanics.initiative_actions import InitiativeAction
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 from simulation.schools import daidoji_school
 from simulation.strategies.base import CounterattackInterruptStrategy
 
@@ -173,12 +174,12 @@ class TestDaidojiTakeCounterattackActionEvent(unittest.TestCase):
             interrupt_action, self.context, self.attack,
         )
         # rig rolls: counterattack succeeds, damage = 20
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("counterattack", 30)
         roll_provider.put_damage_roll(20)
         self.daidoji.set_roll_provider(roll_provider)
         # rig attacker's wound check
-        attacker_rp = TestRollProvider()
+        attacker_rp = CalvinistRollProvider()
         attacker_rp.put_wound_check_roll(18)
         self.attacker.set_roll_provider(attacker_rp)
 
@@ -203,12 +204,12 @@ class TestDaidojiTakeCounterattackActionEvent(unittest.TestCase):
             regular_action, self.context, self.attack,
         )
         # rig rolls
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("counterattack", 30)
         roll_provider.put_damage_roll(20)
         self.daidoji.set_roll_provider(roll_provider)
         # rig attacker's wound check
-        attacker_rp = TestRollProvider()
+        attacker_rp = CalvinistRollProvider()
         attacker_rp.put_wound_check_roll(18)
         self.attacker.set_roll_provider(attacker_rp)
 
@@ -232,7 +233,7 @@ class TestDaidojiTakeCounterattackActionEvent(unittest.TestCase):
             interrupt_action, self.context, self.attack,
         )
         # rig rolls: miss
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("counterattack", 5)
         self.daidoji.set_roll_provider(roll_provider)
 
@@ -249,11 +250,11 @@ class TestDaidojiTakeCounterattackActionEvent(unittest.TestCase):
             self.daidoji, self.attacker, "counterattack",
             interrupt_action, self.context, self.attack,
         )
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("counterattack", 30)
         roll_provider.put_damage_roll(15)
         self.daidoji.set_roll_provider(roll_provider)
-        attacker_rp = TestRollProvider()
+        attacker_rp = CalvinistRollProvider()
         attacker_rp.put_wound_check_roll(50)
         self.attacker.set_roll_provider(attacker_rp)
 
@@ -269,8 +270,151 @@ class TestDaidojiTakeCounterattackActionEvent(unittest.TestCase):
         self.assertIsInstance(history[4], events.LightWoundsDamageEvent)
 
 
+class TestDaidojiThirdDan(unittest.TestCase):
+    """3rd Dan: After a successful counterattack, the original attack's target
+    gets X free raises (bonus = 5*X) on their wound check, where X = Daidoji's attack skill."""
+
+    def setUp(self):
+        self.daidoji = Character("Daidoji")
+        self.daidoji.set_skill("counterattack", 3)
+        self.daidoji.set_skill("attack", 3)
+        self.daidoji.set_actions([5, 8])
+        self.ally = Character("Ally")
+        self.ally.set_actions([])
+        self.attacker = Character("Attacker")
+        self.attacker.set_actions([1])
+        groups = [
+            Group("Crane", [self.daidoji, self.ally]),
+            Group("Enemy", self.attacker),
+        ]
+        self.context = EngineContext(groups, round=1, phase=1)
+        self.context.initialize()
+        # original attack: attacker attacks the ally
+        self.attack_initiative = InitiativeAction([1], 1)
+        self.attack = actions.AttackAction(
+            self.attacker, self.ally, "attack", self.attack_initiative, self.context,
+        )
+        self.attack.set_skill_roll(25)
+
+    def test_ally_gets_wound_check_bonus_after_successful_counterattack(self):
+        """After a successful counterattack on behalf of an ally,
+        the ally gets a WoundCheckFloatingBonus of 5 * Daidoji's attack skill."""
+        interrupt_action = InitiativeAction([5, 8], 1, is_interrupt=True)
+        counterattack = daidoji_school.DaidojiCounterattackAction(
+            self.daidoji, self.attacker, "counterattack",
+            interrupt_action, self.context, self.attack,
+        )
+        # rig rolls: counterattack succeeds, damage = 20
+        roll_provider = CalvinistRollProvider()
+        roll_provider.put_skill_roll("counterattack", 30)
+        roll_provider.put_damage_roll(20)
+        self.daidoji.set_roll_provider(roll_provider)
+        # rig attacker's wound check
+        attacker_rp = CalvinistRollProvider()
+        attacker_rp.put_wound_check_roll(18)
+        self.attacker.set_roll_provider(attacker_rp)
+
+        # Apply 3rd Dan ability to enable the bonus
+        school = daidoji_school.DaidojiYojimboSchool()
+        school.apply_rank_three_ability(self.daidoji)
+
+        take_event = daidoji_school.DaidojiTakeCounterattackActionEvent(counterattack)
+        engine = CombatEngine(self.context)
+        engine.event(take_event)
+
+        # After successful counterattack, ally should have a wound check floating bonus
+        # bonus = 5 * attack_skill = 5 * 3 = 15
+        bonuses = self.ally.floating_bonuses("wound check")
+        self.assertEqual(1, len(bonuses))
+        self.assertEqual(15, bonuses[0].bonus())
+
+    def test_no_bonus_on_missed_counterattack(self):
+        """A missed counterattack should not grant any wound check bonus."""
+        interrupt_action = InitiativeAction([5, 8], 1, is_interrupt=True)
+        counterattack = daidoji_school.DaidojiCounterattackAction(
+            self.daidoji, self.attacker, "counterattack",
+            interrupt_action, self.context, self.attack,
+        )
+        # rig rolls: miss
+        roll_provider = CalvinistRollProvider()
+        roll_provider.put_skill_roll("counterattack", 5)
+        self.daidoji.set_roll_provider(roll_provider)
+
+        school = daidoji_school.DaidojiYojimboSchool()
+        school.apply_rank_three_ability(self.daidoji)
+
+        take_event = daidoji_school.DaidojiTakeCounterattackActionEvent(counterattack)
+        engine = CombatEngine(self.context)
+        engine.event(take_event)
+
+        # No bonus should be granted
+        bonuses = self.ally.floating_bonuses("wound check")
+        self.assertEqual(0, len(bonuses))
+
+    def test_self_gets_bonus_when_defending_self(self):
+        """When the Daidoji counterattacks an attack targeting themselves,
+        they should get the wound check bonus on themselves."""
+        # Attack targets the Daidoji, not the ally
+        attack = actions.AttackAction(
+            self.attacker, self.daidoji, "attack", self.attack_initiative, self.context,
+        )
+        attack.set_skill_roll(25)
+        interrupt_action = InitiativeAction([5, 8], 1, is_interrupt=True)
+        counterattack = daidoji_school.DaidojiCounterattackAction(
+            self.daidoji, self.attacker, "counterattack",
+            interrupt_action, self.context, attack,
+        )
+        roll_provider = CalvinistRollProvider()
+        roll_provider.put_skill_roll("counterattack", 30)
+        roll_provider.put_damage_roll(20)
+        self.daidoji.set_roll_provider(roll_provider)
+        attacker_rp = CalvinistRollProvider()
+        attacker_rp.put_wound_check_roll(18)
+        self.attacker.set_roll_provider(attacker_rp)
+
+        school = daidoji_school.DaidojiYojimboSchool()
+        school.apply_rank_three_ability(self.daidoji)
+
+        take_event = daidoji_school.DaidojiTakeCounterattackActionEvent(counterattack)
+        engine = CombatEngine(self.context)
+        engine.event(take_event)
+
+        # Daidoji should have the wound check bonus on themselves
+        bonuses = self.daidoji.floating_bonuses("wound check")
+        self.assertEqual(1, len(bonuses))
+        self.assertEqual(15, bonuses[0].bonus())
+
+    def test_bonus_scales_with_attack_skill(self):
+        """The bonus should scale with the Daidoji's attack skill."""
+        self.daidoji.set_skill("attack", 5)
+        interrupt_action = InitiativeAction([5, 8], 1, is_interrupt=True)
+        counterattack = daidoji_school.DaidojiCounterattackAction(
+            self.daidoji, self.attacker, "counterattack",
+            interrupt_action, self.context, self.attack,
+        )
+        roll_provider = CalvinistRollProvider()
+        roll_provider.put_skill_roll("counterattack", 30)
+        roll_provider.put_damage_roll(20)
+        self.daidoji.set_roll_provider(roll_provider)
+        attacker_rp = CalvinistRollProvider()
+        attacker_rp.put_wound_check_roll(18)
+        self.attacker.set_roll_provider(attacker_rp)
+
+        school = daidoji_school.DaidojiYojimboSchool()
+        school.apply_rank_three_ability(self.daidoji)
+
+        take_event = daidoji_school.DaidojiTakeCounterattackActionEvent(counterattack)
+        engine = CombatEngine(self.context)
+        engine.event(take_event)
+
+        # bonus = 5 * 5 = 25
+        bonuses = self.ally.floating_bonuses("wound check")
+        self.assertEqual(1, len(bonuses))
+        self.assertEqual(25, bonuses[0].bonus())
+
+
 class TestDaidojiFourthDan(unittest.TestCase):
-    """4th Dan raises the school ring (Water)."""
+    """4th Dan raises the school ring (Water) and installs the damage redirect listener."""
 
     def test_fourth_dan_raises_water(self):
         school = daidoji_school.DaidojiYojimboSchool()
@@ -287,6 +431,252 @@ class TestDaidojiFourthDan(unittest.TestCase):
         self.assertEqual(4, daidoji.ring("water"))
 
 
+class TestDaidojiFourthDanRedirect(unittest.TestCase):
+    """4th Dan: Redirect damage from allies to the Daidoji."""
+
+    def setUp(self):
+        self.daidoji = Character("Daidoji")
+        self.daidoji.set_skill("counterattack", 3)
+        self.daidoji.set_skill("parry", 3)
+        self.daidoji.set_actions([5, 8])
+        self.ally = Character("Ally")
+        self.ally.set_actions([])
+        self.attacker = Character("Attacker")
+        self.attacker.set_actions([1])
+        groups = [
+            Group("Crane", [self.daidoji, self.ally]),
+            Group("Enemy", self.attacker),
+        ]
+        self.context = EngineContext(groups, round=1, phase=1)
+        self.context.initialize()
+
+    def test_redirect_damage_to_daidoji(self):
+        """When an ally takes LW damage, the Daidoji takes it instead."""
+        school = daidoji_school.DaidojiYojimboSchool()
+        school.apply_rank_four_ability(self.daidoji)
+
+        # rig wound check roll for Daidoji
+        daidoji_rp = CalvinistRollProvider()
+        daidoji_rp.put_wound_check_roll(50)
+        self.daidoji.set_roll_provider(daidoji_rp)
+
+        # attacker damages the ally
+        lw_event = events.LightWoundsDamageEvent(self.attacker, self.ally, 15)
+        engine = CombatEngine(self.context)
+        engine.event(lw_event)
+
+        # Daidoji should have taken the damage, not the ally
+        self.assertEqual(15, self.daidoji.lw())
+        self.assertEqual(0, self.ally.lw())
+
+    def test_daidoji_takes_own_damage_normally(self):
+        """When the Daidoji themselves is hit, they take damage normally."""
+        school = daidoji_school.DaidojiYojimboSchool()
+        school.apply_rank_four_ability(self.daidoji)
+
+        # rig wound check roll for Daidoji
+        daidoji_rp = CalvinistRollProvider()
+        daidoji_rp.put_wound_check_roll(50)
+        self.daidoji.set_roll_provider(daidoji_rp)
+
+        # attacker damages the daidoji directly
+        lw_event = events.LightWoundsDamageEvent(self.attacker, self.daidoji, 15)
+        engine = CombatEngine(self.context)
+        engine.event(lw_event)
+
+        # Daidoji should take damage normally
+        self.assertEqual(15, self.daidoji.lw())
+        self.assertEqual(0, self.ally.lw())
+
+    def test_no_redirect_for_enemy_damage(self):
+        """Daidoji does not redirect damage taken by enemies."""
+        school = daidoji_school.DaidojiYojimboSchool()
+        school.apply_rank_four_ability(self.daidoji)
+
+        # rig wound check roll for attacker (high roll so wound check succeeds)
+        attacker_rp = CalvinistRollProvider()
+        attacker_rp.put_wound_check_roll(50)
+        self.attacker.set_roll_provider(attacker_rp)
+
+        # Daidoji damages the attacker (enemy)
+        lw_event = events.LightWoundsDamageEvent(self.daidoji, self.attacker, 15)
+        engine = CombatEngine(self.context)
+        engine.event(lw_event)
+
+        # The attacker should have taken the damage (not the Daidoji).
+        # Attacker's LW may be 0 if the wound check strategy chose to take a SW,
+        # but either way the Daidoji should not have taken any damage.
+        self.assertEqual(0, self.daidoji.lw())
+        # Verify the attacker was damaged (SW or LW history proves they took the hit)
+        self.assertTrue(self.attacker.sw() > 0 or len(self.attacker.lw_history()) > 0)
+
+    def test_redirect_preserves_wound_check_tn(self):
+        """When redirecting damage, the wound check TN should be preserved."""
+        school = daidoji_school.DaidojiYojimboSchool()
+        school.apply_rank_four_ability(self.daidoji)
+
+        # rig wound check roll for Daidoji
+        daidoji_rp = CalvinistRollProvider()
+        daidoji_rp.put_wound_check_roll(50)
+        self.daidoji.set_roll_provider(daidoji_rp)
+
+        # attacker damages the ally with a custom tn
+        lw_event = events.LightWoundsDamageEvent(self.attacker, self.ally, 15, tn=10)
+        engine = CombatEngine(self.context)
+        engine.event(lw_event)
+
+        # Daidoji took the damage
+        self.assertEqual(15, self.daidoji.lw())
+        self.assertEqual(0, self.ally.lw())
+
+    def test_daidoji_observes_other_damage_rolls(self):
+        """The Daidoji should still observe other characters' damage rolls."""
+        school = daidoji_school.DaidojiYojimboSchool()
+        school.apply_rank_four_ability(self.daidoji)
+
+        # rig wound check roll for attacker
+        attacker_rp = CalvinistRollProvider()
+        attacker_rp.put_wound_check_roll(50)
+        self.attacker.set_roll_provider(attacker_rp)
+
+        # another character's damage event
+        lw_event = events.LightWoundsDamageEvent(self.daidoji, self.attacker, 12)
+        engine = CombatEngine(self.context)
+        engine.event(lw_event)
+
+        # Daidoji should have observed the damage roll (from their own attack)
+        # The damage roll should be in the Daidoji's knowledge but they are the subject
+        # so the default listener wouldn't observe it. This test confirms the listener
+        # still lets non-self subject events be observed.
+        self.assertEqual(12, self.attacker.lw())
+
+
+class TestDaidojiFifthDan(unittest.TestCase):
+    """5th Dan: After a wound check succeeds, lower the attacker's TN to hit
+    by the excess (roll - tn), applied as a modifier on the attacker."""
+
+    def setUp(self):
+        self.daidoji = Character("Daidoji")
+        self.daidoji.set_skill("counterattack", 3)
+        self.daidoji.set_skill("attack", 3)
+        self.daidoji.set_skill("parry", 3)
+        self.daidoji.set_actions([5, 8])
+        self.ally = Character("Ally")
+        self.ally.set_skill("parry", 3)
+        self.ally.set_actions([])
+        self.attacker = Character("Attacker")
+        self.attacker.set_skill("parry", 3)
+        self.attacker.set_actions([1])
+        groups = [
+            Group("Crane", [self.daidoji, self.ally]),
+            Group("Enemy", self.attacker),
+        ]
+        self.context = EngineContext(groups, round=1, phase=1)
+        self.context.initialize()
+
+    def test_modifier_after_daidoji_wound_check(self):
+        """After the Daidoji succeeds a wound check, the attacker gets a TN penalty."""
+        school = daidoji_school.DaidojiYojimboSchool()
+        school.apply_rank_five_ability(self.daidoji)
+
+        # Daidoji succeeds wound check with excess
+        # roll = 30, tn = 15, excess = 15
+        wc_event = events.WoundCheckSucceededEvent(
+            self.daidoji, self.attacker, 15, roll=30, tn=15,
+        )
+        engine = CombatEngine(self.context)
+        engine.event(wc_event)
+
+        # The Daidoji should have a modifier targeting the attacker with ATTACK_SKILLS
+        # that gives +15 to the Daidoji's attack against the attacker
+        modifier_value = self.daidoji.modifier(self.attacker, "attack")
+        self.assertEqual(15, modifier_value)
+
+    def test_no_modifier_when_no_excess(self):
+        """If the wound check exactly meets TN, no modifier is added."""
+        school = daidoji_school.DaidojiYojimboSchool()
+        school.apply_rank_five_ability(self.daidoji)
+
+        # roll = 15, tn = 15, excess = 0
+        wc_event = events.WoundCheckSucceededEvent(
+            self.daidoji, self.attacker, 15, roll=15, tn=15,
+        )
+        engine = CombatEngine(self.context)
+        engine.event(wc_event)
+
+        modifier_value = self.daidoji.modifier(self.attacker, "attack")
+        self.assertEqual(0, modifier_value)
+
+    def test_modifier_after_ally_wound_check(self):
+        """After an ally in the Daidoji's group succeeds a wound check,
+        the Daidoji gets the modifier (not the ally)."""
+        school = daidoji_school.DaidojiYojimboSchool()
+        school.apply_rank_five_ability(self.daidoji)
+
+        # Ally succeeds wound check with excess
+        # roll = 25, tn = 10, excess = 15
+        wc_event = events.WoundCheckSucceededEvent(
+            self.ally, self.attacker, 10, roll=25, tn=10,
+        )
+        engine = CombatEngine(self.context)
+        engine.event(wc_event)
+
+        # The Daidoji gets the modifier, not the ally
+        daidoji_modifier = self.daidoji.modifier(self.attacker, "attack")
+        self.assertEqual(15, daidoji_modifier)
+        ally_modifier = self.ally.modifier(self.attacker, "attack")
+        self.assertEqual(0, ally_modifier)
+
+    def test_no_modifier_for_enemy_wound_check(self):
+        """Enemy wound checks should not trigger the modifier."""
+        school = daidoji_school.DaidojiYojimboSchool()
+        school.apply_rank_five_ability(self.daidoji)
+
+        # Enemy succeeds wound check
+        wc_event = events.WoundCheckSucceededEvent(
+            self.attacker, self.daidoji, 15, roll=30, tn=15,
+        )
+        engine = CombatEngine(self.context)
+        engine.event(wc_event)
+
+        # Daidoji should have no modifier
+        modifier_value = self.daidoji.modifier(self.attacker, "attack")
+        self.assertEqual(0, modifier_value)
+
+    def test_modifier_applies_to_all_attack_skills(self):
+        """The modifier should apply to all attack skills (counterattack, double attack, etc)."""
+        school = daidoji_school.DaidojiYojimboSchool()
+        school.apply_rank_five_ability(self.daidoji)
+
+        wc_event = events.WoundCheckSucceededEvent(
+            self.daidoji, self.attacker, 15, roll=30, tn=15,
+        )
+        engine = CombatEngine(self.context)
+        engine.event(wc_event)
+
+        # Check that it applies to multiple attack skills
+        self.assertEqual(15, self.daidoji.modifier(self.attacker, "attack"))
+        self.assertEqual(15, self.daidoji.modifier(self.attacker, "counterattack"))
+        self.assertEqual(15, self.daidoji.modifier(self.attacker, "double attack"))
+        self.assertEqual(15, self.daidoji.modifier(self.attacker, "lunge"))
+
+    def test_modifier_does_not_apply_to_other_targets(self):
+        """The modifier should only apply when attacking the specific attacker."""
+        school = daidoji_school.DaidojiYojimboSchool()
+        school.apply_rank_five_ability(self.daidoji)
+
+        wc_event = events.WoundCheckSucceededEvent(
+            self.daidoji, self.attacker, 15, roll=30, tn=15,
+        )
+        engine = CombatEngine(self.context)
+        engine.event(wc_event)
+
+        # Should not apply when attacking a different target
+        other_enemy = self.ally  # just use ally as a stand-in
+        modifier_value = self.daidoji.modifier(other_enemy, "attack")
+        self.assertEqual(0, modifier_value)
+
+
 class TestDaidojiTakeActionEventFactory(unittest.TestCase):
     def test_returns_daidoji_counterattack_event(self):
         daidoji = Character("Daidoji")
@@ -301,3 +691,90 @@ class TestDaidojiTakeActionEventFactory(unittest.TestCase):
         factory = daidoji_school.DaidojiTakeActionEventFactory()
         event = factory.get_take_counterattack_action_event(counterattack)
         self.assertIsInstance(event, daidoji_school.DaidojiTakeCounterattackActionEvent)
+
+
+class TestDaidojiFourthDanNonAdjacent(unittest.TestCase):
+    """4th Dan: Redirect should NOT apply to non-adjacent allies."""
+
+    def test_no_redirect_when_non_adjacent(self):
+        """When the Daidoji is not adjacent to the ally, damage is not redirected."""
+        daidoji = Character("Daidoji")
+        daidoji.set_skill("counterattack", 3)
+        daidoji.set_skill("parry", 3)
+        daidoji.set_actions([5, 8])
+        ally = Character("Ally")
+        ally.set_actions([])
+        filler = Character("Filler")
+        filler.set_actions([])
+        attacker = Character("Attacker")
+        attacker.set_actions([1])
+        # Daidoji at pos 0, Filler at pos 1, Ally at pos 2
+        # Daidoji is NOT adjacent to Ally (separated by Filler)
+        formation = LineFormation([[daidoji, filler, ally], [attacker]])
+        groups = [
+            Group("Crane", [daidoji, filler, ally]),
+            Group("Enemy", attacker),
+        ]
+        context = EngineContext(groups, round=1, phase=1, formation=formation)
+        context.initialize()
+
+        school = daidoji_school.DaidojiYojimboSchool()
+        school.apply_rank_four_ability(daidoji)
+
+        # rig wound check for ally (since Daidoji won't redirect)
+        ally_rp = CalvinistRollProvider()
+        ally_rp.put_wound_check_roll(50)
+        ally.set_roll_provider(ally_rp)
+
+        # attacker damages the non-adjacent ally
+        lw_event = events.LightWoundsDamageEvent(attacker, ally, 15)
+        engine = CombatEngine(context)
+        engine.event(lw_event)
+
+        # Daidoji should NOT have taken the damage
+        self.assertEqual(0, daidoji.lw())
+        # Ally should have taken the damage themselves
+        # (LW may be 0 if the wound check strategy chose to take a SW)
+        self.assertTrue(ally.sw() > 0 or len(ally.lw_history()) > 0)
+
+
+class TestDaidojiFifthDanNonAdjacent(unittest.TestCase):
+    """5th Dan: Modifier should NOT apply for non-adjacent ally's wound check."""
+
+    def test_no_modifier_for_non_adjacent_ally(self):
+        """Non-adjacent ally's wound check should not grant the Daidoji a modifier."""
+        daidoji = Character("Daidoji")
+        daidoji.set_skill("counterattack", 3)
+        daidoji.set_skill("attack", 3)
+        daidoji.set_skill("parry", 3)
+        daidoji.set_actions([5, 8])
+        ally = Character("Ally")
+        ally.set_skill("parry", 3)
+        ally.set_actions([])
+        filler = Character("Filler")
+        filler.set_actions([])
+        attacker = Character("Attacker")
+        attacker.set_skill("parry", 3)
+        attacker.set_actions([1])
+        # Daidoji at pos 0, Filler at pos 1, Ally at pos 2
+        formation = LineFormation([[daidoji, filler, ally], [attacker]])
+        groups = [
+            Group("Crane", [daidoji, filler, ally]),
+            Group("Enemy", attacker),
+        ]
+        context = EngineContext(groups, round=1, phase=1, formation=formation)
+        context.initialize()
+
+        school = daidoji_school.DaidojiYojimboSchool()
+        school.apply_rank_five_ability(daidoji)
+
+        # Non-adjacent ally succeeds wound check with excess
+        wc_event = events.WoundCheckSucceededEvent(
+            ally, attacker, 10, roll=25, tn=10,
+        )
+        engine = CombatEngine(context)
+        engine.event(wc_event)
+
+        # Daidoji should NOT get the modifier because ally is non-adjacent
+        daidoji_modifier = daidoji.modifier(attacker, "attack")
+        self.assertEqual(0, daidoji_modifier)

@@ -18,7 +18,7 @@ from simulation.engine import CombatEngine
 from simulation.groups import Group
 from simulation.log import logger
 from simulation.mechanics.initiative_actions import InitiativeAction
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 from simulation.strategies.base import AlwaysParryStrategy, NeverParryStrategy, StingyPlainAttackStrategy
 
 # set up logging
@@ -52,12 +52,12 @@ class TestTakeAttackActionEvent(unittest.TestCase):
 
     def test_run_hit(self):
         # rig the attack roll to hit by 1
-        attacker_roll_provider = TestRollProvider()
+        attacker_roll_provider = CalvinistRollProvider()
         attacker_roll_provider.put_skill_roll("attack", 31)
         attacker_roll_provider.put_damage_roll(15)
         self.attacker.set_roll_provider(attacker_roll_provider)
         # rig the wound check to succeed
-        target_roll_provider = TestRollProvider()
+        target_roll_provider = CalvinistRollProvider()
         target_roll_provider.put_wound_check_roll(25)
         self.target.set_roll_provider(target_roll_provider)
         # set up attack
@@ -93,7 +93,7 @@ class TestTakeAttackActionEvent(unittest.TestCase):
 
     def test_run_miss(self):
         # rig the attack roll to miss by 1
-        attacker_roll_provider = TestRollProvider()
+        attacker_roll_provider = CalvinistRollProvider()
         attacker_roll_provider.put_skill_roll("attack", 29)
         self.attacker.set_roll_provider(attacker_roll_provider)
         # set up attack
@@ -126,12 +126,12 @@ class TestTakeAttackActionEvent(unittest.TestCase):
         # make target parry attacks
         self.target.set_strategy("parry", AlwaysParryStrategy())
         # rig the attack roll to hit by 20 and the damage roll to be small
-        attacker_roll_provider = TestRollProvider()
+        attacker_roll_provider = CalvinistRollProvider()
         attacker_roll_provider.put_skill_roll("attack", 50)
         attacker_roll_provider.put_damage_roll(15)
         self.attacker.set_roll_provider(attacker_roll_provider)
         # rig the parry to fail and the wound check to succeed
-        target_roll_provider = TestRollProvider()
+        target_roll_provider = CalvinistRollProvider()
         target_roll_provider.put_skill_roll("parry", 49)
         target_roll_provider.put_wound_check_roll(25)
         self.target.set_roll_provider(target_roll_provider)
@@ -201,11 +201,11 @@ class TestTakeAttackActionEvent(unittest.TestCase):
         # make target parry attacks
         self.target.set_strategy("parry", AlwaysParryStrategy())
         # rig the attack roll to hit by 20
-        attacker_roll_provider = TestRollProvider()
+        attacker_roll_provider = CalvinistRollProvider()
         attacker_roll_provider.put_skill_roll("attack", 50)
         self.attacker.set_roll_provider(attacker_roll_provider)
         # rig the parry roll to succeed by 1
-        target_roll_provider = TestRollProvider()
+        target_roll_provider = CalvinistRollProvider()
         target_roll_provider.put_skill_roll("parry", 51)
         self.target.set_roll_provider(target_roll_provider)
         # set up engine and context
@@ -289,11 +289,11 @@ class TestVPCappingOnAttack(unittest.TestCase):
         # Create attack with 2 VP
         attack = AttackAction(attacker, target, "attack", initiative_action, context, vp=2)
         # Rig rolls
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("attack", 20)
         roll_provider.put_damage_roll(10)
         attacker.set_roll_provider(roll_provider)
-        target_roll_provider = TestRollProvider()
+        target_roll_provider = CalvinistRollProvider()
         target_roll_provider.put_wound_check_roll(25)
         target.set_roll_provider(target_roll_provider)
         # Simulate VP being consumed by a prior wound check (spend 2 of 3)
@@ -341,7 +341,7 @@ class TestTakeParryActionEvent(unittest.TestCase):
         # set up the parry action
         parry = ParryAction(self.target, self.attacker, "parry", self.initiative_action, self.context, attack)
         # rig the parry roll to succeed by 1
-        target_roll_provider = TestRollProvider()
+        target_roll_provider = CalvinistRollProvider()
         target_roll_provider.put_skill_roll("parry", 51)
         self.target.set_roll_provider(target_roll_provider)
         # run the event
@@ -377,7 +377,7 @@ class TestTakeParryActionEvent(unittest.TestCase):
         # set up the parry action
         parry = ParryAction(self.target, self.attacker, "parry", self.initiative_action, self.context, attack)
         # rig the parry roll to fail by 1
-        target_roll_provider = TestRollProvider()
+        target_roll_provider = CalvinistRollProvider()
         target_roll_provider.put_skill_roll("parry", 49)
         self.target.set_roll_provider(target_roll_provider)
         # run the event

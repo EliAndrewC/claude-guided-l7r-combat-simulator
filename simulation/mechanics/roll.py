@@ -64,9 +64,15 @@ class DefaultDieProvider(DieProvider):
 DEFAULT_DIE_PROVIDER = DefaultDieProvider()
 
 
-class TestDice(DieProvider):
+class CalvinistDice(DieProvider):
     """
-    Die source that provides rigged dice for testing.
+    Die source whose results are predestined, not random.
+
+    In Calvinist theology, all events are predetermined by God before
+    they occur. Similarly, these dice have their outcomes predestined
+    before they are rolled, making them useful for testing where we
+    need to know exactly what the dice will produce.
+
     Acts as a FIFO queue. You append or extend the die source with
     rolled dice (ints), and when a Roll gets results from this source,
     it pops the earliest queued results.

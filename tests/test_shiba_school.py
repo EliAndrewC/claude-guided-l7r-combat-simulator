@@ -18,7 +18,7 @@ from simulation.engine import CombatEngine
 from simulation.groups import Group
 from simulation.log import logger
 from simulation.mechanics.initiative_actions import InitiativeAction
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 from simulation.schools import shiba_school
 
 # set up logging
@@ -55,7 +55,7 @@ class TestShibaParryAction(unittest.TestCase):
         attack = actions.AttackAction(attacker, target, "attack", initiative_action, context)
         parry = shiba_school.ShibaParryAction(shiba, attacker, "parry", initiative_action, context, attack)
         # rig shiba's parry roll
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("parry", 50)
         shiba.set_roll_provider(roll_provider)
         # assert the parry action does not impose the -10 penalty
@@ -120,7 +120,7 @@ class TestShibaParrySucceededListener(unittest.TestCase):
         parry = shiba_school.ShibaParryAction(self.shiba, self.attacker, "parry", self.initiative_action, self.context, attack)
         take_action_event = shiba_school.ShibaTakeParryEvent(parry)
         # rig parry and damage rolls
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("parry", 51)
         roll_provider.put_damage_roll(9)
         self.shiba.set_roll_provider(roll_provider)
@@ -192,7 +192,7 @@ class TestShibaTakeParryEvent(unittest.TestCase):
         # set up engine
         engine = CombatEngine(self.context)
         # rig shiba's rolls
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("parry", 44)
         roll_provider.put_damage_roll(10)
         self.shiba.set_roll_provider(roll_provider)
@@ -234,7 +234,7 @@ class TestShibaTakeParryEvent(unittest.TestCase):
         # set up engine
         engine = CombatEngine(self.context)
         # rig shiba's rolls
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("parry", 51)
         roll_provider.put_damage_roll(10)
         self.shiba.set_roll_provider(roll_provider)

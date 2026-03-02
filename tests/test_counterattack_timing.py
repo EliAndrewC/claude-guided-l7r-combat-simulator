@@ -18,7 +18,7 @@ from simulation.engine import CombatEngine
 from simulation.groups import Group
 from simulation.log import logger
 from simulation.mechanics.initiative_actions import InitiativeAction
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 from simulation.schools import daidoji_school, hida_school
 from simulation.strategies.base import CounterattackInterruptStrategy
 
@@ -48,13 +48,13 @@ class TestCounterattackBeforeRoll(unittest.TestCase):
         self.context.initialize()
 
         # rig defender's rolls: counterattack misses, wound check succeeds
-        defender_rp = TestRollProvider()
+        defender_rp = CalvinistRollProvider()
         defender_rp.put_skill_roll("counterattack", 5)
         defender_rp.put_wound_check_roll(50)
         self.defender.set_roll_provider(defender_rp)
 
         # rig attacker's attack roll (hit) and damage
-        attacker_rp = TestRollProvider()
+        attacker_rp = CalvinistRollProvider()
         attacker_rp.put_skill_roll("attack", 20)
         attacker_rp.put_damage_roll(10)
         self.attacker.set_roll_provider(attacker_rp)
@@ -136,13 +136,13 @@ class TestCounterattackKillsAttacker(unittest.TestCase):
         context.initialize()
 
         # rig defender's counterattack roll (hit with high damage)
-        defender_rp = TestRollProvider()
+        defender_rp = CalvinistRollProvider()
         defender_rp.put_skill_roll("counterattack", 30)
         defender_rp.put_damage_roll(20)
         defender.set_roll_provider(defender_rp)
 
         # rig attacker's wound check to fail (low roll)
-        attacker_rp = TestRollProvider()
+        attacker_rp = CalvinistRollProvider()
         attacker_rp.put_wound_check_roll(5)
         attacker.set_roll_provider(attacker_rp)
 
@@ -188,13 +188,13 @@ class TestDaidojiAlwaysCounterattacks(unittest.TestCase):
     def test_counterattacks_on_hit(self):
         """Daidoji counterattacks even when we don't know if the attack will hit."""
         # rig daidoji's counterattack (miss) and wound check
-        daidoji_rp = TestRollProvider()
+        daidoji_rp = CalvinistRollProvider()
         daidoji_rp.put_skill_roll("counterattack", 5)
         daidoji_rp.put_wound_check_roll(50)
         self.daidoji.set_roll_provider(daidoji_rp)
 
         # rig attacker's attack (hit) and damage
-        attacker_rp = TestRollProvider()
+        attacker_rp = CalvinistRollProvider()
         attacker_rp.put_skill_roll("attack", 20)
         attacker_rp.put_damage_roll(10)
         self.attacker.set_roll_provider(attacker_rp)
@@ -214,12 +214,12 @@ class TestDaidojiAlwaysCounterattacks(unittest.TestCase):
     def test_counterattacks_on_miss(self):
         """Daidoji counterattacks even when the attack will miss."""
         # rig daidoji's counterattack
-        daidoji_rp = TestRollProvider()
+        daidoji_rp = CalvinistRollProvider()
         daidoji_rp.put_skill_roll("counterattack", 5)
         self.daidoji.set_roll_provider(daidoji_rp)
 
         # rig attacker's attack (miss)
-        attacker_rp = TestRollProvider()
+        attacker_rp = CalvinistRollProvider()
         attacker_rp.put_skill_roll("attack", 3)
         self.attacker.set_roll_provider(attacker_rp)
 
@@ -240,7 +240,7 @@ class TestDaidojiAlwaysCounterattacks(unittest.TestCase):
         self.daidoji.set_actions([])
 
         # rig attacker's attack
-        attacker_rp = TestRollProvider()
+        attacker_rp = CalvinistRollProvider()
         attacker_rp.put_skill_roll("attack", 3)
         self.attacker.set_roll_provider(attacker_rp)
 
@@ -281,14 +281,14 @@ class TestHidaBonusAppliedToAttackRoll(unittest.TestCase):
         context.initialize()
 
         # rig hida's counterattack (miss) and wound check
-        hida_rp = TestRollProvider()
+        hida_rp = CalvinistRollProvider()
         hida_rp.put_skill_roll("counterattack", 5)
         hida_rp.put_wound_check_roll(50)
         hida.set_roll_provider(hida_rp)
 
         # rig attacker's attack roll to exactly 10 (base)
         # After Hida's +5 bonus, the recorded roll should be 15
-        attacker_rp = TestRollProvider()
+        attacker_rp = CalvinistRollProvider()
         attacker_rp.put_skill_roll("attack", 10)
         attacker_rp.put_damage_roll(10)
         attacker.set_roll_provider(attacker_rp)

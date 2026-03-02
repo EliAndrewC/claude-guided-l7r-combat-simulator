@@ -242,6 +242,12 @@ class BaseParryStrategy(Strategy):
             if event.action.target() not in character.group():
                 logger.debug(f"{character.name()} will not parry for an enemy")
                 return
+            # don't try to parry for non-adjacent allies
+            target = event.action.target()
+            if target != character:
+                if not context.formation().is_adjacent(character, target):
+                    logger.debug(f"{character.name()} will not parry for non-adjacent {target.name()}")
+                    return
             # don't try to parry a miss or an attack that is already parried
             if not event.action.is_hit():
                 logger.debug(f"{character.name()} will not parry an attack that missed")
@@ -261,11 +267,15 @@ class BaseParryStrategy(Strategy):
         """
         Returns whether this character can shirk and let somebody else parry.
         """
+        target = event.action.target()
         # do my other friends have actions?
         others = character.group().friends_with_actions(context)
         for other_character in others:
             # can't pass the buck to myself
             if character != other_character:
+                # must be adjacent to the target
+                if not context.formation().is_adjacent(other_character, target):
+                    continue
                 # did they already decline the parry?
                 if other_character not in event.action.parries_declined():
                     # are they willing to parry?
@@ -663,6 +673,12 @@ class WoundCheckStrategy(Strategy):
     def recommend(self, character, event, context):
         if isinstance(event, events.LightWoundsDamageEvent):
             if event.target == character:
+                if getattr(event, 'duel', False):
+                    yield events.WoundCheckDeclaredEvent(
+                        character, event.subject, event.damage,
+                        tn=event.wound_check_tn, vp=0, duel=True,
+                    )
+                    return
                 # calculate maximum tolerable SW
                 max_sw = min(1, character.sw_remaining() - 1)
                 optimizer = character.wound_check_optimizer_factory().get_wound_check_optimizer(character, event, context)
@@ -729,8 +745,13 @@ class CounterattackInterruptStrategy(Strategy):
         if character.skill("counterattack") <= 0:
             return False
         # Target must be in our group (defend friends)
-        if event.action.target() not in character.group():
+        target = event.action.target()
+        if target not in character.group():
             return False
+        # Must be adjacent to the target (can always counterattack for self)
+        if target != character:
+            if not context.formation().is_adjacent(character, target):
+                return False
         # Must have action dice available
         if not (character.has_action(context) or character.has_interrupt_action("counterattack", context)):
             return False

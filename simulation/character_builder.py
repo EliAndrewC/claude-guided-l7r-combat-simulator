@@ -84,7 +84,7 @@ class _BaseCharacterBuilder:
             if not isinstance(name, str):
                 raise ValueError("CharacterBuilder name must be str")
             self._name = name
-        self._character = Character(name)
+        self._character = Character(name, xp=xp)
         self._discounts = {}
         self._max_rings = {}
         self._xp = xp

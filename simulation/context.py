@@ -15,6 +15,7 @@
 from simulation import events
 from simulation.exceptions import CombatEnded
 from simulation.features import TrialFeatures
+from simulation.formation import NullFormation
 from simulation.optimizers.probability_provider import DefaultProbabilityProvider
 
 
@@ -24,7 +25,9 @@ class EngineContext:
     Mainly carries around the list of characters.
     """
 
-    def __init__(self, groups=[], round=0, phase=0):
+    def __init__(self, groups=[], round=0, phase=0, formation=None):
+        # initialize formation
+        self._formation = formation if formation is not None else NullFormation()
         # initialize groups
         self._groups = groups
         if len(self._groups) < 2:
@@ -57,6 +60,9 @@ class EngineContext:
 
     def features(self):
         return self._features
+
+    def formation(self):
+        return self._formation
 
     def initialize(self):
         self.probability_provider().initialize()
@@ -107,6 +113,7 @@ class EngineContext:
         for character in self._characters:
             character.reset()
         self._still_moving.clear()
+        self._formation.reset()
 
     def reset_still_moving(self):
         """
@@ -146,6 +153,7 @@ class EngineContext:
             self.stop_moving(event.subject)
         elif isinstance(event, events.DefeatEvent):
             self.stop_moving(event.subject)
+            self._formation.remove(event.subject)
             # TODO: support aiuchi (both sides defeated)
             for i, group in enumerate(self._groups):
                 fighting = False

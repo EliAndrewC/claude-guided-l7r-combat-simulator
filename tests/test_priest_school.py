@@ -15,7 +15,7 @@ from simulation.character import Character
 from simulation.context import EngineContext
 from simulation.groups import Group
 from simulation.log import logger
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 from simulation.schools import priest_school
 
 # set up logging
@@ -65,7 +65,7 @@ class TestPriestThirdDan(unittest.TestCase):
     def setUp(self):
         self.priest = Character("Priest")
         self.priest.set_skill("precepts", 3)
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_initiative_roll([2, 5])
         # Queue 3 skill rolls for pool dice (one per precepts rank)
         roll_provider.put_skill_roll("precepts", 7)
@@ -100,7 +100,7 @@ class TestPriestThirdDan(unittest.TestCase):
 
     def test_no_pool_with_zero_precepts(self):
         self.priest.set_skill("precepts", 0)
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_initiative_roll([2, 5])
         self.priest.set_roll_provider(roll_provider)
         school = priest_school.PriestSchool()

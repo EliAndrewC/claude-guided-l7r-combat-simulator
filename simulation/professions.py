@@ -787,7 +787,7 @@ class NinjaRollProvider(DefaultRollProvider):
             return result
         return super().get_damage_roll(rolled, kept)
 
-    def get_wound_check_roll(self, rolled, kept):
+    def get_wound_check_roll(self, rolled, kept, explode=True):
         level = self._profession.ability(WOUND_CHECK_NINJA_BONUS)
         if level > 0:
             roll = NinjaWoundCheckRoll(rolled, kept, ability_level=level, die_provider=self.die_provider())
@@ -795,4 +795,4 @@ class NinjaRollProvider(DefaultRollProvider):
             self._last_wound_check_roll = roll
             self._last_wound_check_info = {"rolled": rolled, "kept": kept, "dice": list(roll.dice())}
             return result
-        return super().get_wound_check_roll(rolled, kept)
+        return super().get_wound_check_roll(rolled, kept, explode=explode)

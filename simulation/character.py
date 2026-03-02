@@ -33,7 +33,7 @@ RING_NAMES = ["air", "earth", "fire", "water", "void"]
 
 
 class Character:
-    def __init__(self, name=None):
+    def __init__(self, name=None, xp=0):
         # initialize a character ID
         self._character_id = uuid.uuid4().hex
         # initialize name
@@ -43,6 +43,8 @@ class Character:
             raise ValueError("Character name must be str")
         else:
             self._name = name
+        # initialize xp
+        self._xp = xp
         # initialize rings
         self._rings = {"air": 2, "earth": 2, "fire": 2, "void": 2, "water": 2}
         # everything else
@@ -109,6 +111,7 @@ class Character:
             "attack": strategies.UniversalAttackStrategy(),
             "attack_rolled": strategies.AttackRolledStrategy(),
             "contested_iaijutsu_attack_declared": kakita_school.ContestedIaijutsuAttackDeclaredStrategy(),
+            "duel_focus_or_strike": None,
             "interrupt": strategies.DefaultInterruptStrategy(),
             "light_wounds": strategies.KeepLightWoundsStrategy(),
             "parry": strategies.ReluctantParryStrategy(),
@@ -235,6 +238,9 @@ class Character:
 
     def contested_iaijutsu_attack_declared_strategy(self):
         return self._strategies["contested_iaijutsu_attack_declared"]
+
+    def duel_focus_or_strike_strategy(self):
+        return self._strategies["duel_focus_or_strike"]
 
     def damage_reroll_reduction(self):
         """
@@ -528,6 +534,9 @@ class Character:
     def name(self):
         return self._name
 
+    def xp(self):
+        return self._xp
+
     def parry_strategy(self):
         return self._strategies["parry"]
 
@@ -639,16 +648,17 @@ class Character:
         logger.info(f"{self._name} rolled {skill}: {roll}")
         return roll
 
-    def roll_wound_check(self, damage, vp=0):
+    def roll_wound_check(self, damage, vp=0, explode=True):
         """
-        roll_wound_check(damage, vp=0, ap=0) -> int
+        roll_wound_check(damage, vp=0, explode=True) -> int
           damage (int): light wound total for the wound check
           vp (int): number of Void Points to spend on the roll
+          explode (bool): whether tens should be rerolled
 
         Roll a Wound Check for this character.
         """
         (rolled, kept, mod) = self.get_wound_check_roll_params(vp)
-        roll = self.roll_provider().get_wound_check_roll(rolled, kept) + mod
+        roll = self.roll_provider().get_wound_check_roll(rolled, kept, explode=explode) + mod
         logger.info(f"{self._name} rolled wound check {roll} against {damage} LW")
         return roll
 

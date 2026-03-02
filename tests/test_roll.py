@@ -8,12 +8,12 @@
 
 import unittest
 
-from simulation.mechanics.roll import InitiativeRoll, Roll, TestDice
+from simulation.mechanics.roll import CalvinistDice, InitiativeRoll, Roll
 
 
 class TestInitiativeRoll(unittest.TestCase):
     def test_keep_low(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([10, 1, 9, 1, 1])
         roll = InitiativeRoll(4, 3, die_provider=test_dice)
         self.assertEqual([1, 1, 9], roll.roll())
@@ -27,38 +27,38 @@ class TestRoll(unittest.TestCase):
         self.assertTrue(roll.roll() == 1)
 
     def test_roll(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([1, 1, 3, 5, 7, 9])
         roll = Roll(6, 3, die_provider=test_dice)
         self.assertEqual(21, roll.roll())
 
     def test_excess_rolled(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1])
         roll = Roll(12, 2, die_provider=test_dice)
         self.assertEqual(35, roll.roll())
 
     def test_excess_kept(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1])
         roll = Roll(15, 10, die_provider=test_dice)
         self.assertEqual(66, roll.roll())
 
 
-class TestTestDice(unittest.TestCase):
+class TestCalvinistDice(unittest.TestCase):
     def test_empty(self):
         with self.assertRaises(IndexError):
-            TestDice().roll_die()
+            CalvinistDice().roll_die()
 
     def test_clear(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([1, 2, 3])
         self.assertEqual(3, len(test_dice))
         test_dice.clear()
         self.assertEqual(0, len(test_dice))
 
     def test_fifo(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.append(1)
         test_dice.append(2)
         test_dice.append(3)
@@ -67,7 +67,7 @@ class TestTestDice(unittest.TestCase):
         self.assertEqual(3, test_dice.roll_die())
 
     def test_extend(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         results = [3, 2, 1]
         test_dice.extend(results)
         self.assertEqual(3, test_dice.roll_die())

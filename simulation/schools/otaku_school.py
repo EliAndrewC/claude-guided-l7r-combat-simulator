@@ -21,10 +21,12 @@
 #
 
 from simulation import events
-from simulation.actions import LungeAction
+from simulation.actions import AttackAction, LungeAction
+from simulation.events import LightWoundsDamageEvent, SeriousWoundsDamageEvent, TakeAttackActionEvent
 from simulation.listeners import Listener
 from simulation.schools.base import BaseSchool
 from simulation.strategies.action_factory import DefaultActionFactory
+from simulation.strategies.take_action_event_factory import DefaultTakeActionEventFactory
 
 
 class OtakuBushiSchool(BaseSchool):
@@ -43,8 +45,7 @@ class OtakuBushiSchool(BaseSchool):
         character.set_action_factory(OTAKU_ACTION_FACTORY)
 
     def apply_rank_five_ability(self, character):
-        # TODO: Strategy for trading 10 rolled dice for 1 automatic SW
-        pass
+        character.set_take_action_event_factory(OTAKU_FIFTH_DAN_TAKE_ACTION_EVENT_FACTORY)
 
     def extra_rolled(self):
         return ["iaijutsu", "lunge", "wound check"]
@@ -118,3 +119,70 @@ class OtakuActionFactory(DefaultActionFactory):
 
 
 OTAKU_ACTION_FACTORY = OtakuActionFactory()
+
+
+class OtakuFifthDanTakeAttackActionEvent(TakeAttackActionEvent):
+    """
+    Custom TakeAttackActionEvent for the Otaku 5th Dan ability:
+    After a successful attack or lunge roll, decrease the number of
+    rolled damage dice by 10 (to a minimum of 2) to automatically
+    deal 1 serious wound to the opponent.
+    """
+
+    def play(self, context):
+        yield self._declare_attack()
+        if not self.action.subject().is_fighting():
+            return
+        yield from self._roll_attack(context)
+        if self.action.parried():
+            yield self._failed()
+            return
+        if self.action.is_hit():
+            yield self._succeeded()
+            direct_damage = self._direct_damage()
+            if direct_damage is not None:
+                yield direct_damage
+            if self.action.target().is_fighting():
+                yield from self._roll_damage()
+        else:
+            yield self._failed()
+
+    def _roll_damage(self):
+        subject = self.action.subject()
+        target = self.action.target()
+        extra_rolled = self.action.calculate_extra_damage_dice()
+
+        # Calculate raw rolled dice before normalization
+        ring = subject.ring(subject.get_skill_ring("damage"))
+        my_extra_rolled = subject.extra_rolled("damage")
+        raw_rolled = ring + my_extra_rolled + extra_rolled + subject.weapon().rolled()
+
+        if raw_rolled >= 12:
+            # Trade 10 rolled dice for 1 automatic serious wound
+            yield SeriousWoundsDamageEvent(subject, target, 1)
+            # Roll damage with reduced dice (subtract 10 from extra)
+            reduced_extra = extra_rolled - 10
+            damage_roll = subject.roll_damage(target, self.action.skill(), reduced_extra, self.action.vp())
+            damage_roll = max(0, damage_roll)
+            self.action.set_damage_roll(damage_roll)
+            yield LightWoundsDamageEvent(subject, target, damage_roll)
+        else:
+            # Standard damage roll
+            damage_roll = self.action.roll_damage()
+            yield LightWoundsDamageEvent(subject, target, damage_roll)
+
+
+class OtakuFifthDanTakeActionEventFactory(DefaultTakeActionEventFactory):
+    """
+    TakeActionEventFactory for the Otaku 5th Dan ability.
+    Returns OtakuFifthDanTakeAttackActionEvent for attacks.
+    """
+
+    def get_take_attack_action_event(self, action):
+        if isinstance(action, AttackAction):
+            return OtakuFifthDanTakeAttackActionEvent(action)
+        else:
+            raise ValueError("get_take_attack_action_event only supports AttackAction")
+
+
+OTAKU_FIFTH_DAN_TAKE_ACTION_EVENT_FACTORY = OtakuFifthDanTakeActionEventFactory()

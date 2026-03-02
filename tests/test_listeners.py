@@ -16,7 +16,7 @@ from simulation.events import DeathEvent, LightWoundsDamageEvent, NewRoundEvent,
 from simulation.groups import Group
 from simulation.listeners import LightWoundsDamageListener, NewRoundListener, SeriousWoundsDamageListener, TakeSeriousWoundListener, WoundCheckDeclaredListener, WoundCheckFailedListener, WoundCheckRolledListener
 from simulation.log import logger
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 
 # set up logging
 stream_handler = logging.StreamHandler(sys.stdout)
@@ -29,7 +29,7 @@ class TestNewRoundListener(unittest.TestCase):
         character = Character()
         context = EngineContext([Group("1", character), Group("2", Character())])
         # rig an initiative roll
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_initiative_roll([1, 2])
         character.set_roll_provider(roll_provider)
         event = NewRoundEvent(1)
@@ -131,7 +131,7 @@ class TestWoundCheckDeclaredListener(unittest.TestCase):
         attacker = Character("attacker")
         target = Character("target")
         context = EngineContext([Group("attacker", attacker), Group("target", target)])
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_wound_check_roll(50)
         target.set_roll_provider(roll_provider)
         damage = 20

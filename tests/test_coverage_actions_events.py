@@ -66,7 +66,7 @@ from simulation.listeners import (
 from simulation.log import logger
 from simulation.mechanics.initiative_actions import InitiativeAction
 from simulation.mechanics.modifiers import Modifier
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 
 # set up logging
 stream_handler = logging.StreamHandler(sys.stdout)
@@ -610,7 +610,7 @@ class TestParryActionForOthersPenalty(unittest.TestCase):
         ia = _make_initiative_action()
         attack = AttackAction(attacker, target, "attack", ia, context)
         attack.set_skill_roll(42)
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("parry", 50)
         target.set_roll_provider(roll_provider)
         parry = ParryAction(target, attacker, "parry", ia, context, attack)
@@ -636,7 +636,7 @@ class TestParryActionForOthersPenalty(unittest.TestCase):
         ia = _make_initiative_action()
         attack = AttackAction(attacker, target, "attack", ia, context)
         attack.set_skill_roll(42)
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("parry", 50)
         third.set_roll_provider(roll_provider)
         # third parries for target; penalty = 5 * 3 = 15
@@ -662,7 +662,7 @@ class TestParryActionForOthersPenalty(unittest.TestCase):
         ia = _make_initiative_action()
         attack = AttackAction(attacker, target, "attack", ia, context)
         attack.set_skill_roll(42)
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("parry", 60)
         third.set_roll_provider(roll_provider)
         # penalty = 5 * 5 = 25
@@ -1134,7 +1134,7 @@ class TestWoundCheckDeclaredListenerVP(unittest.TestCase):
         target = Character("target")
         target.set_ring("void", 3)
         context = _make_context(attacker, target)
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_wound_check_roll(50)
         target.set_roll_provider(roll_provider)
         event = WoundCheckDeclaredEvent(target, attacker, 20, vp=1)

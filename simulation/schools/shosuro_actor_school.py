@@ -17,6 +17,7 @@
 #
 
 from simulation.mechanics.roll_params import DefaultRollParameterProvider, normalize_roll_params
+from simulation.mechanics.roll_provider import RollProvider
 from simulation.mechanics.skills import ATTACK_SKILLS
 from simulation.schools.base import BaseSchool
 
@@ -26,7 +27,7 @@ class ShosuroActorSchool(BaseSchool):
         return "sincerity"
 
     def ap_skills(self):
-        return ["attack", "wound check"]
+        return ["acting", "heraldry", "sincerity", "sneaking", "attack", "wound check"]
 
     def apply_special_ability(self, character):
         # Extra rolled dice equal to acting skill on attack, parry, and wound check.
@@ -43,9 +44,7 @@ class ShosuroActorSchool(BaseSchool):
 
     def apply_rank_five_ability(self, character):
         # After any TN or contested roll, add lowest 3 dice to result.
-        # This requires integration with the roll provider to track individual dice.
-        # TODO: implement dice-tracking roll provider for 5th Dan
-        pass
+        character.set_roll_provider(ShosuroActorRollProvider(character.roll_provider()))
 
     def extra_rolled(self):
         return ["attack", "sincerity", "wound check"]
@@ -61,6 +60,66 @@ class ShosuroActorSchool(BaseSchool):
 
     def school_ring(self):
         return "air"
+
+
+class ShosuroActorRollProvider(RollProvider):
+    """Wrap an existing roll provider to add lowest 3 dice to skill and wound check results.
+
+    Implements the Shosuro Actor School 5th Dan ability:
+    "After making any TN or contested roll, add your lowest three dice to the result.
+    (Some dice may be counted twice.)"
+
+    TN/contested rolls are skill rolls and wound checks.
+    Damage rolls and initiative rolls are NOT modified.
+    """
+
+    def __init__(self, inner):
+        self._inner = inner
+
+    def die_provider(self):
+        return self._inner.die_provider()
+
+    def get_damage_reduction_roll(self, rolled, kept, reduction):
+        return self._inner.get_damage_reduction_roll(rolled, kept, reduction)
+
+    def get_damage_roll(self, rolled, kept):
+        return self._inner.get_damage_roll(rolled, kept)
+
+    def get_initiative_roll(self, rolled, kept):
+        return self._inner.get_initiative_roll(rolled, kept)
+
+    def get_skill_roll(self, skill, rolled, kept, explode=True):
+        result = self._inner.get_skill_roll(skill, rolled, kept, explode)
+        bonus = self._lowest_three_bonus(self._inner.last_skill_info())
+        return result + bonus
+
+    def get_wound_check_roll(self, rolled, kept, explode=True):
+        result = self._inner.get_wound_check_roll(rolled, kept, explode=explode)
+        bonus = self._lowest_three_bonus(self._inner.last_wound_check_info())
+        return result + bonus
+
+    def last_damage_info(self):
+        return self._inner.last_damage_info()
+
+    def last_skill_info(self):
+        return self._inner.last_skill_info()
+
+    def last_wound_check_info(self):
+        return self._inner.last_wound_check_info()
+
+    def set_die_provider(self, die_provider):
+        self._inner.set_die_provider(die_provider)
+
+    @staticmethod
+    def _lowest_three_bonus(info):
+        """Return the sum of the lowest 3 dice from roll info, or 0 if unavailable."""
+        if info is None:
+            return 0
+        dice = info.get("dice")
+        if dice is None:
+            return 0
+        sorted_dice = sorted(dice)
+        return sum(sorted_dice[:3])
 
 
 class ShosuroRollParameterProvider(DefaultRollParameterProvider):

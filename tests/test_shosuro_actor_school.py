@@ -12,7 +12,9 @@ import unittest
 
 from simulation.character import Character
 from simulation.log import logger
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 from simulation.schools import shosuro_actor_school
+from simulation.schools.shosuro_actor_school import ShosuroActorRollProvider
 
 # set up logging
 stream_handler = logging.StreamHandler(sys.stdout)
@@ -47,7 +49,7 @@ class TestShosuroActorSchoolBasics(unittest.TestCase):
 
     def test_ap_skills(self):
         school = shosuro_actor_school.ShosuroActorSchool()
-        self.assertEqual(["attack", "wound check"], school.ap_skills())
+        self.assertEqual(["acting", "heraldry", "sincerity", "sneaking", "attack", "wound check"], school.ap_skills())
 
 
 class TestShosuroSpecialAbility(unittest.TestCase):
@@ -136,3 +138,145 @@ class TestShosuroFourthDan(unittest.TestCase):
         school.apply_rank_four_ability(shosuro)
         # Ring raise: air should be +1
         self.assertEqual(4, shosuro.ring("air"))
+
+
+class TestShosuroFifthDan(unittest.TestCase):
+    def test_shosuro_5th_dan_adds_lowest_3_to_skill_roll(self):
+        """5th Dan adds lowest 3 dice to skill roll result."""
+        shosuro = Character("Shosuro")
+        provider = CalvinistRollProvider()
+        # Queue initiative
+        provider.put_initiative_roll([3])
+        # Queue a skill roll with dice: [9, 7, 5, 3, 1]
+        # Base total = 21 (e.g. sum of top 3 kept)
+        # Lowest 3 dice are [1, 3, 5] = 9
+        provider.put_skill_roll_with_dice("attack", 21, [9, 7, 5, 3, 1])
+        # Wrap with ShosuroActorRollProvider
+        wrapped = ShosuroActorRollProvider(provider)
+        shosuro.set_roll_provider(wrapped)
+        # Roll skill directly via the wrapper
+        result = wrapped.get_skill_roll("attack", 5, 3)
+        # Expected: 21 + (1 + 3 + 5) = 30
+        self.assertEqual(30, result)
+
+    def test_shosuro_5th_dan_adds_lowest_3_to_wound_check(self):
+        """5th Dan adds lowest 3 dice to wound check result."""
+        shosuro = Character("Shosuro")
+        provider = CalvinistRollProvider()
+        # Queue wound check with dice: [10, 8, 6, 4, 2]
+        # Base total = 24 (e.g. sum of top 3 kept)
+        # Lowest 3 dice are [2, 4, 6] = 12
+        provider.put_wound_check_roll_with_dice(24, [10, 8, 6, 4, 2])
+        wrapped = ShosuroActorRollProvider(provider)
+        shosuro.set_roll_provider(wrapped)
+        result = wrapped.get_wound_check_roll(5, 3)
+        # Expected: 24 + (2 + 4 + 6) = 36
+        self.assertEqual(36, result)
+
+    def test_shosuro_5th_dan_no_bonus_on_damage(self):
+        """5th Dan does NOT add lowest dice to damage rolls."""
+        provider = CalvinistRollProvider()
+        provider.put_damage_roll_with_dice(15, [8, 7])
+        wrapped = ShosuroActorRollProvider(provider)
+        result = wrapped.get_damage_roll(2, 2)
+        # Damage should be unmodified
+        self.assertEqual(15, result)
+
+    def test_shosuro_5th_dan_no_bonus_on_initiative(self):
+        """5th Dan does NOT add lowest dice to initiative rolls."""
+        provider = CalvinistRollProvider()
+        provider.put_initiative_roll([3, 7])
+        wrapped = ShosuroActorRollProvider(provider)
+        result = wrapped.get_initiative_roll(2, 2)
+        # Initiative should be unmodified
+        self.assertEqual([3, 7], result)
+
+    def test_shosuro_5th_dan_fewer_than_3_dice(self):
+        """If fewer than 3 dice, add all available dice."""
+        provider = CalvinistRollProvider()
+        # Only 2 dice: [8, 3]
+        # Lowest 2 are [3, 8] = 11
+        provider.put_skill_roll_with_dice("attack", 11, [8, 3])
+        wrapped = ShosuroActorRollProvider(provider)
+        result = wrapped.get_skill_roll("attack", 2, 2)
+        # Expected: 11 + (3 + 8) = 22
+        self.assertEqual(22, result)
+
+    def test_shosuro_5th_dan_no_dice_info_no_bonus(self):
+        """If no dice info available (plain int roll), no bonus added."""
+        provider = CalvinistRollProvider()
+        # Use plain int (no dice info)
+        provider.put_skill_roll("attack", 21)
+        wrapped = ShosuroActorRollProvider(provider)
+        result = wrapped.get_skill_roll("attack", 5, 3)
+        # No dice info, so no bonus: result is just 21
+        self.assertEqual(21, result)
+
+    def test_shosuro_5th_dan_with_special_ability(self):
+        """Both Special Ability (extra rolled dice) and 5th Dan (lowest 3 bonus) work together."""
+        shosuro = Character("Shosuro")
+        shosuro.set_skill("acting", 3)
+        school = shosuro_actor_school.ShosuroActorSchool()
+        # Apply special ability (adds acting to rolled dice via parameter provider)
+        school.apply_special_ability(shosuro)
+        # Set up CalvinistRollProvider with dice info
+        provider = CalvinistRollProvider()
+        provider.put_initiative_roll([3])
+        # With acting=3, attack gets extra rolled dice from special ability
+        # That's handled by the parameter provider, not the roll provider
+        # The roll provider just sees the final roll result and dice
+        # Dice: [10, 8, 6, 4, 2, 1] (6 dice rolled due to special ability)
+        # Base total = 24 (top 3 kept: 10+8+6)
+        # Lowest 3: [1, 2, 4] = 7
+        provider.put_skill_roll_with_dice("attack", 24, [10, 8, 6, 4, 2, 1])
+        # Apply 5th Dan ability
+        school.apply_rank_five_ability(shosuro)
+        # The apply_rank_five_ability should wrap the provider
+        # But we need to set up our test provider first, then apply 5th dan
+        # Let's do it manually: set provider, then wrap
+        shosuro.set_roll_provider(provider)
+        school.apply_rank_five_ability(shosuro)
+        # Now roll_provider should be wrapped
+        result = shosuro.roll_provider().get_skill_roll("attack", 6, 3)
+        # Expected: 24 + (1 + 2 + 4) = 31
+        self.assertEqual(31, result)
+
+    def test_shosuro_5th_dan_apply_rank_five_wraps_provider(self):
+        """apply_rank_five_ability wraps the character's roll provider."""
+        shosuro = Character("Shosuro")
+        provider = CalvinistRollProvider()
+        shosuro.set_roll_provider(provider)
+        school = shosuro_actor_school.ShosuroActorSchool()
+        school.apply_rank_five_ability(shosuro)
+        # The roll provider should now be a ShosuroActorRollProvider
+        self.assertIsInstance(shosuro.roll_provider(), ShosuroActorRollProvider)
+
+    def test_shosuro_5th_dan_proxies_last_skill_info(self):
+        """The wrapper proxies last_skill_info to the inner provider."""
+        provider = CalvinistRollProvider()
+        provider.put_skill_roll_with_dice("attack", 21, [9, 7, 5, 3, 1])
+        wrapped = ShosuroActorRollProvider(provider)
+        wrapped.get_skill_roll("attack", 5, 3)
+        info = wrapped.last_skill_info()
+        self.assertIsNotNone(info)
+        self.assertEqual([9, 7, 5, 3, 1], info["dice"])
+
+    def test_shosuro_5th_dan_proxies_last_wound_check_info(self):
+        """The wrapper proxies last_wound_check_info to the inner provider."""
+        provider = CalvinistRollProvider()
+        provider.put_wound_check_roll_with_dice(24, [10, 8, 6, 4, 2])
+        wrapped = ShosuroActorRollProvider(provider)
+        wrapped.get_wound_check_roll(5, 3)
+        info = wrapped.last_wound_check_info()
+        self.assertIsNotNone(info)
+        self.assertEqual([10, 8, 6, 4, 2], info["dice"])
+
+    def test_shosuro_5th_dan_proxies_last_damage_info(self):
+        """The wrapper proxies last_damage_info to the inner provider."""
+        provider = CalvinistRollProvider()
+        provider.put_damage_roll_with_dice(15, [8, 7])
+        wrapped = ShosuroActorRollProvider(provider)
+        wrapped.get_damage_roll(2, 2)
+        info = wrapped.last_damage_info()
+        self.assertIsNotNone(info)
+        self.assertEqual([8, 7], info["dice"])

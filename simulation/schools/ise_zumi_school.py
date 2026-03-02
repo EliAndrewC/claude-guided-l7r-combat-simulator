@@ -44,7 +44,7 @@ class TogashiIseZumiSchool(BaseSchool):
 
     def apply_rank_four_ability(self, character):
         self.apply_school_ring_raise_and_discount(character)
-        # TODO: reroll any contested roll once
+        # Contested roll reroll is a social ability, not applicable in combat simulation
 
     def apply_rank_five_ability(self, character):
         character.set_listener("wound_check_failed", IseZumiWoundCheckFailedListener())

@@ -6,7 +6,7 @@ from simulation.character import Character
 from simulation.context import EngineContext
 from simulation.groups import Group
 from simulation.mechanics.initiative_actions import InitiativeAction
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 from simulation.schools.kakita_school import KakitaParryStrategy
 
 
@@ -20,7 +20,7 @@ def _make_context(target, attacker, phase=1):
 def _make_target(initiative_dice=None):
     """Create a target character with initiative rolled."""
     target = Character("Kakita")
-    roll_provider = TestRollProvider()
+    roll_provider = CalvinistRollProvider()
     if initiative_dice is None:
         initiative_dice = [1, 1, 1]
     roll_provider.put_initiative_roll(initiative_dice)

@@ -27,7 +27,8 @@ class TargetFinder:
         for other_character in context.characters():
             if other_character not in subject.group():
                 if other_character.is_fighting():
-                    enemies.append(other_character)
+                    if context.formation().can_attack(subject, other_character):
+                        enemies.append(other_character)
         return enemies
 
     def find_easiest_target(self, subject, skill, initiative_action, context):

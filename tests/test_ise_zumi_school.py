@@ -15,7 +15,7 @@ from simulation.character import Character
 from simulation.context import EngineContext
 from simulation.groups import Group
 from simulation.log import logger
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 from simulation.schools import ise_zumi_school, ishi_school
 
 # set up logging
@@ -57,7 +57,7 @@ class TestIseZumiSchoolBasics(unittest.TestCase):
 class TestIseZumiSpecialAbility(unittest.TestCase):
     def test_extra_action_die_on_new_round(self):
         zumi = Character("Zumi")
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         # Normal initiative: 2 dice
         roll_provider.put_initiative_roll([3, 7])
         # Extra initiative: 1 die

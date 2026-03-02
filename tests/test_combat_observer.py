@@ -4,7 +4,7 @@ import unittest
 from unittest.mock import MagicMock
 
 from simulation import events
-from simulation.mechanics.roll import TestDice
+from simulation.mechanics.roll import CalvinistDice
 from simulation.mechanics.roll_provider import DefaultRollProvider
 from simulation.schools.kakita_school import ContestedIaijutsuAttackRolledEvent
 from web.adapters.combat_observer import CombatObserver
@@ -25,8 +25,8 @@ def _make_character(name, lw=0, sw=0, max_sw=4, vp=3, max_vp=3, actions=None, cr
 
 
 def _make_provider_with_skill_roll(dice_values):
-    """Create a DefaultRollProvider with TestDice that has a skill roll ready."""
-    td = TestDice()
+    """Create a DefaultRollProvider with CalvinistDice that has a skill roll ready."""
+    td = CalvinistDice()
     td.extend(dice_values)
     provider = DefaultRollProvider(die_provider=td)
     return provider
@@ -35,7 +35,7 @@ def _make_provider_with_skill_roll(dice_values):
 class TestCombatObserverAttackRolled(unittest.TestCase):
     def test_annotates_attack_rolled_with_dice(self):
         observer = CombatObserver()
-        td = TestDice()
+        td = CalvinistDice()
         provider = DefaultRollProvider(die_provider=td)
         char = _make_character("Akodo")
         char.roll_provider.return_value = provider
@@ -65,7 +65,7 @@ class TestCombatObserverAttackRolled(unittest.TestCase):
     def test_double_attack_tn_uses_action_tn(self):
         """For double attacks, _detail_tn should use action.tn() (base + 20)."""
         observer = CombatObserver()
-        td = TestDice()
+        td = CalvinistDice()
         provider = DefaultRollProvider(die_provider=td)
         char = _make_character("Akodo")
         char.roll_provider.return_value = provider
@@ -111,7 +111,7 @@ class TestCombatObserverAttackRolled(unittest.TestCase):
 class TestCombatObserverParryRolled(unittest.TestCase):
     def test_annotates_parry_rolled_with_dice(self):
         observer = CombatObserver()
-        td = TestDice()
+        td = CalvinistDice()
         provider = DefaultRollProvider(die_provider=td)
         char = _make_character("Bayushi")
         char.roll_provider.return_value = provider
@@ -137,7 +137,7 @@ class TestCombatObserverParryRolled(unittest.TestCase):
 class TestCombatObserverDamage(unittest.TestCase):
     def test_annotates_lw_damage_with_dice(self):
         observer = CombatObserver()
-        td = TestDice()
+        td = CalvinistDice()
         provider = DefaultRollProvider(die_provider=td)
         attacker = _make_character("Akodo")
         attacker.roll_provider.return_value = provider
@@ -159,7 +159,7 @@ class TestCombatObserverDamage(unittest.TestCase):
 class TestCombatObserverWoundCheck(unittest.TestCase):
     def test_annotates_wound_check_with_dice(self):
         observer = CombatObserver()
-        td = TestDice()
+        td = CalvinistDice()
         provider = DefaultRollProvider(die_provider=td)
         char = _make_character("Bayushi")
         char.roll_provider.return_value = provider
@@ -183,14 +183,14 @@ class TestCombatObserverInitiative(unittest.TestCase):
         observer = CombatObserver()
 
         # Set up two characters with roll providers that have initiative data
-        td1 = TestDice()
+        td1 = CalvinistDice()
         provider1 = DefaultRollProvider(die_provider=td1)
         td1.extend([7, 4, 2])
         provider1.get_initiative_roll(3, 2)
         char1 = _make_character("Akodo", actions=[4, 7])
         char1.roll_provider.return_value = provider1
 
-        td2 = TestDice()
+        td2 = CalvinistDice()
         provider2 = DefaultRollProvider(die_provider=td2)
         td2.extend([6, 5, 1])
         provider2.get_initiative_roll(3, 2)
@@ -366,7 +366,7 @@ class TestCombatObserverTakeSeriousWound(unittest.TestCase):
 class TestCombatObserverLightWoundsDamageAfter(unittest.TestCase):
     def test_annotates_lw_damage_with_lw_after(self):
         observer = CombatObserver()
-        td = TestDice()
+        td = CalvinistDice()
         provider = DefaultRollProvider(die_provider=td)
         attacker = _make_character("Akodo")
         attacker.roll_provider.return_value = provider
@@ -388,7 +388,7 @@ class TestCombatObserverLightWoundsDamageAfter(unittest.TestCase):
 class TestCombatObserverContestedIaijutsu(unittest.TestCase):
     def test_annotates_contested_iaijutsu_rolled_with_dice(self):
         observer = CombatObserver()
-        td = TestDice()
+        td = CalvinistDice()
         provider = DefaultRollProvider(die_provider=td)
         char = _make_character("Kakita")
         char.roll_provider.return_value = provider

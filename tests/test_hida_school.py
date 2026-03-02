@@ -18,7 +18,7 @@ from simulation.engine import CombatEngine
 from simulation.groups import Group
 from simulation.log import logger
 from simulation.mechanics.initiative_actions import InitiativeAction
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 from simulation.schools import hida_school
 from simulation.strategies.base import CounterattackInterruptStrategy
 
@@ -99,7 +99,7 @@ class TestHidaTakeCounterattackActionEvent(unittest.TestCase):
             interrupt_action, self.context, self.attack,
         )
         # rig rolls
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("counterattack", 30)
         roll_provider.put_damage_roll(15)
         self.hida.set_roll_provider(roll_provider)
@@ -120,7 +120,7 @@ class TestHidaTakeCounterattackActionEvent(unittest.TestCase):
             regular_action, self.context, self.attack,
         )
         # rig rolls
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("counterattack", 30)
         roll_provider.put_damage_roll(15)
         self.hida.set_roll_provider(roll_provider)
@@ -140,12 +140,12 @@ class TestHidaTakeCounterattackActionEvent(unittest.TestCase):
             interrupt_action, self.context, self.attack,
         )
         # rig rolls: counterattack succeeds (roll 30 >= tn 10)
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("counterattack", 30)
         roll_provider.put_damage_roll(15)
         self.hida.set_roll_provider(roll_provider)
         # rig attacker's wound check to succeed
-        attacker_roll_provider = TestRollProvider()
+        attacker_roll_provider = CalvinistRollProvider()
         attacker_roll_provider.put_wound_check_roll(20)
         self.attacker.set_roll_provider(attacker_roll_provider)
 
@@ -165,7 +165,7 @@ class TestHidaTakeCounterattackActionEvent(unittest.TestCase):
             interrupt_action, self.context, self.attack,
         )
         # rig rolls: counterattack misses (roll 5 < tn 10)
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("counterattack", 5)
         self.hida.set_roll_provider(roll_provider)
 
@@ -184,12 +184,12 @@ class TestHidaTakeCounterattackActionEvent(unittest.TestCase):
             interrupt_action, self.context, self.attack,
         )
         # rig rolls
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("counterattack", 30)
         roll_provider.put_damage_roll(15)
         self.hida.set_roll_provider(roll_provider)
         # rig attacker wound check
-        attacker_rp = TestRollProvider()
+        attacker_rp = CalvinistRollProvider()
         attacker_rp.put_wound_check_roll(50)
         self.attacker.set_roll_provider(attacker_rp)
 

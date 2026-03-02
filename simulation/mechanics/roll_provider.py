@@ -34,7 +34,7 @@ class RollProvider(ABC):
         pass
 
     @abstractmethod
-    def get_wound_check_roll(self):
+    def get_wound_check_roll(self, rolled, kept, explode=True):
         pass
 
     @abstractmethod
@@ -116,15 +116,16 @@ class DefaultRollProvider(RollProvider):
         self._last_skill_info = {"rolled": rolled, "kept": kept, "dice": list(roll.dice())}
         return result
 
-    def get_wound_check_roll(self, rolled, kept):
+    def get_wound_check_roll(self, rolled, kept, explode=True):
         """
-        get_wound_check_roll(rolled, kept) -> int
+        get_wound_check_roll(rolled, kept, explode=True) -> int
           rolled (int): number of rolled dice
           kept (int): number of kept dice
+          explode (bool): whether tens should be rerolled
 
         Return a Wound Check roll using the specified number of rolled and kept dice.
         """
-        roll = Roll(rolled, kept, die_provider=self.die_provider())
+        roll = Roll(rolled, kept, die_provider=self.die_provider(), explode=explode)
         result = roll.roll()
         self._last_wound_check_roll = roll
         self._last_wound_check_info = {"rolled": rolled, "kept": kept, "dice": list(roll.dice())}
@@ -163,15 +164,22 @@ class DefaultRollProvider(RollProvider):
 DEFAULT_ROLL_PROVIDER = DefaultRollProvider()
 
 
-class TestRollProvider(RollProvider):
+class CalvinistRollProvider(RollProvider):
     """
-    TestRollProvider
-    Class to provide predictable rolls for use in testing.
+    Roll provider whose results are predestined, not random.
+
+    In Calvinist theology, all events are predetermined by God before
+    they occur. Similarly, this provider has its roll outcomes predestined
+    before they are requested, making it useful for testing where we
+    need to know exactly what each roll will produce.
     """
 
     def __init__(self):
         self._queues = {"damage": [], "initiative": [], "wound_check": []}
         self._observed_params = {"damage": [], "initiative": [], "wound_check": []}
+        self._last_skill_info = None
+        self._last_wound_check_info = None
+        self._last_damage_info = None
 
     def die_provider(self):
         return None
@@ -180,13 +188,15 @@ class TestRollProvider(RollProvider):
         if len(self._queues["damage"]) == 0:
             raise IndexError("No roll queued for damage")
         self._observed_params["damage"].append((rolled, kept))
-        return self._queues["damage"].pop(0)
+        entry = self._queues["damage"].pop(0)
+        return self._pop_entry(entry, "damage", rolled, kept)
 
     def get_damage_roll(self, rolled, kept):
         if len(self._queues["damage"]) == 0:
             raise IndexError("No roll queued for damage")
         self._observed_params["damage"].append((rolled, kept))
-        return self._queues["damage"].pop(0)
+        entry = self._queues["damage"].pop(0)
+        return self._pop_entry(entry, "damage", rolled, kept)
 
     def get_initiative_roll(self, rolled, kept):
         if len(self._queues["initiative"]) == 0:
@@ -202,13 +212,24 @@ class TestRollProvider(RollProvider):
         if skill not in self._observed_params.keys():
             self._observed_params[skill] = []
         self._observed_params[skill].append((rolled, kept))
-        return self._queues[skill].pop(0)
+        entry = self._queues[skill].pop(0)
+        return self._pop_entry(entry, "skill", rolled, kept)
 
-    def get_wound_check_roll(self, rolled, kept):
+    def get_wound_check_roll(self, rolled, kept, explode=True):
         if len(self._queues["wound_check"]) == 0:
             raise IndexError("No roll queued for wound_check")
         self._observed_params["wound_check"].append((rolled, kept))
-        return self._queues["wound_check"].pop(0)
+        entry = self._queues["wound_check"].pop(0)
+        return self._pop_entry(entry, "wound_check", rolled, kept)
+
+    def last_damage_info(self):
+        return self._last_damage_info
+
+    def last_skill_info(self):
+        return self._last_skill_info
+
+    def last_wound_check_info(self):
+        return self._last_wound_check_info
 
     def pop_observed_params(self, roll_type):
         """
@@ -225,6 +246,9 @@ class TestRollProvider(RollProvider):
     def put_damage_roll(self, result):
         self._queues["damage"].append(result)
 
+    def put_damage_roll_with_dice(self, result, dice):
+        self._queues["damage"].append((result, list(dice)))
+
     def put_initiative_roll(self, result):
         if isinstance(result, list):
             self._queues["initiative"].append(result)
@@ -237,8 +261,38 @@ class TestRollProvider(RollProvider):
         else:
             self._queues[skill] = [result]
 
+    def put_skill_roll_with_dice(self, skill, result, dice):
+        entry = (result, list(dice))
+        if skill in self._queues.keys():
+            self._queues[skill].append(entry)
+        else:
+            self._queues[skill] = [entry]
+
     def put_wound_check_roll(self, result):
         self._queues["wound_check"].append(result)
 
+    def put_wound_check_roll_with_dice(self, result, dice):
+        self._queues["wound_check"].append((result, list(dice)))
+
     def set_die_provider(self, die_provider):
         raise NotImplementedError()
+
+    def _pop_entry(self, entry, roll_type, rolled, kept):
+        """Extract total and optional dice from a queue entry.
+
+        Entries may be plain ints (backward compatible) or
+        (total, dice_list) tuples for dice-level testing.
+        """
+        if isinstance(entry, tuple):
+            total, dice = entry
+        else:
+            total = entry
+            dice = None
+        info = {"rolled": rolled, "kept": kept, "dice": dice}
+        if roll_type == "skill":
+            self._last_skill_info = info
+        elif roll_type == "wound_check":
+            self._last_wound_check_info = info
+        elif roll_type == "damage":
+            self._last_damage_info = info
+        return total

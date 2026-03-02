@@ -18,7 +18,7 @@ from simulation.exceptions import NotEnoughActions
 from simulation.groups import Group
 from simulation.log import logger
 from simulation.mechanics.initiative_actions import InitiativeAction
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 from simulation.strategies.base import BaseAttackStrategy, KeepLightWoundsStrategy, NeverParryStrategy, PlainAttackStrategy, ReluctantParryStrategy, StingyPlainAttackStrategy, WoundCheckStrategy
 
 # set up logging
@@ -235,7 +235,7 @@ class TestReluctantParryStrategy(unittest.TestCase):
         attacker = Character("attacker")
         # set up target with actions
         target = Character("target")
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_initiative_roll([1, 1, 1])
         target.set_roll_provider(roll_provider)
         target.roll_initiative()
@@ -270,7 +270,7 @@ class TestReluctantParryStrategy(unittest.TestCase):
 
     def test_do_not_parry_for_enemies(self):
         shiba = Character("Shiba")
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_initiative_roll([1, 1, 1])
         shiba.set_roll_provider(roll_provider)
         shiba.roll_initiative()
@@ -354,7 +354,7 @@ class TestNeverParryStrategy(unittest.TestCase):
         attacker = Character("attacker")
         # set up target with actions
         target = Character("target")
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_initiative_roll([1, 1, 1])
         target.set_roll_provider(roll_provider)
         target.roll_initiative()

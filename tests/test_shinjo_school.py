@@ -17,7 +17,7 @@ from simulation.groups import Group
 from simulation.log import logger
 from simulation.mechanics.floating_bonuses import WoundCheckFloatingBonus
 from simulation.mechanics.initiative_actions import InitiativeAction
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 from simulation.schools import shinjo_school
 
 # set up logging
@@ -79,7 +79,7 @@ class TestShinjoParryListener(unittest.TestCase):
 class TestShinjoNewRoundListener(unittest.TestCase):
     def test_set_highest_to_1(self):
         shinjo = Character("Shinjo")
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_initiative_roll([3, 6, 9])
         shinjo.set_roll_provider(roll_provider)
         enemy = Character("enemy")

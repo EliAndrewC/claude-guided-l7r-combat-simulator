@@ -58,7 +58,7 @@ class IsawaIshiSchool(BaseSchool):
 
     def apply_rank_four_ability(self, character):
         self.apply_school_ring_raise_and_discount(character)
-        # TODO: opponents can't spend VP in contested rolls
+        # Contested roll VP restriction is a social ability, not applicable in combat simulation
 
     def apply_rank_five_ability(self, character):
         # TODO: negate opponent's school/profession for a fight
@@ -92,8 +92,8 @@ class IshiAllyBoostListener(Listener):
     def handle(self, character, event, context):
         if isinstance(event, events.AttackRolledEvent):
             subject = event.action.subject()
-            if subject != character and character.group() is not None and subject in character.group():
-                # Ally is attacking — boost their roll
+            if subject != character and character.group() is not None and subject in character.group() and context.formation().is_adjacent(character, subject):
+                # Adjacent ally is attacking — boost their roll
                 precepts = character.skill("precepts")
                 if precepts > 0 and character.vp() >= 1:
                     yield events.SpendVoidPointsEvent(character, "precepts", 1)

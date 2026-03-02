@@ -7,7 +7,7 @@ WaveManRollProvider, etc).
 
 import unittest
 
-from simulation.mechanics.roll import TestDice
+from simulation.mechanics.roll import CalvinistDice
 from simulation.mechanics.roll_provider import DefaultRollProvider
 from simulation.professions import Profession, WaveManRollProvider
 from simulation.schools.kakita_school import KAKITA_ROLL_PROVIDER, KakitaRollProvider
@@ -37,7 +37,7 @@ class TestTrackingRollProviderWithDefault(unittest.TestCase):
     """TrackingRollProvider wrapping a DefaultRollProvider."""
 
     def setUp(self):
-        self.td = TestDice()
+        self.td = CalvinistDice()
         self.inner = DefaultRollProvider(die_provider=self.td)
         self.provider = TrackingRollProvider(self.inner)
 
@@ -100,7 +100,7 @@ class TestTrackingRollProviderWithWaveMan(unittest.TestCase):
     """
 
     def setUp(self):
-        self.td = TestDice()
+        self.td = CalvinistDice()
         self.profession = Profession()
         self.profession.take_ability("crippled bonus")
         self.inner = WaveManRollProvider(self.profession, die_provider=self.td)
@@ -210,7 +210,7 @@ class TestTrackingRollProviderDiceSorting(unittest.TestCase):
     """
 
     def setUp(self):
-        self.td = TestDice()
+        self.td = CalvinistDice()
         self.inner = _NoInfoRollProvider(die_provider=self.td)
         self.provider = TrackingRollProvider(self.inner)
 

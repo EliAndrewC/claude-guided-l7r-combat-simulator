@@ -126,3 +126,141 @@ class TestOtakuActionFactory(unittest.TestCase):
         action = factory.get_attack_action(self.otaku, self.target, "attack", self.initiative_action, self.context)
         # Should be default AttackAction, not OtakuLungeAction
         self.assertFalse(isinstance(action, otaku_school.OtakuLungeAction))
+
+
+class TestOtakuFifthDanTakeAttackActionEvent(unittest.TestCase):
+    """Test the Otaku 5th Dan ability: trade 10 rolled damage dice for 1 auto SW."""
+
+    def setUp(self):
+        from simulation.mechanics.roll_provider import CalvinistRollProvider
+
+        self.otaku = Character("Otaku")
+        self.otaku.set_ring("fire", 5)
+        self.otaku.set_skill("attack", 5)
+        self.target = Character("target")
+        self.target.set_skill("parry", 1)
+        groups = [Group("Unicorn", self.otaku), Group("Enemy", self.target)]
+        self.context = EngineContext(groups)
+        self.initiative_action = InitiativeAction([1], 1)
+        self.roll_provider = CalvinistRollProvider()
+        self.otaku.set_roll_provider(self.roll_provider)
+
+    def _make_attack_action(self, skill="attack"):
+        from simulation.actions import AttackAction
+        action = AttackAction(
+            self.otaku, self.target, skill, self.initiative_action, self.context,
+        )
+        return action
+
+    def test_roll_damage_trades_10_dice_for_auto_sw(self):
+        """When rolled damage dice >= 12, trade 10 for 1 auto SW and roll with reduced dice."""
+        action = self._make_attack_action()
+        # Set a high skill roll to get many extra damage dice
+        # TN to hit = 5 * (1 + target.parry) = 5 * (1 + 1) = 10
+        # Extra damage dice = (skill_roll - tn) // 5 = (60 - 10) // 5 = 10
+        action.set_skill_roll(60)
+        # Damage roll params: fire(5) + weapon.rolled(4) + extra(10) = 19 rolled
+        # 19 >= 12, so we trade 10 for 1 auto SW, leaving 9 rolled
+        self.roll_provider.put_damage_roll(25)
+        take_event = otaku_school.OtakuFifthDanTakeAttackActionEvent(action)
+        result_events = list(take_event._roll_damage())
+        # Should yield SeriousWoundsDamageEvent first, then LightWoundsDamageEvent
+        self.assertEqual(2, len(result_events))
+        self.assertIsInstance(result_events[0], events.SeriousWoundsDamageEvent)
+        self.assertEqual(1, result_events[0].damage)
+        self.assertEqual(self.otaku, result_events[0].subject)
+        self.assertEqual(self.target, result_events[0].target)
+        self.assertIsInstance(result_events[1], events.LightWoundsDamageEvent)
+        self.assertEqual(25, result_events[1].damage)
+        # Verify damage was rolled with reduced dice (19 - 10 = 9 rolled)
+        observed = self.roll_provider.pop_observed_params("damage")
+        self.assertEqual(9, observed[0])
+
+    def test_roll_damage_normal_when_not_enough_dice(self):
+        """When rolled damage dice < 12, roll damage normally without trading."""
+        action = self._make_attack_action()
+        # TN to hit = 10
+        # Extra damage dice = (15 - 10) // 5 = 1
+        action.set_skill_roll(15)
+        # Damage roll params: fire(5) + weapon.rolled(4) + extra(1) = 10 rolled
+        # 10 < 12, so no trade
+        self.roll_provider.put_damage_roll(18)
+        take_event = otaku_school.OtakuFifthDanTakeAttackActionEvent(action)
+        result_events = list(take_event._roll_damage())
+        # Should yield only LightWoundsDamageEvent
+        self.assertEqual(1, len(result_events))
+        self.assertIsInstance(result_events[0], events.LightWoundsDamageEvent)
+        self.assertEqual(18, result_events[0].damage)
+
+    def test_roll_damage_exactly_12_rolled_trades(self):
+        """When rolled damage dice == 12 exactly, trading leaves 2 (the minimum)."""
+        action = self._make_attack_action()
+        # TN to hit = 10
+        # Extra damage dice = (25 - 10) // 5 = 3
+        action.set_skill_roll(25)
+        # Damage roll params: fire(5) + weapon.rolled(4) + extra(3) = 12 rolled
+        # 12 >= 12, so we trade 10, leaving 2 rolled
+        self.roll_provider.put_damage_roll(10)
+        take_event = otaku_school.OtakuFifthDanTakeAttackActionEvent(action)
+        result_events = list(take_event._roll_damage())
+        self.assertEqual(2, len(result_events))
+        self.assertIsInstance(result_events[0], events.SeriousWoundsDamageEvent)
+        self.assertEqual(1, result_events[0].damage)
+        self.assertIsInstance(result_events[1], events.LightWoundsDamageEvent)
+        # Verify 2 rolled dice (the minimum after trading 10)
+        observed = self.roll_provider.pop_observed_params("damage")
+        self.assertEqual(2, observed[0])
+
+    def test_roll_damage_11_rolled_does_not_trade(self):
+        """When rolled damage dice == 11, do not trade (would leave only 1, below minimum 2)."""
+        action = self._make_attack_action()
+        # TN to hit = 10
+        # Extra damage dice = (20 - 10) // 5 = 2
+        action.set_skill_roll(20)
+        # Damage roll params: fire(5) + weapon.rolled(4) + extra(2) = 11 rolled
+        # 11 < 12, so no trade
+        self.roll_provider.put_damage_roll(15)
+        take_event = otaku_school.OtakuFifthDanTakeAttackActionEvent(action)
+        result_events = list(take_event._roll_damage())
+        self.assertEqual(1, len(result_events))
+        self.assertIsInstance(result_events[0], events.LightWoundsDamageEvent)
+        self.assertEqual(15, result_events[0].damage)
+
+
+class TestOtakuFifthDanTakeActionEventFactory(unittest.TestCase):
+    """Test the Otaku 5th Dan TakeActionEventFactory."""
+
+    def setUp(self):
+        self.otaku = Character("Otaku")
+        self.otaku.set_actions([1])
+        self.target = Character("target")
+        groups = [Group("Unicorn", self.otaku), Group("Enemy", self.target)]
+        self.context = EngineContext(groups)
+        self.initiative_action = InitiativeAction([1], 1)
+
+    def test_returns_fifth_dan_event(self):
+        from simulation.actions import AttackAction
+        factory = otaku_school.OtakuFifthDanTakeActionEventFactory()
+        action = AttackAction(
+            self.otaku, self.target, "attack", self.initiative_action, self.context,
+        )
+        event = factory.get_take_attack_action_event(action)
+        self.assertIsInstance(event, otaku_school.OtakuFifthDanTakeAttackActionEvent)
+
+    def test_rejects_non_attack_action(self):
+        factory = otaku_school.OtakuFifthDanTakeActionEventFactory()
+        with self.assertRaises(ValueError):
+            factory.get_take_attack_action_event("not an action")
+
+
+class TestOtakuApplyRankFiveAbility(unittest.TestCase):
+    """Test that apply_rank_five_ability installs the 5th Dan factory."""
+
+    def test_sets_take_action_event_factory(self):
+        otaku = Character("Otaku")
+        school = otaku_school.OtakuBushiSchool()
+        school.apply_rank_five_ability(otaku)
+        self.assertIsInstance(
+            otaku.take_action_event_factory(),
+            otaku_school.OtakuFifthDanTakeActionEventFactory,
+        )

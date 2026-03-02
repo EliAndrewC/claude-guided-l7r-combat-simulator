@@ -8,12 +8,12 @@
 
 import unittest
 
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 
 
-class TestTestRollProvider(unittest.TestCase):
+class TestCalvinistRollProvider(unittest.TestCase):
     def test_fifo(self):
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("attack", 37)
         roll_provider.put_skill_roll("attack", 9001)
         # first Attack roll should be 37
@@ -22,14 +22,14 @@ class TestTestRollProvider(unittest.TestCase):
         self.assertEqual(9001, roll_provider.get_skill_roll("attack", 10, 10))
 
     def test_get_initiative_roll(self):
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_initiative_roll([1, 2, 3])
         roll_provider.put_initiative_roll([1, 5, 10])
         self.assertEqual([1, 2, 3], roll_provider.get_initiative_roll(4, 3))
         self.assertEqual([1, 5, 10], roll_provider.get_initiative_roll(7, 5))
 
     def test_get_skill_roll(self):
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("attack", 37)
         roll_provider.put_skill_roll("parry", 59009)
         # should get different results for Attack and Parry
@@ -37,19 +37,19 @@ class TestTestRollProvider(unittest.TestCase):
         self.assertEqual(59009, roll_provider.get_skill_roll("parry", 10, 10))
 
     def test_get_wound_check_roll(self):
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_wound_check_roll(5)
         roll_provider.put_wound_check_roll(50)
         self.assertEqual(5, roll_provider.get_wound_check_roll(4, 3))
         self.assertEqual(50, roll_provider.get_wound_check_roll(6, 5))
 
     def test_no_roll_queued(self):
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         with self.assertRaises(KeyError):
             roll_provider.get_skill_roll("attack", 6, 3)
 
     def test_pop_observed_params(self):
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_damage_roll(9001)
         roll_provider.put_initiative_roll([1, 2, 3])
         roll_provider.put_skill_roll("attack", 50)

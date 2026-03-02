@@ -20,7 +20,7 @@ from simulation.mechanics.floating_bonuses import AnyAttackFloatingBonus, Floati
 from simulation.mechanics.initiative_actions import InitiativeAction
 from simulation.mechanics.knowledge import Knowledge, TheoreticalCharacter
 from simulation.mechanics.modifiers import Modifier
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 from simulation.schools.akodo_school import (
     AkodoBushiSchool,
     AkodoLightWoundsDamageListener,
@@ -261,7 +261,7 @@ class TestAkodoLightWoundsDamageListener(unittest.TestCase):
         """When akodo is the target, should take LW, consult wound check strategy, and use 5th dan."""
         listener = AkodoLightWoundsDamageListener()
         # rig the wound check roll so the wound check strategy can work
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_wound_check_roll(100)
         self.akodo.set_roll_provider(roll_provider)
         event = events.LightWoundsDamageEvent(self.bayushi, self.akodo, 7)
@@ -315,7 +315,7 @@ class TestAkodoWoundCheckDeclaredListener(unittest.TestCase):
         """Listener should roll wound check and use Akodo 4th dan strategy."""
         listener = AkodoWoundCheckDeclaredListener()
         # rig the wound check roll
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_wound_check_roll(50)
         self.akodo.set_roll_provider(roll_provider)
         event = events.WoundCheckDeclaredEvent(self.akodo, self.attacker, 20, vp=0)
@@ -929,7 +929,7 @@ class TestAlwaysParryStrategy(unittest.TestCase):
     def setUp(self):
         self.attacker = Character("Attacker")
         self.target = Character("Target")
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_initiative_roll([1, 2, 3])
         self.target.set_roll_provider(roll_provider)
         self.target.roll_initiative()
@@ -1673,7 +1673,7 @@ class TestBaseParryStrategyEstimateDamage(unittest.TestCase):
         attacker = Character("Attacker")
         attacker.set_ring("fire", 4)
         target = Character("Target")
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_initiative_roll([1, 2, 3])
         target.set_roll_provider(roll_provider)
         target.roll_initiative()
@@ -1699,11 +1699,11 @@ class TestBaseParryStrategyCanShirk(unittest.TestCase):
         friend1 = Character("Friend1")
         friend2 = Character("Friend2")
         # give both friends actions and initiative
-        roll_provider1 = TestRollProvider()
+        roll_provider1 = CalvinistRollProvider()
         roll_provider1.put_initiative_roll([1, 2])
         friend1.set_roll_provider(roll_provider1)
         friend1.roll_initiative()
-        roll_provider2 = TestRollProvider()
+        roll_provider2 = CalvinistRollProvider()
         roll_provider2.put_initiative_roll([1, 2])
         friend2.set_roll_provider(roll_provider2)
         friend2.roll_initiative()
@@ -1722,7 +1722,7 @@ class TestBaseParryStrategyCanShirk(unittest.TestCase):
         from simulation.strategies.base import ReluctantParryStrategy
         attacker = Character("Attacker")
         target = Character("Target")
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_initiative_roll([1, 2])
         target.set_roll_provider(roll_provider)
         target.roll_initiative()
@@ -1744,11 +1744,11 @@ class TestBaseParryStrategyCanShirk(unittest.TestCase):
         friend2 = Character("Friend2")
         # friend2 uses NeverParryStrategy
         friend2.set_parry_strategy(NeverParryStrategy())
-        roll_provider1 = TestRollProvider()
+        roll_provider1 = CalvinistRollProvider()
         roll_provider1.put_initiative_roll([1, 2])
         friend1.set_roll_provider(roll_provider1)
         friend1.roll_initiative()
-        roll_provider2 = TestRollProvider()
+        roll_provider2 = CalvinistRollProvider()
         roll_provider2.put_initiative_roll([1, 2])
         friend2.set_roll_provider(roll_provider2)
         friend2.roll_initiative()
@@ -1773,11 +1773,11 @@ class TestReluctantParryShirkAndAlreadyAttempted(unittest.TestCase):
         self.friend1 = Character("Friend1")
         self.friend2 = Character("Friend2")
         # give friends actions and initiative
-        roll_provider1 = TestRollProvider()
+        roll_provider1 = CalvinistRollProvider()
         roll_provider1.put_initiative_roll([1, 2])
         self.friend1.set_roll_provider(roll_provider1)
         self.friend1.roll_initiative()
-        roll_provider2 = TestRollProvider()
+        roll_provider2 = CalvinistRollProvider()
         roll_provider2.put_initiative_roll([1, 2])
         self.friend2.set_roll_provider(roll_provider2)
         self.friend2.roll_initiative()

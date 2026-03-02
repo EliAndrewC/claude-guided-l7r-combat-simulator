@@ -11,7 +11,7 @@ import unittest
 from simulation.character import Character
 from simulation.context import EngineContext
 from simulation.groups import Group
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 
 
 class TestCharacter(unittest.TestCase):
@@ -92,7 +92,7 @@ class TestCharacter(unittest.TestCase):
         self.assertEqual(1, shiba.interrupt_cost("parry", context))
 
     def test_roll_skill(self):
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("attack", 1)
         roll_provider.put_skill_roll("attack", 2)
         roll_provider.put_skill_roll("parry", 3)

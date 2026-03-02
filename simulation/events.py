@@ -122,6 +122,10 @@ class TakeAttackActionEvent(TakeActionEvent):
             return
         if self.action.is_hit():
             yield self._succeeded()
+            # A listener (e.g. Monk 5th Dan) may cancel the attack
+            # after it succeeded but before damage is rolled.
+            if self.action.parried():
+                return
             direct_damage = self._direct_damage()
             if direct_damage is not None:
                 yield direct_damage
@@ -318,7 +322,7 @@ class LightWoundsDamageEvent(DamageEvent):
     are certain abilities that modify the TN.
     """
 
-    def __init__(self, subject, target, damage, tn=None):
+    def __init__(self, subject, target, damage, tn=None, duel=False):
         super().__init__("lw_damage", subject, target, damage)
         if tn is None:
             self.wound_check_tn = damage
@@ -326,6 +330,7 @@ class LightWoundsDamageEvent(DamageEvent):
             if not isinstance(tn, int):
                 raise ValueError("tn parameter must be int")
             self.wound_check_tn = tn
+        self.duel = duel
 
 
 class SeriousWoundsDamageEvent(DamageEvent):
@@ -414,9 +419,10 @@ class WoundCheckEvent(Event):
 
 
 class WoundCheckDeclaredEvent(WoundCheckEvent):
-    def __init__(self, subject, attacker, damage, tn=None, vp=0):
+    def __init__(self, subject, attacker, damage, tn=None, vp=0, duel=False):
         super().__init__("wound_check_declared", subject, attacker, damage, tn=tn)
         self.vp = vp
+        self.duel = duel
 
 
 class WoundCheckFailedEvent(WoundCheckEvent):

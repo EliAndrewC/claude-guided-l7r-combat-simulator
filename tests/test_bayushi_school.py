@@ -16,7 +16,7 @@ from simulation.context import EngineContext
 from simulation.groups import Group
 from simulation.log import logger
 from simulation.mechanics.initiative_actions import InitiativeAction
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 from simulation.schools import bayushi_school
 
 # set up logging
@@ -117,7 +117,7 @@ class TestBayushiFeintAction(unittest.TestCase):
         # set Bayushi school roll parameter provider
         bayushi.set_roll_parameter_provider(bayushi_school.BayushiRollParameterProvider())
         # set test roll provider to rig damage roll
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_damage_roll(9)
         bayushi.set_roll_provider(roll_provider)
         # set up Bayushi school Feint attack action

@@ -1,6 +1,17 @@
 """DetailedEventFormatter for rich combat play-by-play output with emojis and combined events."""
 
 from simulation import events
+from simulation.duel import (
+    DuelEndedEvent,
+    DuelInitiativeRolledEvent,
+    DuelResheathEvent,
+    DuelStrikeRolledEvent,
+    IaijutsuDuelEvent,
+    IaijutsuFocusEvent,
+    IaijutsuStrikeEvent,
+    ShowMeYourStanceDeclaredEvent,
+    ShowMeYourStanceRolledEvent,
+)
 from simulation.events import (
     CounterattackDeclaredEvent,
     CounterattackFailedEvent,
@@ -219,6 +230,85 @@ class DetailedEventFormatter:
             elif isinstance(event, events.TakeSeriousWoundEvent):
                 self._last_take_sw_target = event.subject.name()
                 lines.extend(self._format_take_sw(event))
+                combat_output_since_status = True
+
+            elif isinstance(event, IaijutsuDuelEvent):
+                lines.append("")
+                lines.append("═══ Iaijutsu Duel ═══")
+                self._phase_shown = True
+                combat_output_since_status = True
+
+            elif isinstance(event, ShowMeYourStanceDeclaredEvent):
+                name = event.subject.name()
+                lines.append(f"{name} | 🔍 prepares to assess opponent's stance")
+                combat_output_since_status = True
+
+            elif isinstance(event, ShowMeYourStanceRolledEvent):
+                name = event.subject.name()
+                dice_info = ""
+                if hasattr(event, "_detail_dice") and event._detail_dice:
+                    rp = getattr(event, "_detail_roll_params", None)
+                    if rp:
+                        dice_info = f" ({rp['rolled']}k{rp['kept']} {_format_dice(event._detail_dice, rp['kept'])})"
+                lines.append(
+                    f"{name} | 🔍 Stance: rolled {event.roll}{dice_info}"
+                    f" — discerns Fire ~{event.discerned_fire}, TN ~{event.discerned_tn}"
+                )
+                combat_output_since_status = True
+
+            elif isinstance(event, DuelInitiativeRolledEvent):
+                winner_name = event.winner.name()
+                lines.append(
+                    f"⚔️ Contested Iaijutsu: "
+                    f"{event.challenger.name()} {event.challenger_roll} vs "
+                    f"{event.defender.name()} {event.defender_roll} "
+                    f"— {winner_name} chooses first"
+                )
+                combat_output_since_status = True
+
+            elif isinstance(event, IaijutsuFocusEvent):
+                name = event.subject.name()
+                c_name = event.challenger.name()
+                d_name = event.defender.name()
+                lines.append(
+                    f"{name} | 🎯 focuses — "
+                    f"TNs: {c_name} {event.challenger_tn}, {d_name} {event.defender_tn}"
+                )
+                combat_output_since_status = True
+
+            elif isinstance(event, IaijutsuStrikeEvent):
+                name = event.subject.name()
+                c_name = event.challenger.name()
+                d_name = event.defender.name()
+                lines.append(
+                    f"{name} | ⚔️ declares strike — "
+                    f"TNs: {c_name} {event.challenger_tn}, {d_name} {event.defender_tn}"
+                )
+                combat_output_since_status = True
+
+            elif isinstance(event, DuelStrikeRolledEvent):
+                name = event.subject.name()
+                target_name = event.target.name()
+                dice_info = ""
+                if hasattr(event, "_detail_dice") and event._detail_dice:
+                    rp = getattr(event, "_detail_roll_params", None)
+                    if rp:
+                        dice_info = f" {rp['rolled']}k{rp['kept']} {_format_dice(event._detail_dice, rp['kept'])}"
+                if event.is_hit:
+                    result = "HIT!"
+                    extra = f" (+{event.extra_damage_dice} extra damage dice)" if event.extra_damage_dice > 0 else ""
+                    lines.append(f"{name} | ⚔️ Strike vs {target_name}:{dice_info} {event.roll} vs TN {event.tn} — {result}{extra}")
+                else:
+                    lines.append(f"{name} | ❌ Strike vs {target_name}:{dice_info} {event.roll} vs TN {event.tn} — MISS")
+                combat_output_since_status = True
+
+            elif isinstance(event, DuelResheathEvent):
+                higher = event.higher_roller.name()
+                lines.append(f"🔄 Neither hit — resheathe. {higher} gains a free raise on damage.")
+                combat_output_since_status = True
+
+            elif isinstance(event, DuelEndedEvent):
+                lines.append("⚔️ Duel ended — transitioning to melee combat")
                 combat_output_since_status = True
 
             elif isinstance(event, events.DeathEvent):

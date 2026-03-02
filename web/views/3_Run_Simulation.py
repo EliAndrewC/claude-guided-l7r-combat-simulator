@@ -1,7 +1,7 @@
 import streamlit as st
 
 from simulation.schools.factory import get_school
-from web.adapters.engine_adapter import run_batch, run_single
+from web.adapters.engine_adapter import is_duel_eligible, run_batch, run_duel_batch, run_duel_single, run_single
 from web.adapters.html_renderer import render_play_by_play_html
 from web.models import CharacterConfig
 
@@ -57,7 +57,13 @@ else:
     test_label = test.name or "Test"
     st.write(f"**{control_label}:** {', '.join(control.character_names)} vs **{test_label}:** {', '.join(test.character_names)}")
 
-    tab_batch, tab_single = st.tabs(["Batch Simulation", "Single Combat"])
+    duel_eligible = is_duel_eligible(characters, groups)
+    tab_names = ["Batch Simulation", "Single Combat"]
+    if duel_eligible:
+        tab_names.extend(["Iaijutsu Duel", "Duel Batch"])
+    tabs = st.tabs(tab_names)
+    tab_batch = tabs[0]
+    tab_single = tabs[1]
 
     with tab_batch:
         num_trials = st.number_input("Number of trials", min_value=1, max_value=1000, value=100, step=10)
@@ -148,3 +154,48 @@ else:
                 with st.expander("Trial Statistics"):
                     for k, v in sorted(result.features.items()):
                         st.write(f"**{k}:** {v}")
+
+    if duel_eligible:
+        with tabs[2]:
+            if st.button("Run Single Duel"):
+                with st.spinner("Running duel..."):
+                    try:
+                        result = run_duel_single(characters, groups)
+                    except Exception as e:
+                        st.error(f"Duel error: {e}")
+                        result = None
+
+                if result:
+                    winner_label = test_label if result.winner == 1 else control_label
+                    st.subheader(f"Winner: {winner_label}")
+
+                    with st.expander("Play-by-Play Log", expanded=True):
+                        html = render_play_by_play_html(result.play_by_play, result.group_names)
+                        st.markdown(html, unsafe_allow_html=True)
+
+                    with st.expander("Trial Statistics"):
+                        for k, v in sorted(result.features.items()):
+                            st.write(f"**{k}:** {v}")
+
+        with tabs[3]:
+            duel_trials = st.number_input(
+                "Number of duel trials", min_value=1, max_value=1000, value=100, step=10,
+                key="duel_trials",
+            )
+            if st.button("Run Duel Batch"):
+                with st.spinner(f"Running {duel_trials} duel trials..."):
+                    try:
+                        result = run_duel_batch(characters, groups, duel_trials)
+                    except Exception as e:
+                        st.error(f"Duel batch error: {e}")
+                        result = None
+
+                if result:
+                    st.subheader("Results")
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("Trials", result.num_trials)
+                    col2.metric(f"{control_label} Wins", result.control_victories)
+                    col3.metric(f"{test_label} Wins", result.test_victories)
+
+                    test_rate = result.test_victories / result.num_trials * 100
+                    st.metric(f"{test_label} Win Rate", f"{test_rate:.1f}%")

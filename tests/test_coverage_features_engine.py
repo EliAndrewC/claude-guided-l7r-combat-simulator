@@ -38,7 +38,7 @@ from simulation.events import (
 from simulation.features import FIELDNAMES, SummaryFeatures, TrialFeatures, write_feature_file_header
 from simulation.groups import Group
 from simulation.log import logger
-from simulation.mechanics.roll_provider import DefaultRollProvider, TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider, DefaultRollProvider
 from simulation.optimizers.wound_check_optimizers import (
     DefaultKeepLightWoundsOptimizer,
     DefaultWoundCheckOptimizer,
@@ -1150,98 +1150,98 @@ class TestCombatEngineEvent(unittest.TestCase):
 # 3. Tests for simulation/mechanics/roll_provider.py
 # =====================================================================
 
-class TestTestRollProviderPutGet(unittest.TestCase):
-    """Tests for TestRollProvider put and get methods."""
+class TestCalvinistRollProviderPutGet(unittest.TestCase):
+    """Tests for CalvinistRollProvider put and get methods."""
 
     def test_put_skill_roll_new_skill(self):
-        rp = TestRollProvider()
+        rp = CalvinistRollProvider()
         rp.put_skill_roll("iaijutsu", 42)
         result = rp.get_skill_roll("iaijutsu", 5, 3)
         self.assertEqual(42, result)
 
     def test_put_skill_roll_existing_skill(self):
-        rp = TestRollProvider()
+        rp = CalvinistRollProvider()
         rp.put_skill_roll("attack", 10)
         rp.put_skill_roll("attack", 20)
         self.assertEqual(10, rp.get_skill_roll("attack", 5, 3))
         self.assertEqual(20, rp.get_skill_roll("attack", 5, 3))
 
     def test_put_damage_roll(self):
-        rp = TestRollProvider()
+        rp = CalvinistRollProvider()
         rp.put_damage_roll(15)
         rp.put_damage_roll(25)
         self.assertEqual(15, rp.get_damage_roll(4, 2))
         self.assertEqual(25, rp.get_damage_roll(4, 2))
 
     def test_put_wound_check_roll(self):
-        rp = TestRollProvider()
+        rp = CalvinistRollProvider()
         rp.put_wound_check_roll(30)
         result = rp.get_wound_check_roll(5, 3)
         self.assertEqual(30, result)
 
     def test_put_initiative_roll_list(self):
-        rp = TestRollProvider()
+        rp = CalvinistRollProvider()
         rp.put_initiative_roll([3, 5, 7])
         result = rp.get_initiative_roll(5, 3)
         self.assertEqual([3, 5, 7], result)
 
     def test_put_initiative_roll_not_list_raises(self):
-        rp = TestRollProvider()
+        rp = CalvinistRollProvider()
         with self.assertRaises(ValueError):
             rp.put_initiative_roll(42)
 
     def test_get_damage_roll_empty_raises(self):
-        rp = TestRollProvider()
+        rp = CalvinistRollProvider()
         with self.assertRaises(IndexError):
             rp.get_damage_roll(4, 2)
 
     def test_get_initiative_roll_empty_raises(self):
-        rp = TestRollProvider()
+        rp = CalvinistRollProvider()
         with self.assertRaises(IndexError):
             rp.get_initiative_roll(4, 3)
 
     def test_get_wound_check_roll_empty_raises(self):
-        rp = TestRollProvider()
+        rp = CalvinistRollProvider()
         with self.assertRaises(IndexError):
             rp.get_wound_check_roll(4, 3)
 
     def test_get_skill_roll_no_key_raises(self):
-        rp = TestRollProvider()
+        rp = CalvinistRollProvider()
         with self.assertRaises(KeyError):
             rp.get_skill_roll("nonexistent", 5, 3)
 
     def test_get_skill_roll_empty_queue_raises(self):
-        rp = TestRollProvider()
+        rp = CalvinistRollProvider()
         rp.put_skill_roll("attack", 10)
         rp.get_skill_roll("attack", 5, 3)
         with self.assertRaises(IndexError):
             rp.get_skill_roll("attack", 5, 3)
 
     def test_die_provider_returns_none(self):
-        rp = TestRollProvider()
+        rp = CalvinistRollProvider()
         self.assertIsNone(rp.die_provider())
 
     def test_set_die_provider_raises(self):
-        rp = TestRollProvider()
+        rp = CalvinistRollProvider()
         with self.assertRaises(NotImplementedError):
             rp.set_die_provider(None)
 
     def test_pop_observed_params_skill_roll(self):
-        rp = TestRollProvider()
+        rp = CalvinistRollProvider()
         rp.put_skill_roll("attack", 50)
         rp.get_skill_roll("attack", 7, 4)
         params = rp.pop_observed_params("attack")
         self.assertEqual((7, 4), params)
 
     def test_pop_observed_params_wound_check(self):
-        rp = TestRollProvider()
+        rp = CalvinistRollProvider()
         rp.put_wound_check_roll(30)
         rp.get_wound_check_roll(5, 3)
         params = rp.pop_observed_params("wound_check")
         self.assertEqual((5, 3), params)
 
     def test_get_skill_roll_with_explode_false(self):
-        rp = TestRollProvider()
+        rp = CalvinistRollProvider()
         rp.put_skill_roll("attack", 99)
         result = rp.get_skill_roll("attack", 5, 3, explode=False)
         self.assertEqual(99, result)
@@ -1255,14 +1255,14 @@ class TestDefaultRollProviderMethods(unittest.TestCase):
         self.assertIsNone(rp.die_provider())
 
     def test_die_provider_set(self):
-        from simulation.mechanics.roll import TestDice
-        td = TestDice()
+        from simulation.mechanics.roll import CalvinistDice
+        td = CalvinistDice()
         rp = DefaultRollProvider(die_provider=td)
         self.assertIs(td, rp.die_provider())
 
     def test_get_damage_roll(self):
-        from simulation.mechanics.roll import TestDice
-        td = TestDice()
+        from simulation.mechanics.roll import CalvinistDice
+        td = CalvinistDice()
         td.extend([8, 5, 3, 7])
         rp = DefaultRollProvider(die_provider=td)
         result = rp.get_damage_roll(4, 2)
@@ -1271,8 +1271,8 @@ class TestDefaultRollProviderMethods(unittest.TestCase):
         self.assertEqual(15, result)
 
     def test_get_skill_roll(self):
-        from simulation.mechanics.roll import TestDice
-        td = TestDice()
+        from simulation.mechanics.roll import CalvinistDice
+        td = CalvinistDice()
         td.extend([6, 4, 9])
         rp = DefaultRollProvider(die_provider=td)
         result = rp.get_skill_roll("attack", 3, 2)
@@ -1280,8 +1280,8 @@ class TestDefaultRollProviderMethods(unittest.TestCase):
         self.assertEqual(15, result)
 
     def test_get_skill_roll_no_explode(self):
-        from simulation.mechanics.roll import TestDice
-        td = TestDice()
+        from simulation.mechanics.roll import CalvinistDice
+        td = CalvinistDice()
         td.extend([6, 4, 9])
         rp = DefaultRollProvider(die_provider=td)
         result = rp.get_skill_roll("attack", 3, 2, explode=False)
@@ -1289,8 +1289,8 @@ class TestDefaultRollProviderMethods(unittest.TestCase):
         self.assertEqual(15, result)
 
     def test_get_initiative_roll(self):
-        from simulation.mechanics.roll import TestDice
-        td = TestDice()
+        from simulation.mechanics.roll import CalvinistDice
+        td = CalvinistDice()
         td.extend([3, 7, 1, 5])
         rp = DefaultRollProvider(die_provider=td)
         result = rp.get_initiative_roll(4, 3)
@@ -1299,8 +1299,8 @@ class TestDefaultRollProviderMethods(unittest.TestCase):
         self.assertEqual([1, 3, 5], result)
 
     def test_get_wound_check_roll(self):
-        from simulation.mechanics.roll import TestDice
-        td = TestDice()
+        from simulation.mechanics.roll import CalvinistDice
+        td = CalvinistDice()
         td.extend([5, 8, 3, 6])
         rp = DefaultRollProvider(die_provider=td)
         result = rp.get_wound_check_roll(4, 2)

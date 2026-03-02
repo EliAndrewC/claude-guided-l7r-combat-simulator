@@ -15,7 +15,7 @@ from simulation.engine import CombatEngine
 from simulation.events import LightWoundsDamageEvent, NewPhaseEvent
 from simulation.groups import Group
 from simulation.mechanics.initiative_actions import InitiativeAction
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 from simulation.schools.kakita_school import ContestedIaijutsuAttackAction, ContestedIaijutsuAttackDeclaredEvent, ContestedIaijutsuAttackRolledEvent, KakitaAttackAction, KakitaBushiSchool, KakitaNewPhaseListener, KakitaRollParameterProvider, TakeContestedIaijutsuAttackAction
 
 
@@ -255,11 +255,11 @@ class TestTakeContestedIaijutsuAttackAction(unittest.TestCase):
         defender_skill_roll = 30
         challenger_damage_roll = 1
         defender_wound_check_roll = 100
-        challenger_roll_provider = TestRollProvider()
+        challenger_roll_provider = CalvinistRollProvider()
         challenger_roll_provider.put_skill_roll("iaijutsu", challenger_skill_roll)
         challenger_roll_provider.put_damage_roll(challenger_damage_roll)
         self.kakita.set_roll_provider(challenger_roll_provider)
-        defender_roll_provider = TestRollProvider()
+        defender_roll_provider = CalvinistRollProvider()
         defender_roll_provider.put_skill_roll("attack", defender_skill_roll)
         defender_roll_provider.put_wound_check_roll(defender_wound_check_roll)
         self.target.set_roll_provider(defender_roll_provider)

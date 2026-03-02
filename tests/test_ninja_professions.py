@@ -22,8 +22,8 @@ from simulation.mechanics.ninja_rolls import (
     NinjaDamageReductionRoll,
     NinjaWoundCheckRoll,
 )
-from simulation.mechanics.roll import TestDice
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll import CalvinistDice
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 from simulation.professions import (
     ATTACK_BONUS,
     ATTACK_PENALTY,
@@ -50,7 +50,7 @@ class TestNinjaDamageReductionRoll(unittest.TestCase):
     """Tests for NinjaDamageReductionRoll."""
 
     def test_no_tens_no_reduction(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([3, 5, 7, 8, 9, 4])
         roll = NinjaDamageReductionRoll(6, 3, reduction=0, die_provider=test_dice)
         # top 3: 9, 8, 7 = 24
@@ -58,7 +58,7 @@ class TestNinjaDamageReductionRoll(unittest.TestCase):
 
     def test_tens_no_reduction(self):
         # With 0 reduction, all tens should reroll (min 1 = all of them)
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         # Initial rolls: 3, 5, 10, 10, 9, 4
         # Two 10s, reduction=0, reroll_count = max(1, 2-0) = 2
         # Both 10s reroll: 10+3=13, 10+5=15
@@ -68,7 +68,7 @@ class TestNinjaDamageReductionRoll(unittest.TestCase):
         self.assertEqual(37, roll.roll())
 
     def test_tens_reduction_one(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         # Initial rolls: 3, 5, 10, 10, 9, 4
         # Two 10s, reduction=1, reroll_count = max(1, 2-1) = 1
         # Only one 10 rerolls: 10+3=13; other stays as 10
@@ -78,7 +78,7 @@ class TestNinjaDamageReductionRoll(unittest.TestCase):
         self.assertEqual(32, roll.roll())
 
     def test_tens_reduction_two(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         # Initial rolls: 3, 5, 10, 10, 9, 4
         # Two 10s, reduction=2, reroll_count = max(1, 2-2) = 1
         # Only one 10 rerolls (min 1): 10+3=13; other stays as 10
@@ -88,7 +88,7 @@ class TestNinjaDamageReductionRoll(unittest.TestCase):
         self.assertEqual(32, roll.roll())
 
     def test_single_ten_with_reduction(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         # Initial rolls: 3, 5, 10, 8, 9, 4
         # One 10, reduction=1, reroll_count = max(1, 1-1) = 1
         # The one 10 still rerolls (min 1): 10+6=16
@@ -98,7 +98,7 @@ class TestNinjaDamageReductionRoll(unittest.TestCase):
         self.assertEqual(33, roll.roll())
 
     def test_no_tens(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([3, 5, 7, 8, 9, 4])
         roll = NinjaDamageReductionRoll(6, 3, reduction=1, die_provider=test_dice)
         # No tens to reroll, top 3: 9+8+7 = 24
@@ -109,14 +109,14 @@ class TestNinjaWoundCheckRoll(unittest.TestCase):
     """Tests for NinjaWoundCheckRoll."""
 
     def test_level_one_no_low_dice(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([5, 6, 7, 8])
         roll = NinjaWoundCheckRoll(4, 2, ability_level=1, die_provider=test_dice)
         # No dice < 5, top 2: 8+7 = 15
         self.assertEqual(15, roll.roll())
 
     def test_level_one_with_low_dice(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([1, 2, 3, 4])
         roll = NinjaWoundCheckRoll(4, 2, ability_level=1, die_provider=test_dice)
         # dice < 5 get bonus of 1*(5-X):
@@ -125,7 +125,7 @@ class TestNinjaWoundCheckRoll(unittest.TestCase):
         self.assertEqual(10, roll.roll())
 
     def test_level_two_with_low_dice(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([1, 2, 3, 4])
         roll = NinjaWoundCheckRoll(4, 2, ability_level=2, die_provider=test_dice)
         # dice < 5 get bonus of 2*(5-X):
@@ -134,7 +134,7 @@ class TestNinjaWoundCheckRoll(unittest.TestCase):
         self.assertEqual(17, roll.roll())
 
     def test_level_one_mixed_dice(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([1, 7, 3, 9])
         roll = NinjaWoundCheckRoll(4, 2, ability_level=1, die_provider=test_dice)
         # 1 -> 1+4=5, 7 stays, 3 -> 3+2=5, 9 stays
@@ -146,14 +146,14 @@ class TestNinjaDamageKeepRoll(unittest.TestCase):
     """Tests for NinjaDamageKeepRoll."""
 
     def test_no_extra(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([3, 5, 7, 8, 9, 4, 6])
         roll = NinjaDamageKeepRoll(7, 3, extra_lowest=0, die_provider=test_dice)
         # top 3: 9+8+7 = 24
         self.assertEqual(24, roll.roll())
 
     def test_extra_lowest_two(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([3, 5, 7, 8, 9, 4, 6])
         roll = NinjaDamageKeepRoll(7, 3, extra_lowest=2, die_provider=test_dice)
         # sorted desc: [9, 8, 7, 6, 5, 4, 3]
@@ -163,7 +163,7 @@ class TestNinjaDamageKeepRoll(unittest.TestCase):
         self.assertEqual(31, roll.roll())
 
     def test_extra_lowest_four(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([3, 5, 7, 8, 9, 4, 6])
         roll = NinjaDamageKeepRoll(7, 3, extra_lowest=4, die_provider=test_dice)
         # sorted desc: [9, 8, 7, 6, 5, 4, 3]
@@ -173,7 +173,7 @@ class TestNinjaDamageKeepRoll(unittest.TestCase):
         self.assertEqual(42, roll.roll())
 
     def test_extra_lowest_exceeds_unkept(self):
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([3, 5, 7, 8])
         roll = NinjaDamageKeepRoll(4, 3, extra_lowest=4, die_provider=test_dice)
         # sorted desc: [8, 7, 5, 3]
@@ -440,7 +440,7 @@ class TestNinjaInitiativeReductionAbility(unittest.TestCase):
         ability = get_profession_ability(INITIATIVE_REDUCTION)
         ability.apply(ninja, ninja.profession())
         # Set up a rigged initiative roll
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_initiative_roll([3, 5, 7])
         ninja.set_roll_provider(roll_provider)
         dummy = Character("dummy")
@@ -459,7 +459,7 @@ class TestNinjaInitiativeReductionAbility(unittest.TestCase):
         ninja.profession().take_ability(INITIATIVE_REDUCTION)
         ability = get_profession_ability(INITIATIVE_REDUCTION)
         ability.apply(ninja, ninja.profession())
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_initiative_roll([3, 5, 7])
         ninja.set_roll_provider(roll_provider)
         dummy = Character("dummy")
@@ -477,7 +477,7 @@ class TestNinjaInitiativeReductionAbility(unittest.TestCase):
         ninja.profession().take_ability(INITIATIVE_REDUCTION)
         ability = get_profession_ability(INITIATIVE_REDUCTION)
         ability.apply(ninja, ninja.profession())
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_initiative_roll([1, 2, 3])
         ninja.set_roll_provider(roll_provider)
         dummy = Character("dummy")
@@ -500,7 +500,7 @@ class TestNinjaDamageKeepingBonusAbility(unittest.TestCase):
         ability = get_profession_ability(DAMAGE_KEEPING_BONUS)
         ability.apply(ninja, ninja.profession())
         # Rig damage roll with test dice
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         provider = NinjaRollProvider(ninja.profession(), die_provider=test_dice)
         ninja.set_roll_provider(provider)
         # Roll 6k2 with extra_lowest=2
@@ -519,7 +519,7 @@ class TestNinjaDamageKeepingBonusAbility(unittest.TestCase):
         ninja.profession().take_ability(DAMAGE_KEEPING_BONUS)
         ability = get_profession_ability(DAMAGE_KEEPING_BONUS)
         ability.apply(ninja, ninja.profession())
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         provider = NinjaRollProvider(ninja.profession(), die_provider=test_dice)
         ninja.set_roll_provider(provider)
         # Roll 6k2 with extra_lowest=4
@@ -540,7 +540,7 @@ class TestNinjaWoundCheckBonusAbility(unittest.TestCase):
         ninja.profession().take_ability(WOUND_CHECK_NINJA_BONUS)
         ability = get_profession_ability(WOUND_CHECK_NINJA_BONUS)
         ability.apply(ninja, ninja.profession())
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         provider = NinjaRollProvider(ninja.profession(), die_provider=test_dice)
         ninja.set_roll_provider(provider)
         # Roll wound check 4k3
@@ -559,7 +559,7 @@ class TestNinjaWoundCheckBonusAbility(unittest.TestCase):
         ninja.profession().take_ability(WOUND_CHECK_NINJA_BONUS)
         ability = get_profession_ability(WOUND_CHECK_NINJA_BONUS)
         ability.apply(ninja, ninja.profession())
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         provider = NinjaRollProvider(ninja.profession(), die_provider=test_dice)
         ninja.set_roll_provider(provider)
         # Roll wound check 4k3
@@ -640,7 +640,7 @@ class TestNinjaRollProvider(unittest.TestCase):
 
     def test_normal_damage_roll_without_keeping_bonus(self):
         profession = Profession()
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         provider = NinjaRollProvider(profession, die_provider=test_dice)
         # No keeping bonus ability, should behave like normal
         test_dice.extend([3, 5, 7, 8, 9, 6])
@@ -650,7 +650,7 @@ class TestNinjaRollProvider(unittest.TestCase):
 
     def test_normal_wound_check_without_bonus(self):
         profession = Profession()
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         provider = NinjaRollProvider(profession, die_provider=test_dice)
         # No wound check bonus, should behave like normal
         test_dice.extend([3, 5, 7, 8])

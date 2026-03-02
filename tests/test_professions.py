@@ -18,8 +18,8 @@ from simulation.events import AddModifierEvent, AttackSucceededEvent
 from simulation.groups import Group
 from simulation.log import logger
 from simulation.mechanics.initiative_actions import InitiativeAction
-from simulation.mechanics.roll import TestDice
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll import CalvinistDice
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 from simulation.mechanics.weapons import KATANA, TANTO, UNARMED, YARI
 
 # set up logging
@@ -55,7 +55,7 @@ class TestWaveManAttackAction(unittest.TestCase):
 
     def test_miss_no_abilities(self):
         # rig attack roll to miss
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("attack", 24)
         self.attacker.set_roll_provider(roll_provider)
         # set up attack
@@ -103,7 +103,7 @@ class TestWaveManAttackAction(unittest.TestCase):
     def test_missed_attack_bonus_level_one_hit_with_ability(self):
         self.attacker.profession().take_ability(professions.MISSED_ATTACK_BONUS)
         # rig attack roll to miss by five
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("attack", 20)
         self.attacker.set_roll_provider(roll_provider)
         # set up attack
@@ -118,7 +118,7 @@ class TestWaveManAttackAction(unittest.TestCase):
     def test_missed_attack_bonus_level_one_miss_with_ability(self):
         self.attacker.profession().take_ability(professions.MISSED_ATTACK_BONUS)
         # rig attack roll to miss by six
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("attack", 19)
         self.attacker.set_roll_provider(roll_provider)
         # set up attack
@@ -134,7 +134,7 @@ class TestWaveManAttackAction(unittest.TestCase):
         self.attacker.profession().take_ability(professions.MISSED_ATTACK_BONUS)
         self.attacker.profession().take_ability(professions.MISSED_ATTACK_BONUS)
         # rig attack roll to miss by ten
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("attack", 15)
         self.attacker.set_roll_provider(roll_provider)
         # set up attack
@@ -150,7 +150,7 @@ class TestWaveManAttackAction(unittest.TestCase):
         self.attacker.profession().take_ability(professions.MISSED_ATTACK_BONUS)
         self.attacker.profession().take_ability(professions.MISSED_ATTACK_BONUS)
         # rig attack roll to miss by eleven
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("attack", 14)
         self.attacker.set_roll_provider(roll_provider)
         # set up attack
@@ -185,7 +185,7 @@ class TestWaveManAttackAction(unittest.TestCase):
         self.attacker.profession().take_ability(professions.MISSED_ATTACK_BONUS)
         self.attacker.profession().take_ability(professions.PARRY_PENALTY)
         # rig attack roll to miss by five
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("attack", 20)
         self.attacker.set_roll_provider(roll_provider)
         # set up attack
@@ -201,7 +201,7 @@ class TestWaveManAttackAction(unittest.TestCase):
     def test_rolled_damage_bonus_level_one(self):
         self.attacker.profession().take_ability(professions.ROLLED_DAMAGE_BONUS)
         # first try a roll with a remainder divided by five
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_damage_roll(16)
         self.attacker.set_roll_provider(roll_provider)
         # set up attack and make it a hit
@@ -223,7 +223,7 @@ class TestWaveManAttackAction(unittest.TestCase):
         self.attacker.profession().take_ability(professions.ROLLED_DAMAGE_BONUS)
         self.attacker.profession().take_ability(professions.ROLLED_DAMAGE_BONUS)
         # first try a roll with a remainder divided by five
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_damage_roll(16)
         self.attacker.set_roll_provider(roll_provider)
         # set up attack and make it a hit
@@ -318,49 +318,49 @@ class TestWaveManRoll(unittest.TestCase):
 
     def test_normal_roll(self):
         # test case for WaveManRoll that acts like a normal roll
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([1, 1, 3, 5, 7, 9])
         roll = professions.WaveManRoll(6, 3, die_provider=test_dice)
         self.assertEqual(21, roll.roll())
 
     def test_no_tens_reroll_one(self):
         # test case for WaveManRoll that could reroll one die, but got no tens
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([1, 1, 3, 5, 7, 9, 1, 2])
         roll = professions.WaveManRoll(6, 3, always_explode=1, die_provider=test_dice, explode=False)
         self.assertEqual(21, roll.roll())
 
     def test_no_tens_reroll_two(self):
         # test case for WaveManRoll that could reroll two dice, but got no tens
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([1, 1, 3, 5, 7, 9, 1, 2])
         roll = professions.WaveManRoll(6, 3, always_explode=2, die_provider=test_dice, explode=False)
         self.assertEqual(21, roll.roll())
 
     def test_tens_no_reroll(self):
         # test case for WaveManRoll that got tens but cannot reroll them
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([1, 3, 5, 7, 10, 10, 1, 2])
         roll = professions.WaveManRoll(6, 3, die_provider=test_dice, explode=False)
         self.assertEqual(27, roll.roll())
 
     def test_tens_reroll_one(self):
         # test case for WaveManRoll that got tens and can reroll one of them
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([1, 3, 5, 7, 10, 10, 1, 2])
         roll = professions.WaveManRoll(6, 3, always_explode=1, die_provider=test_dice, explode=False)
         self.assertEqual(28, roll.roll())
 
     def test_tens_reroll_two(self):
         # test case for WaveManRoll that got tens and can reroll two of them
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([1, 3, 5, 7, 10, 10, 1, 2])
         roll = professions.WaveManRoll(6, 3, always_explode=2, die_provider=test_dice, explode=False)
         self.assertEqual(30, roll.roll())
 
     def test_tens_continue_exploding(self):
         # test case for WaveManRoll with tens exploding to tens
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         test_dice.extend([1, 1, 3, 5, 7, 10, 10, 1, 2])
         roll = professions.WaveManRoll(6, 3, always_explode=2, die_provider=test_dice, explode=False)
         self.assertEqual(33, roll.roll())
@@ -491,7 +491,7 @@ class TestWaveManRollProvider(unittest.TestCase):
 
     def test_ability_level_zero(self):
         self.assertTrue(self.character.crippled())
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         provider = professions.WaveManRollProvider(self.character.profession(), die_provider=test_dice)
         self.character.set_roll_provider(provider)
         # test a roll with no tens directly through the roll provider
@@ -517,7 +517,7 @@ class TestWaveManRollProvider(unittest.TestCase):
     def test_ability_level_one(self):
         self.assertTrue(self.character.crippled())
         self.character.profession().take_ability(professions.CRIPPLED_BONUS)
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         provider = professions.WaveManRollProvider(self.character.profession(), die_provider=test_dice)
         self.character.set_roll_provider(provider)
         # test a roll with no tens directly through the roll provider
@@ -544,7 +544,7 @@ class TestWaveManRollProvider(unittest.TestCase):
         self.assertTrue(self.character.crippled())
         self.character.profession().take_ability(professions.CRIPPLED_BONUS)
         self.character.profession().take_ability(professions.CRIPPLED_BONUS)
-        test_dice = TestDice()
+        test_dice = CalvinistDice()
         provider = professions.WaveManRollProvider(self.character.profession(), die_provider=test_dice)
         self.character.set_roll_provider(provider)
         # test a roll with no tens directly through the roll provider
@@ -585,7 +585,7 @@ class TestWaveManTakeAttackActionEvent(unittest.TestCase):
         character.set_profession(professions.Profession())
         self.character = character
         # rig the character's damage roll
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("damage", 17)
         self.character.set_roll_provider(roll_provider)
         # set up a target

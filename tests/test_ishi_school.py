@@ -13,10 +13,11 @@ import unittest
 from simulation import actions, events
 from simulation.character import Character
 from simulation.context import EngineContext
+from simulation.formation import LineFormation
 from simulation.groups import Group
 from simulation.log import logger
 from simulation.mechanics.initiative_actions import InitiativeAction
-from simulation.mechanics.roll_provider import TestRollProvider
+from simulation.mechanics.roll_provider import CalvinistRollProvider
 from simulation.schools import ishi_school
 
 # set up logging
@@ -123,7 +124,7 @@ class TestIshiAllyBoostListener(unittest.TestCase):
         self.initiative_action = InitiativeAction([1], 1)
 
     def test_boost_ally_attack(self):
-        roll_provider = TestRollProvider()
+        roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("precepts", 8)
         self.ishi.set_roll_provider(roll_provider)
         action = actions.AttackAction(self.ally, self.enemy, "attack", self.initiative_action, self.context)
@@ -164,6 +165,41 @@ class TestIshiAllyBoostListener(unittest.TestCase):
         listener = ishi_school.IshiAllyBoostListener()
         responses = list(listener.handle(self.ishi, event, self.context))
         self.assertEqual(0, len(responses))
+
+
+class TestIshiAllyBoostNonAdjacent(unittest.TestCase):
+    """3rd Dan: Boost should NOT apply to non-adjacent allies."""
+
+    def test_no_boost_for_non_adjacent_ally(self):
+        """When the Ishi is not adjacent to the ally, no boost is given."""
+        ishi = Character("Ishi")
+        ishi.set_skill("precepts", 3)
+        ishi.set_actions([1])
+        filler = Character("Filler")
+        filler.set_actions([1])
+        ally = Character("Ally")
+        ally.set_actions([1])
+        enemy = Character("Enemy")
+        enemy.set_actions([1])
+        # Ishi at pos 0, Filler at pos 1, Ally at pos 2
+        # Ishi is NOT adjacent to Ally
+        formation = LineFormation([[ishi, filler, ally], [enemy]])
+        groups = [Group("Phoenix", [ishi, filler, ally]), Group("Enemy", enemy)]
+        context = EngineContext(groups, formation=formation)
+        initiative_action = InitiativeAction([1], 1)
+
+        roll_provider = CalvinistRollProvider()
+        roll_provider.put_skill_roll("precepts", 8)
+        ishi.set_roll_provider(roll_provider)
+
+        action = actions.AttackAction(ally, enemy, "attack", initiative_action, context)
+        action.set_skill_roll(25)
+        event = events.AttackRolledEvent(action, 25)
+        listener = ishi_school.IshiAllyBoostListener()
+        responses = list(listener.handle(ishi, event, context))
+        # Should NOT boost because non-adjacent — should observe and interrupt instead
+        for response in responses:
+            self.assertNotIsInstance(response, events.SpendVoidPointsEvent)
 
 
 class TestIshiFourthDan(unittest.TestCase):
