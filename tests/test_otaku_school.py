@@ -41,6 +41,14 @@ class TestOtakuBushiSchoolBasics(unittest.TestCase):
         school = otaku_school.OtakuBushiSchool()
         self.assertEqual(["wound check"], school.free_raise_skills())
 
+    def test_name(self):
+        school = otaku_school.OtakuBushiSchool()
+        self.assertEqual("Otaku Bushi School", school.name())
+
+    def test_ap_base_skill(self):
+        school = otaku_school.OtakuBushiSchool()
+        self.assertIsNone(school.ap_base_skill())
+
 
 class TestOtakuSpecialAbility(unittest.TestCase):
     def test_interrupt_lunge_cost(self):
@@ -76,6 +84,43 @@ class TestOtakuLightWoundsDamageListener(unittest.TestCase):
         list(listener.handle(self.otaku, event, self.context))
         # increase = max(1, 6 - 6) = 1
         self.assertEqual([6, 8], self.target.actions())
+
+    def test_observe_others_damage(self):
+        """When another character deals damage, the Otaku observes the damage roll."""
+        listener = otaku_school.OtakuLightWoundsDamageListener()
+        # target attacks someone (not the Otaku), so event.subject != character (Otaku)
+        event = events.LightWoundsDamageEvent(self.target, self.target, 20)
+        list(listener.handle(self.otaku, event, self.context))
+        # Otaku should have observed the damage roll
+        avg = self.otaku.knowledge().average_damage_roll(self.target)
+        self.assertEqual(20, avg)
+
+    def test_otaku_is_target_takes_lw_and_wound_check(self):
+        """When Otaku is the target, should take LW and trigger wound check."""
+        from simulation.mechanics.roll_provider import CalvinistRollProvider
+        # need to initialize context for probability provider
+        self.context.initialize()
+        listener = otaku_school.OtakuLightWoundsDamageListener()
+        # rig the wound check so the strategy can work
+        roll_provider = CalvinistRollProvider()
+        roll_provider.put_wound_check_roll(100)
+        self.otaku.set_roll_provider(roll_provider)
+        event = events.LightWoundsDamageEvent(self.target, self.otaku, 12)
+        responses = list(listener.handle(self.otaku, event, self.context))
+        # Otaku should have taken 12 LW
+        self.assertEqual(12, self.otaku.lw())
+        # Should have triggered wound check strategy (yielded wound check declared event)
+        self.assertTrue(len(responses) >= 1)
+
+    def test_otaku_is_target_zero_damage(self):
+        """When Otaku is the target but damage is 0, no wound check should occur."""
+        listener = otaku_school.OtakuLightWoundsDamageListener()
+        event = events.LightWoundsDamageEvent(self.target, self.otaku, 0)
+        responses = list(listener.handle(self.otaku, event, self.context))
+        # Otaku takes 0 LW
+        self.assertEqual(0, self.otaku.lw())
+        # No wound check for 0 damage
+        self.assertEqual(0, len(responses))
 
 
 class TestOtakuLungeAction(unittest.TestCase):
@@ -225,6 +270,90 @@ class TestOtakuFifthDanTakeAttackActionEvent(unittest.TestCase):
         self.assertEqual(1, len(result_events))
         self.assertIsInstance(result_events[0], events.LightWoundsDamageEvent)
         self.assertEqual(15, result_events[0].damage)
+
+
+class TestOtakuFifthDanTakeAttackActionEventPlay(unittest.TestCase):
+    """Test the full play() method of OtakuFifthDanTakeAttackActionEvent."""
+
+    def setUp(self):
+        from simulation.mechanics.roll_provider import CalvinistRollProvider
+
+        self.otaku = Character("Otaku")
+        self.otaku.set_ring("fire", 5)
+        self.otaku.set_skill("attack", 5)
+        self.otaku.set_actions([1])
+        self.target = Character("target")
+        self.target.set_skill("parry", 1)
+        self.target.set_actions([2])
+        groups = [Group("Unicorn", self.otaku), Group("Enemy", self.target)]
+        self.context = EngineContext(groups, round=1, phase=1)
+        self.context.initialize()
+        self.initiative_action = InitiativeAction([1], 1)
+        self.roll_provider = CalvinistRollProvider()
+        self.otaku.set_roll_provider(self.roll_provider)
+
+    def _make_attack_action(self, skill="attack"):
+        from simulation.actions import AttackAction
+        return AttackAction(
+            self.otaku, self.target, skill, self.initiative_action, self.context,
+        )
+
+    def test_play_hit_with_trade(self):
+        """Full play() flow: hit with enough dice to trigger the 5th Dan trade."""
+        action = self._make_attack_action()
+        # rig skill roll to hit (TN=10) with many extra damage dice
+        self.roll_provider.put_skill_roll("attack", 60)
+        self.roll_provider.put_damage_roll(25)
+        take_event = otaku_school.OtakuFifthDanTakeAttackActionEvent(action)
+        result_events = list(take_event.play(self.context))
+        # Should include: AttackDeclaredEvent, AttackRolledEvent, AttackSucceededEvent,
+        #                 SeriousWoundsDamageEvent, LightWoundsDamageEvent
+        event_types = [type(e).__name__ for e in result_events]
+        self.assertIn("AttackDeclaredEvent", event_types)
+        self.assertIn("AttackSucceededEvent", event_types)
+        self.assertIn("SeriousWoundsDamageEvent", event_types)
+        self.assertIn("LightWoundsDamageEvent", event_types)
+
+    def test_play_hit_normal_damage(self):
+        """Full play() flow: hit but not enough dice for trade."""
+        action = self._make_attack_action()
+        # rig skill roll just barely above TN
+        self.roll_provider.put_skill_roll("attack", 15)
+        self.roll_provider.put_damage_roll(12)
+        take_event = otaku_school.OtakuFifthDanTakeAttackActionEvent(action)
+        result_events = list(take_event.play(self.context))
+        event_types = [type(e).__name__ for e in result_events]
+        self.assertIn("AttackDeclaredEvent", event_types)
+        self.assertIn("AttackSucceededEvent", event_types)
+        self.assertIn("LightWoundsDamageEvent", event_types)
+        # Should NOT have auto SW
+        self.assertNotIn("SeriousWoundsDamageEvent", event_types)
+
+    def test_play_miss(self):
+        """Full play() flow: miss should yield AttackFailedEvent."""
+        action = self._make_attack_action()
+        # rig skill roll to miss (TN=10)
+        self.roll_provider.put_skill_roll("attack", 1)
+        take_event = otaku_school.OtakuFifthDanTakeAttackActionEvent(action)
+        result_events = list(take_event.play(self.context))
+        event_types = [type(e).__name__ for e in result_events]
+        self.assertIn("AttackDeclaredEvent", event_types)
+        self.assertIn("AttackFailedEvent", event_types)
+        self.assertNotIn("AttackSucceededEvent", event_types)
+
+    def test_play_subject_not_fighting(self):
+        """If subject is defeated before roll, play() should return early."""
+        action = self._make_attack_action()
+        self.roll_provider.put_skill_roll("attack", 60)
+        # defeat the Otaku before playing
+        self.otaku.take_sw(self.otaku.max_sw())
+        take_event = otaku_school.OtakuFifthDanTakeAttackActionEvent(action)
+        result_events = list(take_event.play(self.context))
+        # Should only yield the declare event then stop
+        event_types = [type(e).__name__ for e in result_events]
+        self.assertIn("AttackDeclaredEvent", event_types)
+        self.assertNotIn("AttackRolledEvent", event_types)
+        self.assertNotIn("AttackSucceededEvent", event_types)
 
 
 class TestOtakuFifthDanTakeActionEventFactory(unittest.TestCase):

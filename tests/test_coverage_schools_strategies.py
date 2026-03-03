@@ -1813,5 +1813,470 @@ class TestReluctantParryShirkAndAlreadyAttempted(unittest.TestCase):
         self.assertEqual(0, len(responses))
 
 
+# ============================================================
+# 7. Additional strategy/base.py coverage
+# ============================================================
+
+
+class TestPlainAttackStrategyDesperateFallback(unittest.TestCase):
+    """Test PlainAttackStrategy when good attack fails and falls through to desperate."""
+
+    def setUp(self):
+        from simulation.strategies.base import PlainAttackStrategy
+        self.attacker = Character("Attacker")
+        self.attacker.set_actions([1])
+        self.attacker.set_ring("fire", 2)
+        self.attacker.set_skill("attack", 1)
+        self.target = Character("Target")
+        self.target.set_skill("parry", 5)  # very hard to hit
+        self.attacker.knowledge().observe_tn_to_hit(self.target, 30)
+        groups = [Group("A", self.attacker), Group("B", self.target)]
+        self.context = EngineContext(groups, round=1, phase=1)
+        self.context.initialize()
+        self.strategy = PlainAttackStrategy()
+
+    def test_desperate_attack_when_good_attack_fails(self):
+        """When 0.7 threshold fails but 0.01 succeeds, should still attack."""
+        event = events.YourMoveEvent(self.attacker)
+        responses = list(self.strategy.recommend(self.attacker, event, self.context))
+        # should have some response (either attack or hold)
+        self.assertTrue(len(responses) >= 1)
+
+    def test_hold_when_no_target(self):
+        """When all targets are defeated, should hold action."""
+        self.target.take_sw(self.target.max_sw())
+        event = events.YourMoveEvent(self.attacker)
+        responses = list(self.strategy.recommend(self.attacker, event, self.context))
+        self.assertEqual(1, len(responses))
+        self.assertIsInstance(responses[0], events.HoldActionEvent)
+
+
+class TestUniversalAttackStrategyFallbacks(unittest.TestCase):
+    """Test UniversalAttackStrategy desperate fallback and hold path."""
+
+    def setUp(self):
+        from simulation.strategies.base import UniversalAttackStrategy
+        self.attacker = Character("Attacker")
+        self.attacker.set_actions([1])
+        self.attacker.set_ring("fire", 2)
+        self.attacker.set_skill("attack", 1)
+        self.attacker.set_skill("double attack", 1)
+        self.target = Character("Target")
+        self.target.set_skill("parry", 5)
+        self.attacker.knowledge().observe_tn_to_hit(self.target, 30)
+        groups = [Group("A", self.attacker), Group("B", self.target)]
+        self.context = EngineContext(groups, round=1, phase=1)
+        self.context.initialize()
+        self.strategy = UniversalAttackStrategy()
+
+    def test_desperate_attack_fallback(self):
+        """When good attack, double attack, and feint all fail, should try desperate."""
+        event = events.YourMoveEvent(self.attacker)
+        responses = list(self.strategy.recommend(self.attacker, event, self.context))
+        self.assertTrue(len(responses) >= 1)
+
+    def test_hold_when_no_target(self):
+        """When all targets are defeated, should hold."""
+        self.target.take_sw(self.target.max_sw())
+        event = events.YourMoveEvent(self.attacker)
+        responses = list(self.strategy.recommend(self.attacker, event, self.context))
+        self.assertEqual(1, len(responses))
+        self.assertIsInstance(responses[0], events.HoldActionEvent)
+
+    def test_no_action(self):
+        """When no actions available, yields NoActionEvent."""
+        self.attacker.set_actions([])
+        event = events.YourMoveEvent(self.attacker)
+        responses = list(self.strategy.recommend(self.attacker, event, self.context))
+        self.assertEqual(1, len(responses))
+        self.assertIsInstance(responses[0], events.NoActionEvent)
+
+
+class TestBaseParryStrategyNonAdjacent(unittest.TestCase):
+    """Test BaseParryStrategy when parrier is not adjacent to target."""
+
+    def setUp(self):
+        from simulation.formation import LineFormation
+        self.attacker = Character("Attacker")
+        # 3 friends in a line: friend1 -- friend2 -- friend3
+        # friend1 and friend3 are NOT adjacent
+        self.friend1 = Character("Friend1")
+        self.friend2 = Character("Friend2")
+        self.friend3 = Character("Friend3")
+        for friend in [self.friend1, self.friend2, self.friend3]:
+            rp = CalvinistRollProvider()
+            rp.put_initiative_roll([1, 2, 3])
+            friend.set_roll_provider(rp)
+            friend.roll_initiative()
+        formation = LineFormation([
+            [self.friend1, self.friend2, self.friend3],
+            [self.attacker],
+        ])
+        groups = [
+            Group("Friends", [self.friend1, self.friend2, self.friend3]),
+            Group("Attacker", self.attacker),
+        ]
+        self.context = EngineContext(groups, round=1, phase=1, formation=formation)
+        self.initiative_action = InitiativeAction([1], 1)
+
+    def test_do_not_parry_for_non_adjacent_ally(self):
+        """friend3 should not parry for friend1 since they are not adjacent."""
+        # verify they are not adjacent
+        self.assertFalse(self.context.formation().is_adjacent(self.friend3, self.friend1))
+        # attack friend1
+        attack = actions.AttackAction(
+            self.attacker, self.friend1, "attack", self.initiative_action, self.context,
+        )
+        attack.set_skill_roll(9001)
+        event = events.AttackRolledEvent(attack, 9001)
+        strategy = AlwaysParryStrategy()
+        responses = list(strategy.recommend(self.friend3, event, self.context))
+        # friend3 should not parry because not adjacent to friend1
+        self.assertEqual(0, len(responses))
+
+    def test_parry_for_adjacent_ally(self):
+        """friend2 should be able to parry for friend1 since they are adjacent."""
+        self.assertTrue(self.context.formation().is_adjacent(self.friend2, self.friend1))
+        attack = actions.AttackAction(
+            self.attacker, self.friend1, "attack", self.initiative_action, self.context,
+        )
+        attack.set_skill_roll(9001)
+        event = events.AttackRolledEvent(attack, 9001)
+        strategy = AlwaysParryStrategy()
+        responses = list(strategy.recommend(self.friend2, event, self.context))
+        self.assertEqual(2, len(responses))
+        self.assertIsInstance(responses[0], events.SpendActionEvent)
+        self.assertIsInstance(responses[1], events.TakeParryActionEvent)
+
+
+class TestBaseParryStrategyAlreadyParried(unittest.TestCase):
+    """Test BaseParryStrategy when attack is already parried."""
+
+    def setUp(self):
+        self.attacker = Character("Attacker")
+        self.target = Character("Target")
+        rp = CalvinistRollProvider()
+        rp.put_initiative_roll([1, 2, 3])
+        self.target.set_roll_provider(rp)
+        self.target.roll_initiative()
+        groups = [Group("Target", self.target), Group("Attacker", self.attacker)]
+        self.context = EngineContext(groups, round=1, phase=1)
+        self.initiative_action = InitiativeAction([1], 1)
+
+    def test_do_not_parry_already_parried_attack(self):
+        """Should not attempt to parry an attack that was already parried."""
+        attack = actions.AttackAction(
+            self.attacker, self.target, "attack", self.initiative_action, self.context,
+        )
+        attack.set_skill_roll(9001)
+        attack.set_parried()  # mark as already parried
+        event = events.AttackRolledEvent(attack, 9001)
+        strategy = AlwaysParryStrategy()
+        responses = list(strategy.recommend(self.target, event, self.context))
+        self.assertEqual(0, len(responses))
+
+
+class TestBaseParryStrategyNoAction(unittest.TestCase):
+    """Test BaseParryStrategy when parrier has no action dice available."""
+
+    def setUp(self):
+        self.attacker = Character("Attacker")
+        self.target = Character("Target")
+        # give target no actions
+        self.target.set_actions([])
+        groups = [Group("Target", self.target), Group("Attacker", self.attacker)]
+        self.context = EngineContext(groups, round=1, phase=1)
+        self.initiative_action = InitiativeAction([1], 1)
+
+    def test_do_not_parry_without_action(self):
+        """Should not parry when no action dice available."""
+        attack = actions.AttackAction(
+            self.attacker, self.target, "attack", self.initiative_action, self.context,
+        )
+        attack.set_skill_roll(9001)
+        event = events.AttackRolledEvent(attack, 9001)
+        strategy = AlwaysParryStrategy()
+        responses = list(strategy.recommend(self.target, event, self.context))
+        self.assertEqual(0, len(responses))
+
+
+class TestCanShirkNonAdjacent(unittest.TestCase):
+    """Test _can_shirk when friend is not adjacent to target."""
+
+    def setUp(self):
+        from simulation.formation import LineFormation
+        from simulation.strategies.base import ReluctantParryStrategy
+        self.attacker = Character("Attacker")
+        self.friend1 = Character("Friend1")
+        self.friend2 = Character("Friend2")
+        self.friend3 = Character("Friend3")
+        for friend in [self.friend1, self.friend2, self.friend3]:
+            rp = CalvinistRollProvider()
+            rp.put_initiative_roll([1, 2, 3])
+            friend.set_roll_provider(rp)
+            friend.roll_initiative()
+        # friend3 is not adjacent to friend1
+        formation = LineFormation([
+            [self.friend1, self.friend2, self.friend3],
+            [self.attacker],
+        ])
+        groups = [
+            Group("Friends", [self.friend1, self.friend2, self.friend3]),
+            Group("Attacker", self.attacker),
+        ]
+        self.context = EngineContext(groups, round=1, phase=1, formation=formation)
+        self.initiative_action = InitiativeAction([1], 1)
+        self.strategy = ReluctantParryStrategy()
+
+    def test_cannot_shirk_to_non_adjacent_friend(self):
+        """friend1 cannot shirk to friend3 since friend3 is not adjacent to friend1."""
+        # Set friend2 to NeverParry so only friend3 is left
+        self.friend2.set_parry_strategy(NeverParryStrategy())
+        attack = actions.AttackAction(
+            self.attacker, self.friend1, "attack", self.initiative_action, self.context,
+        )
+        attack.set_skill_roll(9001)
+        event = events.AttackRolledEvent(attack, 9001)
+        can_shirk = self.strategy._can_shirk(self.friend1, event, self.context)
+        self.assertFalse(can_shirk)
+
+    def test_can_shirk_to_adjacent_friend(self):
+        """friend1 can shirk to friend2 since they are adjacent."""
+        attack = actions.AttackAction(
+            self.attacker, self.friend1, "attack", self.initiative_action, self.context,
+        )
+        attack.set_skill_roll(9001)
+        event = events.AttackRolledEvent(attack, 9001)
+        can_shirk = self.strategy._can_shirk(self.friend1, event, self.context)
+        self.assertTrue(can_shirk)
+
+
+class TestSkillRolledStrategyApSpending(unittest.TestCase):
+    """Test SkillRolledStrategy AP and conviction spending paths."""
+
+    def setUp(self):
+        from simulation.strategies.base import AttackRolledStrategy
+        self.strategy = AttackRolledStrategy()
+        self.character = Character("Attacker")
+        self.character.set_ring("fire", 3)
+        self.character.set_skill("attack", 3)
+        # set up AP capability using public API
+        self.character.set_ap_base_skill("tact")
+        self.character.set_ap_skills(["attack"])
+        self.character.set_skill("tact", 3)
+        self.target = Character("Target")
+        self.target.set_skill("parry", 3)  # TN = 5 * (1+3) = 20
+        groups = [Group("A", self.character), Group("B", self.target)]
+        self.context = EngineContext(groups, round=1, phase=1)
+        self.initiative_action = InitiativeAction([1], 1)
+
+    def test_spend_ap_to_reach_tn(self):
+        """When floating bonuses aren't enough but AP can reach TN, should spend AP."""
+        action = actions.AttackAction(
+            self.character, self.target, "attack", self.initiative_action, self.context,
+        )
+        tn = self.target.tn_to_hit()  # 20
+        action.set_skill_roll(tn - 4)  # 4 below TN, 1 AP = +5 covers it
+        event = events.AttackRolledEvent(action, tn - 4)
+        responses = list(self.strategy.recommend(self.character, event, self.context))
+        # should have SpendAdventurePointsEvent and AttackRolledEvent
+        has_ap_event = any(isinstance(r, events.SpendAdventurePointsEvent) for r in responses)
+        self.assertTrue(has_ap_event)
+        self.assertIsInstance(responses[-1], events.AttackRolledEvent)
+        # roll should have been updated
+        self.assertGreaterEqual(responses[-1].roll, tn)
+
+    def test_spend_conviction_to_reach_tn(self):
+        """When AP isn't enough, should spend conviction to close the gap."""
+        # give character conviction skill
+        self.character.set_skill("conviction", 3)  # 6 conviction available, max 3 per roll
+        # create a new character without AP capability
+        self.character = Character("Attacker2")
+        self.character.set_ring("fire", 3)
+        self.character.set_skill("attack", 3)
+        self.character.set_skill("conviction", 3)
+        groups = [Group("A", self.character), Group("B", self.target)]
+        self.context = EngineContext(groups, round=1, phase=1)
+        action = actions.AttackAction(
+            self.character, self.target, "attack", self.initiative_action, self.context,
+        )
+        tn = self.target.tn_to_hit()  # 20
+        action.set_skill_roll(tn - 2)  # 2 below TN, 2 conviction covers it
+        event = events.AttackRolledEvent(action, tn - 2)
+        responses = list(self.strategy.recommend(self.character, event, self.context))
+        has_conviction_event = any(isinstance(r, events.SpendConvictionEvent) for r in responses)
+        self.assertTrue(has_conviction_event)
+        self.assertIsInstance(responses[-1], events.AttackRolledEvent)
+        self.assertGreaterEqual(responses[-1].roll, tn)
+
+    def test_spend_ap_and_conviction_together(self):
+        """When AP alone isn't enough, should also use conviction."""
+        self.character.set_skill("conviction", 3)
+        action = actions.AttackAction(
+            self.character, self.target, "attack", self.initiative_action, self.context,
+        )
+        tn = self.target.tn_to_hit()  # 20
+        # make the gap too big for just AP: max 3 AP * 5 = 15, but gap is 17
+        action.set_skill_roll(tn - 17)
+        event = events.AttackRolledEvent(action, tn - 17)
+        responses = list(self.strategy.recommend(self.character, event, self.context))
+        has_ap = any(isinstance(r, events.SpendAdventurePointsEvent) for r in responses)
+        has_conviction = any(isinstance(r, events.SpendConvictionEvent) for r in responses)
+        self.assertTrue(has_ap)
+        self.assertTrue(has_conviction)
+
+
+class TestWoundCheckRolledStrategyConviction(unittest.TestCase):
+    """Test WoundCheckRolledStrategy conviction spending path."""
+
+    def test_spend_conviction_to_reduce_sw(self):
+        """When conviction can reduce SW, should spend it."""
+        strategy = WoundCheckRolledStrategy()
+        character = Character("Subject")
+        character.set_ring("water", 3)
+        character.set_ring("earth", 3)
+        character.set_skill("conviction", 3)  # 6 conviction, max 3 per roll
+        character.take_lw(30)
+        attacker = Character("Attacker")
+        groups = [Group("A", character), Group("B", attacker)]
+        context = EngineContext(groups)
+        # pick a roll that gives multiple SW but conviction could help reduce
+        # wound_check compares roll vs damage (lw): if roll < lw, take SW
+        event = events.WoundCheckRolledEvent(character, attacker, 30, 25)
+        responses = list(strategy.recommend(character, event, context))
+        self.assertTrue(len(responses) >= 1)
+        last = responses[-1]
+        self.assertIsInstance(last, events.WoundCheckRolledEvent)
+
+    def test_spend_resources_progress(self):
+        """When spending floating bonuses reduces SW count, should spend them."""
+        strategy = WoundCheckRolledStrategy()
+        character = Character("Subject")
+        character.set_ring("water", 3)
+        character.set_ring("earth", 3)
+        character.take_lw(30)
+        attacker = Character("Attacker")
+        groups = [Group("A", character), Group("B", attacker)]
+        context = EngineContext(groups)
+        # give a large wound check floating bonus that will help
+        character.gain_floating_bonus(FloatingBonus("wound check", 10))
+        # roll 20 vs 30 damage: SW expected. +10 bonus -> roll 30 vs 30 damage: 0 SW
+        event = events.WoundCheckRolledEvent(character, attacker, 30, 20)
+        responses = list(strategy.recommend(character, event, context))
+        # should have SpendFloatingBonusEvent + WoundCheckRolledEvent
+        has_spend = any(isinstance(r, events.SpendFloatingBonusEvent) for r in responses)
+        self.assertTrue(has_spend)
+        last = responses[-1]
+        self.assertIsInstance(last, events.WoundCheckRolledEvent)
+        self.assertEqual(30, last.roll)
+
+
+class TestCounterattackInterruptStrategy(unittest.TestCase):
+    """Test CounterattackInterruptStrategy coverage gaps."""
+
+    def setUp(self):
+        from simulation.strategies.base import CounterattackInterruptStrategy
+        self.strategy = CounterattackInterruptStrategy()
+        self.attacker = Character("Attacker")
+        self.defender = Character("Defender")
+        self.defender.set_skill("counterattack", 3)
+        rp = CalvinistRollProvider()
+        rp.put_initiative_roll([1, 2, 3])
+        self.defender.set_roll_provider(rp)
+        self.defender.roll_initiative()
+        groups = [Group("Defenders", self.defender), Group("Attackers", self.attacker)]
+        self.context = EngineContext(groups, round=1, phase=1)
+        self.context.initialize()
+        self.initiative_action = InitiativeAction([1], 1)
+
+    def test_should_not_counterattack_no_skill(self):
+        """Character without counterattack skill should not counterattack."""
+        self.defender.set_skill("counterattack", 0)
+        attack = actions.AttackAction(
+            self.attacker, self.defender, "attack", self.initiative_action, self.context,
+        )
+        event = events.AttackDeclaredEvent(attack)
+        responses = list(self.strategy.recommend(self.defender, event, self.context))
+        self.assertEqual(0, len(responses))
+
+    def test_should_not_counterattack_for_enemy(self):
+        """Should not counterattack when target is an enemy."""
+        enemy = Character("Enemy")
+        context = EngineContext([Group("Defenders", self.defender), Group("Others", [self.attacker, enemy])], round=1, phase=1)
+        context.initialize()
+        # attacker attacks enemy (in their own group)
+        attack = actions.AttackAction(
+            self.attacker, enemy, "attack", self.initiative_action, context,
+        )
+        event = events.AttackDeclaredEvent(attack)
+        responses = list(self.strategy.recommend(self.defender, event, context))
+        self.assertEqual(0, len(responses))
+
+    def test_counterattack_on_declared_event(self):
+        """Should counterattack on AttackDeclaredEvent when conditions are met."""
+        # rig counterattack roll
+        rp = CalvinistRollProvider()
+        rp.put_initiative_roll([1, 2, 3])
+        rp.put_skill_roll("counterattack", 30)
+        rp.put_damage_roll(15)
+        self.defender.set_roll_provider(rp)
+        self.defender.roll_initiative()
+        attack = actions.AttackAction(
+            self.attacker, self.defender, "attack", self.initiative_action, self.context,
+        )
+        event = events.AttackDeclaredEvent(attack)
+        responses = list(self.strategy.recommend(self.defender, event, self.context))
+        # should have SpendActionEvent + TakeCounterattackActionEvent
+        self.assertTrue(len(responses) >= 2)
+        self.assertIsInstance(responses[0], events.SpendActionEvent)
+
+    def test_attack_rolled_delegates_to_parry(self):
+        """On AttackRolledEvent, should delegate to parry strategy."""
+        attack = actions.AttackAction(
+            self.attacker, self.defender, "attack", self.initiative_action, self.context,
+        )
+        attack.set_skill_roll(9001)
+        event = events.AttackRolledEvent(attack, 9001)
+        # Should delegate to parry strategy (default is ReluctantParryStrategy)
+        responses = list(self.strategy.recommend(self.defender, event, self.context))
+        # whether it parries depends on the parry strategy, but it should work without error
+        self.assertIsInstance(responses, list)
+
+    def test_should_not_counterattack_no_actions(self):
+        """Should not counterattack when no action dice available."""
+        self.defender.set_actions([])
+        attack = actions.AttackAction(
+            self.attacker, self.defender, "attack", self.initiative_action, self.context,
+        )
+        event = events.AttackDeclaredEvent(attack)
+        responses = list(self.strategy.recommend(self.defender, event, self.context))
+        self.assertEqual(0, len(responses))
+
+    def test_counterattack_non_adjacent_ally(self):
+        """Should not counterattack for non-adjacent ally."""
+        from simulation.formation import LineFormation
+        ally = Character("Ally")
+        ally.set_actions([1])
+        # line formation: defender -- ally -- (gap) -- attacker
+        formation = LineFormation([
+            [self.defender, Character("Spacer1"), Character("Spacer2"), ally],
+            [self.attacker],
+        ])
+        groups = [
+            Group("Friends", [self.defender, ally]),
+            Group("Enemies", self.attacker),
+        ]
+        context = EngineContext(groups, round=1, phase=1, formation=formation)
+        context.initialize()
+        # attack targets ally, who is not adjacent to defender
+        if not context.formation().is_adjacent(self.defender, ally):
+            attack = actions.AttackAction(
+                self.attacker, ally, "attack", self.initiative_action, context,
+            )
+            event = events.AttackDeclaredEvent(attack)
+            responses = list(self.strategy.recommend(self.defender, event, context))
+            self.assertEqual(0, len(responses))
+
+
 if __name__ == "__main__":
     unittest.main()

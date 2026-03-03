@@ -473,7 +473,7 @@ class SkillRolledStrategy(Strategy):
 
     def use_ap(self, character, skill, margin):
         if character.ap() > 0:
-            if skill in character.ap_skills():
+            if character.can_spend_ap(skill):
                 ap_needed = math.ceil(margin / 5)
                 max_spend = min(character.ap(), character.max_ap_per_roll())
                 self._chosen_ap = min(max_spend, ap_needed)
