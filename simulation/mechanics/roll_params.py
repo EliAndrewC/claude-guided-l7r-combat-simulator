@@ -9,11 +9,12 @@
 #
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from simulation.mechanics.skills import ATTACK_SKILLS
 
 
-def normalize_roll_params(rolled, kept, bonus=0):
+def normalize_roll_params(rolled: int, kept: int, bonus: int = 0) -> tuple[int, int, int]:
     """
     normalize_roll_params(rolled, kept, bonus=0) -> tuple of ints
       rolled (int): number of rolled dice
@@ -47,7 +48,7 @@ def normalize_roll_params(rolled, kept, bonus=0):
 
 class RollParameterProvider(ABC):
     @abstractmethod
-    def get_damage_roll_params(self, character, target, skill, attack_extra_rolled, vp=0):
+    def get_damage_roll_params(self, character: Any, target: Any, skill: str, attack_extra_rolled: int, vp: int = 0) -> tuple[int, int, int]:
         """
     get_damage_roll_params(character, target, skill, \
         attack_extra_rolled, vp=0) -> tuple of three ints
@@ -63,7 +64,7 @@ class RollParameterProvider(ABC):
         pass
 
     @abstractmethod
-    def get_initiative_roll_params(self, character):
+    def get_initiative_roll_params(self, character: Any) -> tuple[int, int, int]:
         """
         get_initiative_roll_params(character) -> tuple of ints
           character (Character): character who is rolling initiative
@@ -77,7 +78,7 @@ class RollParameterProvider(ABC):
         pass
 
     @abstractmethod
-    def get_skill_roll_params(self, character, target, skill, contested_skill=None, ring=None, vp=0):
+    def get_skill_roll_params(self, character: Any, target: Any, skill: str, contested_skill: str | None = None, ring: str | None = None, vp: int = 0) -> tuple[int, int, int]:
         """
     get_skill_roll_params(character, target, skill, \
         contested_skill=None, ring=None, vp=0) -> tuple of ints
@@ -97,7 +98,8 @@ class RollParameterProvider(ABC):
     """
         pass
 
-    def get_wound_check_roll_params(self, character, vp=0):
+    @abstractmethod
+    def get_wound_check_roll_params(self, character: Any, vp: int = 0) -> tuple[int, int, int]:
         """
         get_wound_check_roll_params(character, vp=0) -> tuple of ints
           character (Character): character who will be rolling for a Wound Check
@@ -110,7 +112,7 @@ class RollParameterProvider(ABC):
 
 
 class DefaultRollParameterProvider(RollParameterProvider):
-    def get_damage_roll_params(self, character, target, skill, attack_extra_rolled, vp=0):
+    def get_damage_roll_params(self, character: Any, target: Any, skill: str, attack_extra_rolled: int, vp: int = 0) -> tuple[int, int, int]:
         # calculate extra rolled dice
         ring = character.ring(character.get_skill_ring("damage"))
         my_extra_rolled = character.extra_rolled("damage")
@@ -121,13 +123,13 @@ class DefaultRollParameterProvider(RollParameterProvider):
         mod = character.modifier(None, "damage")
         return normalize_roll_params(rolled, kept, mod)
 
-    def get_initiative_roll_params(self, character):
+    def get_initiative_roll_params(self, character: Any) -> tuple[int, int, int]:
         ring = character.ring(character.get_skill_ring("initiative"))
         rolled = ring + 1 + character.extra_rolled("initiative")
         kept = ring + character.extra_kept("initiative")
         return (rolled, kept, 0)
 
-    def get_skill_roll_params(self, character, target, skill, contested_skill=None, ring=None, vp=0):
+    def get_skill_roll_params(self, character: Any, target: Any, skill: str, contested_skill: str | None = None, ring: str | None = None, vp: int = 0) -> tuple[int, int, int]:
         if ring is None:
             ring = character.ring(character.get_skill_ring(skill))
         rolled = ring + character.skill(skill) + character.extra_rolled(skill) + vp
@@ -145,7 +147,7 @@ class DefaultRollParameterProvider(RollParameterProvider):
                 rolled = max(rolled - penalty, character.ring("fire"))
         return normalize_roll_params(rolled, kept, modifier)
 
-    def get_wound_check_roll_params(self, character, vp=0):
+    def get_wound_check_roll_params(self, character: Any, vp: int = 0) -> tuple[int, int, int]:
         ring = character.ring(character.get_skill_ring("wound check"))
         rolled = ring + 1 + character.extra_rolled("wound check") + vp
         kept = ring + character.extra_kept("wound check") + vp

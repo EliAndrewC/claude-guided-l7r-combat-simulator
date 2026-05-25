@@ -19,7 +19,7 @@ class InitiativeAction:
     get a bonus for holding actions and spending them later.
     """
 
-    def __init__(self, dice, phase, is_interrupt=False):
+    def __init__(self, dice: list[int], phase: int, is_interrupt: bool = False) -> None:
         if not isinstance(dice, list):
             raise ValueError("InitiativeAction dice must be list of ints")
         for die in dice:
@@ -33,26 +33,11 @@ class InitiativeAction:
         self._phase = phase
         self._is_interrupt = is_interrupt
 
-    def dice(self):
-        """
-        dice() -> list of ints
-
-        Return the action dice that were spent for this action.
-        """
+    def dice(self) -> list[int]:
         return self._dice
 
-    def is_interrupt(self):
-        """
-        is_interrupt() -> bool
-
-        Returns whether this is an interrupt action.
-        """
+    def is_interrupt(self) -> bool:
         return self._is_interrupt
 
-    def phase(self):
-        """
-        phase() -> int
-
-        Return the phase for this action. An action from an earlier phase may be used in a later phase.
-        """
+    def phase(self) -> int:
         return self._phase

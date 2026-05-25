@@ -1,4 +1,5 @@
 import tempfile
+from typing import Any
 
 from simulation.context import EngineContext
 from simulation.engine import CombatEngine
@@ -11,7 +12,7 @@ from web.adapters.detailed_formatter import DetailedEventFormatter
 from web.models import BatchResult, CharacterConfig, GroupConfig, SingleCombatResult
 
 
-def _build_characters_and_context(characters: list[CharacterConfig], groups: list[GroupConfig]):
+def _build_characters_and_context(characters: list[CharacterConfig], groups: list[GroupConfig]) -> tuple[dict[str, Any], EngineContext]:
     """Build Character objects, Groups, and an EngineContext from configs."""
     # build character objects
     char_objects = {}
@@ -36,7 +37,7 @@ def _build_characters_and_context(characters: list[CharacterConfig], groups: lis
     return char_objects, context
 
 
-def _build_engine(characters: list[CharacterConfig], groups: list[GroupConfig]):
+def _build_engine(characters: list[CharacterConfig], groups: list[GroupConfig]) -> tuple[CombatEngine, EngineContext]:
     """Build Character objects, Groups, and a CombatEngine from configs."""
     char_objects, context = _build_characters_and_context(characters, groups)
     engine = CombatEngine(context)

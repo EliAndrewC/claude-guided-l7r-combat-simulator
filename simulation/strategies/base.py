@@ -8,6 +8,8 @@
 
 import math
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from typing import Any
 
 from simulation import events
 from simulation.exceptions import NotEnoughActions
@@ -42,7 +44,7 @@ class Strategy(ABC):
     """
 
     @abstractmethod
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         """
         recommend(character, event, context) -> Event or None
           character (Character): Character deciding how to respond to the Event
@@ -58,7 +60,7 @@ class Strategy(ABC):
 
 
 class AlwaysAttackActionStrategy(Strategy):
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.YourMoveEvent):
             # try to attack if action available
             # TODO: evaluate whether to interrupt
@@ -69,7 +71,7 @@ class AlwaysAttackActionStrategy(Strategy):
 
 
 class HoldOneActionStrategy(Strategy):
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.YourMoveEvent):
             # try to hold an action in reserve until Phase 10
             if character.has_action(context):
@@ -88,7 +90,7 @@ class HoldOneActionStrategy(Strategy):
 
 
 class BaseAttackStrategy(Strategy):
-    def choose_action(self, character, skill, context):
+    def choose_action(self, character: Any, skill: str, context: Any) -> InitiativeAction:
         if character.has_action(context):
             # choose earliest available action die
             # older action dice are usually more valuable
@@ -96,8 +98,8 @@ class BaseAttackStrategy(Strategy):
             return InitiativeAction([action_die], action_die)
         elif character.has_interrupt_action(skill, context):
             cost = character.interrupt_cost(skill, context)
-            action_dice = []
-            unspent_action_dice = []
+            action_dice: list[int] = []
+            unspent_action_dice: list[int] = []
             unspent_action_dice.extend(character.actions())
             while len(action_dice) < cost:
                 die = max(unspent_action_dice)
@@ -107,7 +109,7 @@ class BaseAttackStrategy(Strategy):
         else:
             raise NotEnoughActions()
 
-    def _get_optimizer(self, character, target, skill, initiative_action, context):
+    def _get_optimizer(self, character: Any, target: Any, skill: str, initiative_action: InitiativeAction, context: Any) -> Any:
         """Return an attack optimizer for the given parameters.
 
         Subclasses can override this to control VP spending or other
@@ -117,7 +119,7 @@ class BaseAttackStrategy(Strategy):
             character, target, skill, initiative_action, context,
         )
 
-    def spend_action(self, character, skill, initiative_action):
+    def spend_action(self, character: Any, skill: str, initiative_action: InitiativeAction) -> Iterator[events.Event]:
         """
         spend_action(character, skill, initiative_action) -> SpendActionEvent
 
@@ -125,7 +127,7 @@ class BaseAttackStrategy(Strategy):
         """
         yield events.SpendActionEvent(character, skill, initiative_action)
 
-    def try_skill(self, character, skill, initiative_action, threshold, context):
+    def try_skill(self, character: Any, skill: str, initiative_action: InitiativeAction, threshold: float, context: Any) -> Any:
         """
         try_skill(character, skill, initiative_action, threshold, context) -> TakeAttackActionEvent or None
 
@@ -140,12 +142,12 @@ class BaseAttackStrategy(Strategy):
                     logger.info(f"{character.name()} is attacking {target.name()} with {skill} and spending {attack.vp()} VP")
                     return character.take_action_event_factory().get_take_attack_action_event(attack)
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         raise NotImplementedError()
 
 
 class PlainAttackStrategy(BaseAttackStrategy):
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.YourMoveEvent):
             if character.has_action(context):
                 initiative_action = self.choose_action(character, "attack", context)
@@ -172,7 +174,7 @@ class StingyPlainAttackStrategy(BaseAttackStrategy):
     Always attack with available actions, never spend resources to optimize.
     """
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.YourMoveEvent):
             if character.has_action(context):
                 initiative_action = self.choose_action(character, "attack", context)
@@ -191,7 +193,7 @@ class StingyPlainAttackStrategy(BaseAttackStrategy):
 class UniversalAttackStrategy(BaseAttackStrategy):
     attack_threshold = 0.7
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.YourMoveEvent):
             # TODO: implement intelligence around interrupts
             if character.has_action(context):
@@ -232,7 +234,7 @@ class UniversalAttackStrategy(BaseAttackStrategy):
 
 
 class BaseParryStrategy(Strategy):
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.AttackRolledEvent):
             # bail if no action
             if not (character.has_action(context) or character.has_interrupt_action("parry", context)):
@@ -263,7 +265,7 @@ class BaseParryStrategy(Strategy):
                 raise RuntimeError("Not enough actions to parry")
                 return
 
-    def _can_shirk(self, character, event, context):
+    def _can_shirk(self, character: Any, event: Any, context: Any) -> bool:
         """
         Returns whether this character can shirk and let somebody else parry.
         """
@@ -284,7 +286,7 @@ class BaseParryStrategy(Strategy):
                         return True
         return False
 
-    def _choose_action(self, character, skill, context):
+    def _choose_action(self, character: Any, skill: str, context: Any) -> InitiativeAction:
         """
         _choose_action(character, skill, context) -> InitiativeAction
 
@@ -298,8 +300,8 @@ class BaseParryStrategy(Strategy):
         elif character.has_interrupt_action(skill, context):
             # interrupt
             cost = character.interrupt_cost(skill, context)
-            action_dice = []
-            unspent_action_dice = []
+            action_dice: list[int] = []
+            unspent_action_dice: list[int] = []
             unspent_action_dice.extend(character.actions())
             while len(action_dice) < cost:
                 die = max(unspent_action_dice)
@@ -310,7 +312,7 @@ class BaseParryStrategy(Strategy):
             # somehow character is unable to parry
             raise NotEnoughActions()
 
-    def _estimate_damage(self, character, event, context):
+    def _estimate_damage(self, character: Any, event: Any, context: Any) -> int:
         """
         _estimate_damage(character, event, context) -> int
 
@@ -326,13 +328,13 @@ class BaseParryStrategy(Strategy):
         target = event.action.target()
         (wc_rolled, wc_kept, wc_bonus) = target.get_wound_check_roll_params()
         expected_roll = context.mean_roll(wc_rolled, wc_kept) + wc_bonus
-        expected_sw = target.wound_check(expected_roll, target.lw() + expected_damage)
+        expected_sw: int = target.wound_check(expected_roll, target.lw() + expected_damage)
         return expected_sw
 
-    def _recommend(self, character, event, context):
+    def _recommend(self, character: Any, event: Any, context: Any) -> Iterator[events.Event]:
         raise NotImplementedError()
 
-    def _spend_action(self, character, skill, initiative_action):
+    def _spend_action(self, character: Any, skill: str, initiative_action: InitiativeAction) -> Iterator[events.Event]:
         """
         _spend_action(character, skill, initiative_action) -> SpendActionEvent
 
@@ -346,7 +348,7 @@ class AlwaysParryStrategy(BaseParryStrategy):
     Always parry for friends.
     """
 
-    def _recommend(self, character, event, context):
+    def _recommend(self, character: Any, event: Any, context: Any) -> Iterator[events.Event]:
         logger.debug(f"{character.name()} always parries")
         initiative_action = self._choose_action(character, "parry", context)
         parry = character.action_factory().get_parry_action(character, event.action.subject(), event.action, "parry", initiative_action, context)
@@ -359,7 +361,7 @@ class NeverParryStrategy(Strategy):
     Never parry.
     """
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         logger.debug(f"{character.name()} never parries")
         yield from ()
 
@@ -369,7 +371,7 @@ class ReluctantParryStrategy(BaseParryStrategy):
     Parry if the hit is going to be bad and nobody else can parry.
     """
 
-    def _recommend(self, character, event, context):
+    def _recommend(self, character: Any, event: Any, context: Any) -> Iterator[events.Event]:
         # let somebody else parry if possible
         # TODO: implement some kind of team parry strategy
         if self._can_shirk(character, event, context):
@@ -406,45 +408,46 @@ class SkillRolledStrategy(Strategy):
     Strategy to decide how to spend resources after a roll.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._chosen_ap = 0
-        self._chosen_bonuses = []
+        self._chosen_bonuses: list[Any] = []
         self._chosen_conviction = 0
 
-    def event_matches(self, character, event):
+    def event_matches(self, character: Any, event: Any) -> bool:
         """
         Return whether this event is relevant for the strategy and character.
         """
         raise NotImplementedError()
 
-    def get_skill(self, event):
+    def get_skill(self, event: Any) -> str:
         """
         Returns the skill that can be used for floating bonuses for this skill roll.
         """
         raise NotImplementedError()
 
-    def get_tn(self, event):
+    def get_tn(self, event: Any) -> int:
         """
         Return the desired TN.
         """
         raise NotImplementedError()
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if self.event_matches(character, event):
             self.reset()
             skill = self.get_skill(event)
             tn = self.get_tn(event)
-            margin = tn - event.action.skill_roll()
+            evt: Any = event
+            margin = tn - evt.action.skill_roll()
             if margin <= 0:
                 # if the roll was successful, do nothing
                 yield event
                 return
             # use floating bonuses to try to make the TN
             self.use_floating_bonuses(character, skill, margin)
-            margin = tn - event.action.skill_roll() - sum([b.bonus() for b in self._chosen_bonuses])
+            margin = tn - evt.action.skill_roll() - sum([b.bonus() for b in self._chosen_bonuses])
             if margin > 0:
                 # use adventure points to try to make the TN
-                self.use_ap(character, event.action.skill(), margin)
+                self.use_ap(character, evt.action.skill(), margin)
                 margin -= 5 * self._chosen_ap
             if margin > 0:
                 # use conviction points to try to close remaining gap
@@ -458,12 +461,12 @@ class SkillRolledStrategy(Strategy):
                     yield events.SpendAdventurePointsEvent(character, skill, self._chosen_ap)
                 if self._chosen_conviction > 0:
                     yield events.SpendConvictionEvent(character, skill, self._chosen_conviction)
-                new_roll = event.action.skill_roll() + sum([b.bonus() for b in self._chosen_bonuses]) + (5 * self._chosen_ap) + self._chosen_conviction
-                event.action.set_skill_roll(new_roll)
-                event.roll = new_roll
+                new_roll = evt.action.skill_roll() + sum([b.bonus() for b in self._chosen_bonuses]) + (5 * self._chosen_ap) + self._chosen_conviction
+                evt.action.set_skill_roll(new_roll)
+                evt.roll = new_roll
             yield event
 
-    def reset(self):
+    def reset(self) -> None:
         """
         Reset this strategy. Should be called before each use.
         """
@@ -471,19 +474,19 @@ class SkillRolledStrategy(Strategy):
         self._chosen_bonuses.clear()
         self._chosen_conviction = 0
 
-    def use_ap(self, character, skill, margin):
+    def use_ap(self, character: Any, skill: str, margin: int) -> None:
         if character.ap() > 0:
             if character.can_spend_ap(skill):
                 ap_needed = math.ceil(margin / 5)
                 max_spend = min(character.ap(), character.max_ap_per_roll())
                 self._chosen_ap = min(max_spend, ap_needed)
 
-    def use_conviction(self, character, margin):
+    def use_conviction(self, character: Any, margin: int) -> None:
         if character.conviction() > 0:
             max_spend = min(character.conviction(), character.max_conviction_per_roll())
             self._chosen_conviction = min(max_spend, max(margin, 0))
 
-    def use_floating_bonuses(self, character, skill, margin):
+    def use_floating_bonuses(self, character: Any, skill: str, margin: int) -> None:
         available_bonuses = list(character.floating_bonuses(skill))
         available_bonuses.sort()
         while margin > 0 and len(available_bonuses) > 0:
@@ -493,25 +496,29 @@ class SkillRolledStrategy(Strategy):
 
 
 class AttackRolledStrategy(SkillRolledStrategy):
-    def event_matches(self, character, event):
+    def event_matches(self, character: Any, event: Any) -> bool:
         return isinstance(event, events.AttackRolledEvent) and character == event.action.subject()
 
-    def get_skill(self, event):
-        return event.action.skill()
+    def get_skill(self, event: Any) -> str:
+        result: str = event.action.skill()
+        return result
 
-    def get_tn(self, event):
-        return event.action.tn()
+    def get_tn(self, event: Any) -> int:
+        result: int = event.action.tn()
+        return result
 
 
 class ParryRolledStrategy(SkillRolledStrategy):
-    def event_matches(self, character, event):
+    def event_matches(self, character: Any, event: Any) -> bool:
         return isinstance(event, events.ParryRolledEvent) and character == event.action.subject()
 
-    def get_skill(self, event):
-        return event.action.skill()
+    def get_skill(self, event: Any) -> str:
+        result: str = event.action.skill()
+        return result
 
-    def get_tn(self, event):
-        return event.action.tn()
+    def get_tn(self, event: Any) -> int:
+        result: int = event.action.tn()
+        return result
 
 
 class WoundCheckRolledStrategy(SkillRolledStrategy):
@@ -524,12 +531,12 @@ class WoundCheckRolledStrategy(SkillRolledStrategy):
     to try to succeed at the Wound Check.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._chosen_ap = 0
-        self._chosen_bonuses = []
+        self._chosen_bonuses: list[Any] = []
         self._chosen_conviction = 0
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.WoundCheckRolledEvent):
             if event.subject == character:
                 self.reset()
@@ -568,12 +575,12 @@ class WoundCheckRolledStrategy(SkillRolledStrategy):
                         # spend nothing and take the hit
                         yield event
 
-    def reset(self):
+    def reset(self) -> None:
         self._chosen_ap = 0
         self._chosen_bonuses.clear()
         self._chosen_conviction = 0
 
-    def use_ap(self, character, event, tolerable_sw, skill):
+    def use_ap(self, character: Any, event: Any, tolerable_sw: int, skill: str) -> events.WoundCheckRolledEvent:  # type: ignore[override]
         ap = character.ap()
         max_spend = min(ap, character.max_ap_per_roll())
         new_roll = event.roll
@@ -587,7 +594,7 @@ class WoundCheckRolledStrategy(SkillRolledStrategy):
                     break
         return events.WoundCheckRolledEvent(event.subject, event.attacker, event.damage, new_roll, tn=event.tn)
 
-    def use_conviction_wc(self, character, event, tolerable_sw):
+    def use_conviction_wc(self, character: Any, event: Any, tolerable_sw: int) -> events.WoundCheckRolledEvent:
         max_spend = min(character.conviction(), character.max_conviction_per_roll())
         new_roll = event.roll
         while self._chosen_conviction < max_spend:
@@ -598,7 +605,7 @@ class WoundCheckRolledStrategy(SkillRolledStrategy):
                 break
         return events.WoundCheckRolledEvent(event.subject, event.attacker, event.damage, new_roll, tn=event.tn)
 
-    def use_floating_bonuses(self, character, event, tolerable_sw, skill):
+    def use_floating_bonuses(self, character: Any, event: Any, tolerable_sw: int, skill: str) -> events.WoundCheckRolledEvent:  # type: ignore[override]
         available_bonuses = character.floating_bonuses(skill)
         available_bonuses.sort()
         new_roll = event.roll
@@ -617,7 +624,7 @@ class AlwaysKeepLightWoundsStrategy(Strategy):
     Strategy that always keeps LW.
     """
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.WoundCheckSucceededEvent):
             if event.subject == character:
                 logger.info(f"{character.name()} always keeps light wounds")
@@ -629,7 +636,7 @@ class KeepLightWoundsStrategy(Strategy):
     Strategy to decide whether to keep LW or take SW.
     """
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.WoundCheckSucceededEvent):
             if event.subject == character:
                 if event.tn > event.roll:
@@ -656,7 +663,7 @@ class NeverKeepLightWoundsStrategy(Strategy):
     Strategy that never keeps LW, always takes SW.
     """
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.WoundCheckSucceededEvent):
             if event.subject == character:
                 logger.info(f"{character.name()} never keeps light wounds")
@@ -670,7 +677,7 @@ class WoundCheckStrategy(Strategy):
 
     threshold = 0.6
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.LightWoundsDamageEvent):
             if event.target == character:
                 if getattr(event, 'duel', False):
@@ -714,7 +721,7 @@ class StingyWoundCheckStrategy(Strategy):
     Never spend VP on wound checks.
     """
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.LightWoundsDamageEvent):
             if event.target == character:
                 logger.info(f"{character.name()} never spends VP on wound checks.")
@@ -727,7 +734,7 @@ class DefaultInterruptStrategy(Strategy):
     Used by characters who do not have counterattack capability.
     """
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.AttackRolledEvent):
             yield from character.parry_strategy().recommend(character, event, context)
 
@@ -739,7 +746,7 @@ class CounterattackInterruptStrategy(Strategy):
     Only characters with the counterattack school knack may counterattack.
     """
 
-    def _should_counterattack(self, character, event, context):
+    def _should_counterattack(self, character: Any, event: Any, context: Any) -> bool:
         """Decide whether to counterattack."""
         # Must have counterattack skill
         if character.skill("counterattack") <= 0:
@@ -757,14 +764,14 @@ class CounterattackInterruptStrategy(Strategy):
             return False
         return True
 
-    def _choose_action(self, character, context):
+    def _choose_action(self, character: Any, context: Any) -> InitiativeAction:
         """Choose action dice for the counterattack."""
         if character.has_action(context):
             die = max([d for d in character.actions() if d <= context.phase()])
             return InitiativeAction([die], die)
         elif character.has_interrupt_action("counterattack", context):
             cost = character.interrupt_cost("counterattack", context)
-            action_dice = []
+            action_dice: list[int] = []
             unspent = list(character.actions())
             while len(action_dice) < cost:
                 die = max(unspent)
@@ -774,7 +781,7 @@ class CounterattackInterruptStrategy(Strategy):
         else:
             raise NotEnoughActions()
 
-    def _do_counterattack(self, character, event, context):
+    def _do_counterattack(self, character: Any, event: Any, context: Any) -> Iterator[events.Event]:
         """Execute the counterattack."""
         initiative_action = self._choose_action(character, context)
         counterattack = character.action_factory().get_counterattack_action(
@@ -785,7 +792,7 @@ class CounterattackInterruptStrategy(Strategy):
         yield events.SpendActionEvent(character, "counterattack", initiative_action)
         yield character.take_action_event_factory().get_take_counterattack_action_event(counterattack)
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.AttackDeclaredEvent):
             if self._should_counterattack(character, event, context):
                 try:

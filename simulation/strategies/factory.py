@@ -7,6 +7,8 @@
 # This is a convenience provided to the character builder.
 #
 
+from typing import Any
+
 from simulation.schools.kakita_school import (
     KakitaAttackStrategy,
     KakitaAttackStrategy05,
@@ -19,7 +21,7 @@ from simulation.schools.kakita_school import (
 from simulation.strategies import base as strategies
 
 
-def get_strategy(name):
+def get_strategy(name: str) -> Any:
     if name == "AlwaysAttackActionStrategy":
         return strategies.AlwaysAttackActionStrategy()
     if name == "AlwaysKeepLightWoundsStrategy":

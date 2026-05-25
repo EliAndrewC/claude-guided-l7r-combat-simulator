@@ -12,11 +12,13 @@
 # their discretion.
 #
 
+from typing import Any
+
 from simulation.mechanics.skills import ATTACK_SKILLS
 
 
 class FloatingBonus:
-    def __init__(self, skills, bonus):
+    def __init__(self, skills: str | list[str], bonus: int) -> None:
         if isinstance(skills, str):
             self._skills = [skills]
         elif isinstance(skills, list):
@@ -28,20 +30,20 @@ class FloatingBonus:
             raise ValueError("FloatingBonus skills must be str or list of str")
         self._bonus = bonus
 
-    def bonus(self):
+    def bonus(self) -> int:
         return self._bonus
 
-    def is_applicable(self, skill):
+    def is_applicable(self, skill: str) -> bool:
         return skill in self._skills
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if self is other:
             return True
         if not isinstance(other, FloatingBonus):
             return False
         return self.bonus() == other.bonus() and self._skills == other._skills
 
-    def __lt__(self, other):
+    def __lt__(self, other: Any) -> bool:
         if not isinstance(other, FloatingBonus):
             raise NotImplementedError("Cannot compare FloatingBonus to another type of object")
         if self is other:
@@ -56,7 +58,7 @@ class AnyAttackFloatingBonus(FloatingBonus):
     Used by the Akodo and Bayushi schools.
     """
 
-    def __init__(self, bonus):
+    def __init__(self, bonus: int) -> None:
         super().__init__(ATTACK_SKILLS, bonus)
 
 
@@ -67,5 +69,5 @@ class WoundCheckFloatingBonus(FloatingBonus):
     Used by the Isawa and Shinjo schools.
     """
 
-    def __init__(self, bonus):
+    def __init__(self, bonus: int) -> None:
         super().__init__("wound check", bonus)

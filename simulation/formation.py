@@ -9,9 +9,14 @@
 # and which allies are adjacent (same-side neighbors for parry/counterattack).
 #
 
-from simulation.events import AddModifierEvent, RemoveModifierEvent
+from typing import TYPE_CHECKING
+
+from simulation.events import AddModifierEvent, ModifierEvent, RemoveModifierEvent
 from simulation.mechanics.modifiers import Modifier
 from simulation.mechanics.skills import ATTACK_SKILLS
+
+if TYPE_CHECKING:
+    from simulation.character import Character
 
 
 class Formation:
@@ -22,21 +27,21 @@ class Formation:
     and neighbor maps.
     """
 
-    def __init__(self, sides: list[list]):
+    def __init__(self, sides: list[list["Character"]]):
         if len(sides) != 2:
             raise ValueError("Formation requires exactly two sides")
-        self._original_sides = [list(side) for side in sides]
-        self._sides = [list(side) for side in sides]
-        self._attackable: dict = {}
-        self._neighbors: dict = {}
+        self._original_sides: list[list[Character]] = [list(side) for side in sides]
+        self._sides: list[list[Character]] = [list(side) for side in sides]
+        self._attackable: dict[int, set[int]] = {}
+        self._neighbors: dict[int, set[int]] = {}
         self.deploy()
 
-    def can_attack(self, attacker, target) -> bool:
+    def can_attack(self, attacker: "Character", target: "Character") -> bool:
         """Return True if attacker can attack target based on position."""
         targets = self._attackable.get(id(attacker), set())
         return id(target) in targets
 
-    def is_adjacent(self, a, b) -> bool:
+    def is_adjacent(self, a: "Character", b: "Character") -> bool:
         """Return True if a and b are same-side neighbors.
 
         Always returns True if a == b (self-parry is always OK).
@@ -46,19 +51,19 @@ class Formation:
         nbrs = self._neighbors.get(id(a), set())
         return id(b) in nbrs
 
-    def attackable_targets(self, character) -> list:
+    def attackable_targets(self, character: "Character") -> list["Character"]:
         """Return list of characters that character can attack."""
         targets = self._attackable.get(id(character), set())
         all_chars = self._sides[0] + self._sides[1]
         return [c for c in all_chars if id(c) in targets]
 
-    def neighbors(self, character) -> list:
+    def neighbors(self, character: "Character") -> list["Character"]:
         """Return same-side left/right neighbors."""
         nbrs = self._neighbors.get(id(character), set())
         all_chars = self._sides[0] + self._sides[1]
         return [c for c in all_chars if id(c) in nbrs]
 
-    def remove(self, character):
+    def remove(self, character: "Character") -> None:
         """Remove a defeated character and redeploy."""
         for side in self._sides:
             if character in side:
@@ -68,17 +73,17 @@ class Formation:
         self._neighbors.pop(id(character), None)
         self.deploy()
 
-    def reset(self):
+    def reset(self) -> None:
         """Restore original sides and redeploy."""
         self._sides = [list(side) for side in self._original_sides]
         self._attackable = {}
         self._neighbors = {}
         self.deploy()
 
-    def sides(self):
+    def sides(self) -> list[list["Character"]]:
         return self._sides
 
-    def deploy(self):
+    def deploy(self) -> None:
         """Calculate positions, attackable sets, and neighbor maps.
 
         Subclasses must override this.
@@ -92,32 +97,32 @@ class NullFormation(Formation):
     Default when no formation is explicitly set, so all existing tests pass unchanged.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         # bypass parent __init__ since we have no sides
         self._original_sides = [[], []]
         self._sides = [[], []]
         self._attackable = {}
         self._neighbors = {}
 
-    def can_attack(self, attacker, target) -> bool:
+    def can_attack(self, attacker: "Character", target: "Character") -> bool:
         return True
 
-    def is_adjacent(self, a, b) -> bool:
+    def is_adjacent(self, a: "Character", b: "Character") -> bool:
         return True
 
-    def attackable_targets(self, character) -> list:
+    def attackable_targets(self, character: "Character") -> list["Character"]:
         return []
 
-    def neighbors(self, character) -> list:
+    def neighbors(self, character: "Character") -> list["Character"]:
         return []
 
-    def remove(self, character):
+    def remove(self, character: "Character") -> None:
         pass
 
-    def reset(self):
+    def reset(self) -> None:
         pass
 
-    def deploy(self):
+    def deploy(self) -> None:
         pass
 
 
@@ -131,7 +136,7 @@ class LineFormation(Formation):
     - Same-side adjacency: linear chain (not circular)
     """
 
-    def deploy(self):
+    def deploy(self) -> None:
         self._attackable = {}
         self._neighbors = {}
 
@@ -180,8 +185,8 @@ class SurroundFormation(LineFormation):
     - Surround -> Line when 1v1 (bonuses removed)
     """
 
-    def __init__(self, sides: list[list]):
-        self._surround_modifiers: list[tuple] = []  # (character, modifier) pairs
+    def __init__(self, sides: list[list["Character"]]):
+        self._surround_modifiers: list[tuple[Character, Modifier]] = []  # (character, modifier) pairs
         super().__init__(sides)
 
     def _is_surround(self) -> bool:
@@ -189,9 +194,9 @@ class SurroundFormation(LineFormation):
         sizes = [len(s) for s in self._sides]
         return (sizes[0] == 1 and sizes[1] >= 2) or (sizes[1] == 1 and sizes[0] >= 2)
 
-    def _surround_events(self) -> list:
+    def _surround_events(self) -> list[ModifierEvent]:
         """Return AddModifierEvent/RemoveModifierEvent list for surround bonuses."""
-        return_events = []
+        return_events: list[ModifierEvent] = []
         # Remove old surround modifiers
         for character, modifier in self._surround_modifiers:
             return_events.append(RemoveModifierEvent(character, modifier))
@@ -216,13 +221,13 @@ class SurroundFormation(LineFormation):
 
         return return_events
 
-    def deploy(self):
+    def deploy(self) -> None:
         if self._is_surround():
             self._deploy_surround()
         else:
             super().deploy()
 
-    def _deploy_surround(self):
+    def _deploy_surround(self) -> None:
         """Deploy in surround mode."""
         self._attackable = {}
         self._neighbors = {}
@@ -250,7 +255,7 @@ class SurroundFormation(LineFormation):
         # Inner has no neighbors (alone on their side)
         self._neighbors[id(inner_char)] = set()
 
-    def remove(self, character):
+    def remove(self, character: "Character") -> None:
         """Remove a defeated character and redeploy, returning surround events."""
         for side in self._sides:
             if character in side:
@@ -264,12 +269,12 @@ class SurroundFormation(LineFormation):
         ]
         self.deploy()
 
-    def reset(self):
+    def reset(self) -> None:
         """Restore original sides, clear surround modifiers, and redeploy."""
         self._surround_modifiers.clear()
         super().reset()
 
-    def pending_events(self) -> list:
+    def pending_events(self) -> list[ModifierEvent]:
         """Return any pending AddModifier/RemoveModifier events from surround transitions.
 
         Call this after deploy/remove to get the modifier events that need to be

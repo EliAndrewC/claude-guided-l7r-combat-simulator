@@ -20,6 +20,9 @@
 #          by 10 (min 2) and yields SeriousWoundsDamageEvent.
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation import events
 from simulation.actions import AttackAction, LungeAction
 from simulation.events import LightWoundsDamageEvent, SeriousWoundsDamageEvent, TakeAttackActionEvent
@@ -30,36 +33,36 @@ from simulation.strategies.take_action_event_factory import DefaultTakeActionEve
 
 
 class OtakuBushiSchool(BaseSchool):
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return None
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         character.set_interrupt_cost("lunge", 1)
         character.add_interrupt_skill("lunge")
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         character.set_listener("lw_damage", OtakuLightWoundsDamageListener())
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         character.set_action_factory(OTAKU_ACTION_FACTORY)
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         character.set_take_action_event_factory(OTAKU_FIFTH_DAN_TAKE_ACTION_EVENT_FACTORY)
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["iaijutsu", "lunge", "wound check"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["wound check"]
 
-    def name(self):
+    def name(self) -> str:
         return "Otaku Bushi School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["double attack", "iaijutsu", "lunge"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "fire"
 
 
@@ -71,7 +74,7 @@ class OtakuLightWoundsDamageListener(Listener):
     X is the number of action dice affected.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.LightWoundsDamageEvent):
             if event.subject == character and event.target != character:
                 target = event.target
@@ -96,7 +99,7 @@ class OtakuLungeAction(LungeAction):
     calculate_extra_damage_dice always adds 1 even when parried.
     """
 
-    def calculate_extra_damage_dice(self, skill_roll=None, tn=None):
+    def calculate_extra_damage_dice(self, skill_roll: int | None = None, tn: int | None = None) -> int:
         if skill_roll is None:
             skill_roll = self.skill_roll()
         if tn is None:
@@ -104,6 +107,7 @@ class OtakuLungeAction(LungeAction):
         if self.parry_attempted():
             # Still get +1 even when parried
             return 1
+        assert skill_roll is not None
         return ((skill_roll - tn) // 5) + 1
 
 
@@ -112,7 +116,7 @@ class OtakuActionFactory(DefaultActionFactory):
     ActionFactory to return Otaku-specific attack actions.
     """
 
-    def get_attack_action(self, subject, target, skill, initiative_action, context, vp=0):
+    def get_attack_action(self, subject: Any, target: Any, skill: str, initiative_action: Any, context: Any, vp: int = 0) -> Any:
         if skill == "lunge":
             return OtakuLungeAction(subject, target, skill, initiative_action, context, vp=vp)
         return super().get_attack_action(subject, target, skill, initiative_action, context, vp=vp)
@@ -129,7 +133,7 @@ class OtakuFifthDanTakeAttackActionEvent(TakeAttackActionEvent):
     deal 1 serious wound to the opponent.
     """
 
-    def play(self, context):
+    def play(self, context: Any) -> Iterator[Any]:
         yield self._declare_attack()
         if not self.action.subject().is_fighting():
             return
@@ -147,7 +151,7 @@ class OtakuFifthDanTakeAttackActionEvent(TakeAttackActionEvent):
         else:
             yield self._failed()
 
-    def _roll_damage(self):
+    def _roll_damage(self) -> Any:
         subject = self.action.subject()
         target = self.action.target()
         extra_rolled = self.action.calculate_extra_damage_dice()
@@ -178,7 +182,7 @@ class OtakuFifthDanTakeActionEventFactory(DefaultTakeActionEventFactory):
     Returns OtakuFifthDanTakeAttackActionEvent for attacks.
     """
 
-    def get_take_attack_action_event(self, action):
+    def get_take_attack_action_event(self, action: Any) -> Any:
         if isinstance(action, AttackAction):
             return OtakuFifthDanTakeAttackActionEvent(action)
         else:

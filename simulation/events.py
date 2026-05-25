@@ -6,6 +6,9 @@
 # Events for the L7R combat simulator.
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation.log import logger
 
 
@@ -43,7 +46,7 @@ class Event:
                  have a **damage** member for the amount of damage.
     """
 
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         self.name = name
 
 
@@ -52,25 +55,25 @@ class TimingEvent(Event):
 
 
 class NewRoundEvent(TimingEvent):
-    def __init__(self, round):
+    def __init__(self, round: int) -> None:
         super().__init__("new_round")
         self.round = round
 
 
 class NewPhaseEvent(TimingEvent):
-    def __init__(self, phase):
+    def __init__(self, phase: int) -> None:
         super().__init__("new_phase")
         self.phase = phase
 
 
 class EndOfPhaseEvent(TimingEvent):
-    def __init__(self, phase):
+    def __init__(self, phase: int) -> None:
         super().__init__("end_of_phase")
         self.phase = phase
 
 
 class EndOfRoundEvent(TimingEvent):
-    def __init__(self, round):
+    def __init__(self, round: int) -> None:
         super().__init__("end_of_round")
         self.round = round
 
@@ -80,38 +83,38 @@ class YourMoveEvent(Event):
     Played on characters to ask them if they will use an action.
     """
 
-    def __init__(self, subject):
+    def __init__(self, subject: Any) -> None:
         super().__init__("your_move")
         self.subject = subject
 
 
 class InitiativeChangedEvent(Event):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("initiative_changed")
 
 
 class ActionEvent(Event):
-    def __init__(self, name, action):
+    def __init__(self, name: str, action: Any) -> None:
         super().__init__(name)
         self.action = action
 
 
 class ContestedActionEvent(Event):
-    def __init__(self, name, contested_action):
+    def __init__(self, name: str, contested_action: Any) -> None:
         super().__init__(name)
         self.action = contested_action
 
 
 class TakeActionEvent(ActionEvent):
-    def __init__(self, name, action):
+    def __init__(self, name: str, action: Any) -> None:
         super().__init__(name, action)
 
 
 class TakeAttackActionEvent(TakeActionEvent):
-    def __init__(self, action):
+    def __init__(self, action: Any) -> None:
         super().__init__("take_attack", action)
 
-    def play(self, context):
+    def play(self, context: Any) -> Iterator["Event"]:
         yield self._declare_attack()
         # Counterattack may have killed/incapacitated the attacker
         if not self.action.subject().is_fighting():
@@ -134,17 +137,17 @@ class TakeAttackActionEvent(TakeActionEvent):
         else:
             yield self._failed()
 
-    def _declare_attack(self):
+    def _declare_attack(self) -> "AttackDeclaredEvent":
         return AttackDeclaredEvent(self.action)
 
-    def _direct_damage(self):
+    def _direct_damage(self) -> Any:
         return self.action.direct_damage()
 
-    def _failed(self):
+    def _failed(self) -> "AttackFailedEvent":
         logger.info(f"{self.action.subject().name()} failed to attack {self.action.target().name()} with {self.action.skill()}")
         return AttackFailedEvent(self.action)
 
-    def _roll_attack(self, context):
+    def _roll_attack(self, context: Any) -> Iterator["Event"]:
         attack_roll = self.action.roll_skill()
         # Apply any pending counterattack roll bonus (e.g. Hida school +5)
         bonus = getattr(self.action, '_counterattack_roll_bonus', 0)
@@ -159,20 +162,20 @@ class TakeAttackActionEvent(TakeActionEvent):
         initial_event = AttackRolledEvent(self.action, attack_roll)
         yield from self.action.subject().attack_rolled_strategy().recommend(self.action.subject(), initial_event, context)
 
-    def _roll_damage(self):
+    def _roll_damage(self) -> "LightWoundsDamageEvent":
         damage_roll = self.action.roll_damage()
         return LightWoundsDamageEvent(self.action.subject(), self.action.target(), damage_roll)
 
-    def _succeeded(self):
+    def _succeeded(self) -> "AttackSucceededEvent":
         logger.info(f"{self.action.subject().name()} successfully attacked {self.action.target().name()} with {self.action.skill()}")
         return AttackSucceededEvent(self.action)
 
 
 class TakeParryActionEvent(TakeActionEvent):
-    def __init__(self, action):
+    def __init__(self, action: Any) -> None:
         super().__init__("take_parry", action)
 
-    def play(self, context):
+    def play(self, context: Any) -> Iterator["Event"]:
         yield self._declare_parry()
         yield from self._roll_parry(context)
         if self.action.is_success():
@@ -181,16 +184,16 @@ class TakeParryActionEvent(TakeActionEvent):
         else:
             yield self._failed()
 
-    def _declare_parry(self):
+    def _declare_parry(self) -> "ParryDeclaredEvent":
         declaration = ParryDeclaredEvent(self.action)
         self.action.set_attack_parry_declared(declaration)
         return declaration
 
-    def _failed(self):
+    def _failed(self) -> "ParryFailedEvent":
         logger.info(f"{self.action.subject().name()} failed to parry {self.action.target().name()}")
         return ParryFailedEvent(self.action)
 
-    def _roll_parry(self, context):
+    def _roll_parry(self, context: Any) -> Iterator["Event"]:
         parry_roll = self.action.roll_skill()
         self.action.set_attack_parry_attempted()
         # Cap VP spending to what's actually available.
@@ -200,64 +203,64 @@ class TakeParryActionEvent(TakeActionEvent):
         initial_event = ParryRolledEvent(self.action, parry_roll)
         yield from self.action.subject().parry_rolled_strategy().recommend(self.action.subject(), initial_event, context)
 
-    def _succeeded(self):
+    def _succeeded(self) -> "ParrySucceededEvent":
         logger.info(f"{self.action.subject().name()} successfully parried {self.action.target().name()}")
         self.action.set_attack_parried()
         return ParrySucceededEvent(self.action)
 
 
 class AttackDeclaredEvent(ActionEvent):
-    def __init__(self, action):
+    def __init__(self, action: Any) -> None:
         super().__init__("attack_declared", action)
 
 
 class AttackRolledEvent(ActionEvent):
-    def __init__(self, action, roll):
+    def __init__(self, action: Any, roll: int) -> None:
         super().__init__("attack_rolled", action)
         self.roll = roll
 
 
 class AttackSucceededEvent(ActionEvent):
-    def __init__(self, action):
+    def __init__(self, action: Any) -> None:
         super().__init__("attack_succeeded", action)
 
 
 class AttackFailedEvent(ActionEvent):
-    def __init__(self, action):
+    def __init__(self, action: Any) -> None:
         super().__init__("attack_failed", action)
 
 
 class ParryDeclaredEvent(ActionEvent):
-    def __init__(self, action):
+    def __init__(self, action: Any) -> None:
         super().__init__("parry_declared", action)
 
 
 class ParryPredeclaredEvent(ActionEvent):
-    def __init__(self, action):
+    def __init__(self, action: Any) -> None:
         super().__init__("parry_predeclared", action)
 
 
 class ParryRolledEvent(ActionEvent):
-    def __init__(self, action, roll):
+    def __init__(self, action: Any, roll: int) -> None:
         super().__init__("parry_rolled", action)
         self.roll = roll
 
 
 class ParrySucceededEvent(ActionEvent):
-    def __init__(self, action):
+    def __init__(self, action: Any) -> None:
         super().__init__("parry_succeeded", action)
 
 
 class ParryFailedEvent(ActionEvent):
-    def __init__(self, action):
+    def __init__(self, action: Any) -> None:
         super().__init__("parry_failed", action)
 
 
 class TakeCounterattackActionEvent(TakeActionEvent):
-    def __init__(self, action):
+    def __init__(self, action: Any) -> None:
         super().__init__("take_counterattack", action)
 
-    def play(self, context):
+    def play(self, context: Any) -> Iterator["Event"]:
         yield CounterattackDeclaredEvent(self.action)
         self.action.roll_skill()
         # Cap VP spending to what's actually available.
@@ -275,23 +278,23 @@ class TakeCounterattackActionEvent(TakeActionEvent):
 
 
 class CounterattackDeclaredEvent(ActionEvent):
-    def __init__(self, action):
+    def __init__(self, action: Any) -> None:
         super().__init__("counterattack_declared", action)
 
 
 class CounterattackRolledEvent(ActionEvent):
-    def __init__(self, action, roll):
+    def __init__(self, action: Any, roll: int) -> None:
         super().__init__("counterattack_rolled", action)
         self.roll = roll
 
 
 class CounterattackSucceededEvent(ActionEvent):
-    def __init__(self, action):
+    def __init__(self, action: Any) -> None:
         super().__init__("counterattack_succeeded", action)
 
 
 class CounterattackFailedEvent(ActionEvent):
-    def __init__(self, action):
+    def __init__(self, action: Any) -> None:
         super().__init__("counterattack_failed", action)
 
 
@@ -304,7 +307,7 @@ class DamageEvent(Event):
     The "damage" is the amount of damage inflicted.
     """
 
-    def __init__(self, name, subject, target, damage):
+    def __init__(self, name: str, subject: Any, target: Any, damage: int) -> None:
         super().__init__(name)
         self.subject = subject
         self.target = target
@@ -322,7 +325,7 @@ class LightWoundsDamageEvent(DamageEvent):
     are certain abilities that modify the TN.
     """
 
-    def __init__(self, subject, target, damage, tn=None, duel=False):
+    def __init__(self, subject: Any, target: Any, damage: int, tn: int | None = None, duel: bool = False) -> None:
         super().__init__("lw_damage", subject, target, damage)
         if tn is None:
             self.wound_check_tn = damage
@@ -334,23 +337,23 @@ class LightWoundsDamageEvent(DamageEvent):
 
 
 class SeriousWoundsDamageEvent(DamageEvent):
-    def __init__(self, subject, target, damage):
+    def __init__(self, subject: Any, target: Any, damage: int) -> None:
         super().__init__("sw_damage", subject, target, damage)
 
 
 class StatusEvent(Event):
-    def __init__(self, name, subject):
+    def __init__(self, name: str, subject: Any) -> None:
         super().__init__(name)
         self.subject = subject
 
 
 class CrippledEvent(StatusEvent):
-    def __init__(self, name, subject):
+    def __init__(self, name: str, subject: Any) -> None:
         super().__init__("crippled", subject)
 
 
-class NotCrippledEvent(Event):
-    def __init__(self, name, subject):
+class NotCrippledEvent(StatusEvent):
+    def __init__(self, subject: Any) -> None:
         super().__init__("not_crippled", subject)
 
 
@@ -359,17 +362,17 @@ class DefeatEvent(StatusEvent):
 
 
 class DeathEvent(DefeatEvent):
-    def __init__(self, subject):
+    def __init__(self, subject: Any) -> None:
         super().__init__("death", subject)
 
 
 class SurrenderEvent(DefeatEvent):
-    def __init__(self, subject):
+    def __init__(self, subject: Any) -> None:
         super().__init__("surrender", subject)
 
 
 class UnconsciousEvent(DefeatEvent):
-    def __init__(self, subject):
+    def __init__(self, subject: Any) -> None:
         super().__init__("unconscious", subject)
 
 
@@ -382,7 +385,7 @@ class HoldActionEvent(NotMovingEvent):
     Response by characters to YourMoveEvent to indicate they are holding their action.
     """
 
-    def __init__(self, subject):
+    def __init__(self, subject: Any) -> None:
         super().__init__("hold_action", subject)
 
 
@@ -391,7 +394,7 @@ class NoActionEvent(NotMovingEvent):
     Response by characters to YourMoveEvent to indicate they have no action.
     """
 
-    def __init__(self, subject):
+    def __init__(self, subject: Any) -> None:
         super().__init__("no_action", subject)
 
 
@@ -407,7 +410,7 @@ class WoundCheckEvent(Event):
     the amount of damage.
     """
 
-    def __init__(self, name, subject, attacker, damage, tn=None):
+    def __init__(self, name: str, subject: Any, attacker: Any, damage: int, tn: int | None = None) -> None:
         super().__init__(name)
         self.subject = subject
         self.attacker = attacker
@@ -419,49 +422,49 @@ class WoundCheckEvent(Event):
 
 
 class WoundCheckDeclaredEvent(WoundCheckEvent):
-    def __init__(self, subject, attacker, damage, tn=None, vp=0, duel=False):
+    def __init__(self, subject: Any, attacker: Any, damage: int, tn: int | None = None, vp: int = 0, duel: bool = False) -> None:
         super().__init__("wound_check_declared", subject, attacker, damage, tn=tn)
         self.vp = vp
         self.duel = duel
 
 
 class WoundCheckFailedEvent(WoundCheckEvent):
-    def __init__(self, subject, attacker, damage, roll, tn=None):
+    def __init__(self, subject: Any, attacker: Any, damage: int, roll: int, tn: int | None = None) -> None:
         super().__init__("wound_check_failed", subject, attacker, damage, tn=tn)
         self.roll = roll
 
 
 class WoundCheckRolledEvent(WoundCheckEvent):
-    def __init__(self, subject, attacker, damage, roll, tn=None):
+    def __init__(self, subject: Any, attacker: Any, damage: int, roll: int, tn: int | None = None) -> None:
         super().__init__("wound_check_rolled", subject, attacker, damage, tn=tn)
         self.roll = roll
 
 
 class WoundCheckSucceededEvent(WoundCheckEvent):
-    def __init__(self, subject, attacker, damage, roll, tn=None):
+    def __init__(self, subject: Any, attacker: Any, damage: int, roll: int, tn: int | None = None) -> None:
         super().__init__("wound_check_succeeded", subject, attacker, damage, tn=tn)
         self.roll = roll
 
 
 class KeepLightWoundsEvent(WoundCheckEvent):
-    def __init__(self, subject, attacker, damage, tn=None):
+    def __init__(self, subject: Any, attacker: Any, damage: int, tn: int | None = None) -> None:
         super().__init__("keep_lw", subject, attacker, damage, tn=tn)
 
 
 class TakeSeriousWoundEvent(WoundCheckEvent):
-    def __init__(self, subject, attacker, damage, tn=None):
+    def __init__(self, subject: Any, attacker: Any, damage: int, tn: int | None = None) -> None:
         super().__init__("take_sw", subject, attacker, damage, tn=tn)
 
 
 class GainResourcesEvent(Event):
-    def __init__(self, name, subject, amount):
+    def __init__(self, name: str, subject: Any, amount: int) -> None:
         super().__init__(name)
         self.subject = subject
         self.amount = amount
 
 
 class GainTemporaryVoidPointsEvent(GainResourcesEvent):
-    def __init__(self, subject, amount):
+    def __init__(self, subject: Any, amount: int) -> None:
         super().__init__("gain_tvp", subject, amount)
 
 
@@ -470,7 +473,7 @@ class SpendActionEvent(Event):
     Event for when a character spends an action die.
     """
 
-    def __init__(self, subject, skill, initiative_action):
+    def __init__(self, subject: Any, skill: str, initiative_action: Any) -> None:
         super().__init__("spend_action")
         self.subject = subject
         self.skill = skill
@@ -487,7 +490,7 @@ class SpendResourcesEvent(Event):
     The "amount" is the amount of the resource being spent.
     """
 
-    def __init__(self, name, subject, skill, amount):
+    def __init__(self, name: str, subject: Any, skill: str, amount: int) -> None:
         super().__init__(name)
         self.subject = subject
         self.skill = skill
@@ -495,17 +498,17 @@ class SpendResourcesEvent(Event):
 
 
 class SpendAdventurePointsEvent(SpendResourcesEvent):
-    def __init__(self, subject, skill, amount):
+    def __init__(self, subject: Any, skill: str, amount: int) -> None:
         super().__init__("spend_ap", subject, skill, amount)
 
 
 class SpendConvictionEvent(SpendResourcesEvent):
-    def __init__(self, subject, skill, amount):
+    def __init__(self, subject: Any, skill: str, amount: int) -> None:
         super().__init__("spend_conviction", subject, skill, amount)
 
 
 class SpendVoidPointsEvent(SpendResourcesEvent):
-    def __init__(self, subject, skill, amount):
+    def __init__(self, subject: Any, skill: str, amount: int) -> None:
         super().__init__("spend_vp", subject, skill, amount)
 
 
@@ -516,7 +519,7 @@ class SpendFloatingBonusEvent(Event):
     they aren't a good fit for a SpendResourcesEvent.
     """
 
-    def __init__(self, subject, bonus):
+    def __init__(self, subject: Any, bonus: Any) -> None:
         super().__init__("spend_floating_bonus")
         self.subject = subject
         self.bonus = bonus
@@ -527,7 +530,7 @@ class ModifierEvent(Event):
     Event for when a character is affected by a Modifier.
     """
 
-    def __init__(self, name, subject, modifier):
+    def __init__(self, name: str, subject: Any, modifier: Any) -> None:
         super().__init__(name)
         self.subject = subject
         self.modifier = modifier
@@ -538,7 +541,7 @@ class AddModifierEvent(ModifierEvent):
     Event for when a character gains a modifier.
     """
 
-    def __init__(self, subject, modifier):
+    def __init__(self, subject: Any, modifier: Any) -> None:
         super().__init__("add_modifier", subject, modifier)
 
 
@@ -547,5 +550,5 @@ class RemoveModifierEvent(ModifierEvent):
     Event for when a character loses a modifier.
     """
 
-    def __init__(self, subject, modifier):
+    def __init__(self, subject: Any, modifier: Any) -> None:
         super().__init__("remove_modifier", subject, modifier)

@@ -5,6 +5,9 @@
 # Implement Bayushi Bushi School.
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation import events
 from simulation.actions import FeintAction
 from simulation.listeners import Listener
@@ -16,36 +19,36 @@ from simulation.strategies.action_factory import DefaultActionFactory
 
 
 class BayushiBushiSchool(BaseSchool):
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return None
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         character.set_wound_check_provider(BayushiWoundCheckProvider())
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         character.set_listener("attack_failed", BayushiAttackFailedListener())
         character.set_listener("attack_succeeded", BayushiAttackSucceededListener())
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         character.set_action_factory(BAYUSHI_ACTION_FACTORY)
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         character.set_roll_parameter_provider(BAYUSHI_ROLL_PARAMETER_PROVIDER)
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["double attack", "iaijutsu", "wound check"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["double attack"]
 
-    def name(self):
+    def name(self) -> str:
         return "Bayushi Bushi School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["double attack", "feint", "iaijutsu"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "fire"
 
 
@@ -55,7 +58,7 @@ class BayushiRollParameterProvider(DefaultRollParameterProvider):
     to apply Void Points spent on attack rolls to damage rolls.
     """
 
-    def get_damage_roll_params(self, character, target, skill, attack_extra_rolled, vp=0):
+    def get_damage_roll_params(self, character: Any, target: Any, skill: str, attack_extra_rolled: int, vp: int = 0) -> tuple[int, int, int]:
         # calculate extra rolled dice
         ring = character.ring(character.get_skill_ring("damage"))
         my_extra_rolled = character.extra_rolled("damage")
@@ -79,7 +82,7 @@ class BayushiWoundCheckProvider(WoundCheckProvider):
     The halving only reduces severity but cannot eliminate SW entirely.
     """
 
-    def wound_check(self, roll, lw=None):
+    def wound_check(self, roll: int, lw: int) -> int:
         halved_lw = lw // 2
         result = DEFAULT_WOUND_CHECK_PROVIDER.wound_check(roll, halved_lw)
         # A failed wound check always results in at least 1 SW
@@ -89,21 +92,21 @@ class BayushiWoundCheckProvider(WoundCheckProvider):
 
 
 class BayushiFeintAction(FeintAction):
-    def damage_roll_params(self):
+    def damage_roll_params(self) -> tuple[int, int, int]:
         rolled = self.subject().skill("attack") + self.vp()
         kept = 1 + self.vp()
         modifier = self.subject().modifier(self.target(), self.skill())
         return (rolled, kept, modifier)
 
-    def roll_damage(self):
+    def roll_damage(self) -> int:
         (rolled, kept, modifier) = self.damage_roll_params()
-        damage_roll = self.subject().roll_provider().get_damage_roll(rolled, kept) + modifier
+        damage_roll: int = self.subject().roll_provider().get_damage_roll(rolled, kept) + modifier
         self.set_damage_roll(damage_roll)
         return damage_roll
 
 
 class BayushiActionFactory(DefaultActionFactory):
-    def get_attack_action(self, subject, target, skill, initiative_action, context, vp=0):
+    def get_attack_action(self, subject: Any, target: Any, skill: str, initiative_action: Any, context: Any, vp: int = 0) -> Any:
         if skill == "feint":
             return BayushiFeintAction(subject, target, skill, initiative_action, context, vp=vp)
         else:
@@ -119,7 +122,7 @@ class BayushiAttackFailedListener(Listener):
     to gain a floating bonus to any attack after a Feint.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.AttackFailedEvent):
             if event.action.subject() == character:
                 if event.action.skill() == "feint":
@@ -133,7 +136,7 @@ class BayushiAttackSucceededListener(Listener):
     to gain a floating bonus to any attack after a Feint.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.AttackSucceededEvent):
             if event.action.subject() == character:
                 if event.action.skill() == "feint":

@@ -19,6 +19,9 @@
 # 5th Dan: After successful wound check, gain WoundCheckFloatingBonus(roll - damage)
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation import events
 from simulation.actions import AttackAction, DoubleAttackAction, LungeAction
 from simulation.listeners import Listener
@@ -31,39 +34,39 @@ from simulation.strategies.action_factory import DefaultActionFactory
 
 
 class IsawaDuelistSchool(BaseSchool):
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return None
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         # Water ring for damage instead of Fire
         character._skill_rings["damage"] = "water"
         character.set_roll_parameter_provider(ISAWA_ROLL_PARAMETER_PROVIDER)
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         character.set_action_factory(ISAWA_ACTION_FACTORY)
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         character.set_interrupt_cost("lunge", 1)
         character.add_interrupt_skill("lunge")
         character.set_listener("new_round", IsawaNewRoundListener())
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         character.set_listener("wound_check_succeeded", IsawaWoundCheckSucceededListener())
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["double attack", "lunge", "wound check"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["wound check"]
 
-    def name(self):
+    def name(self) -> str:
         return "Isawa Duelist School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["double attack", "iaijutsu", "lunge"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "water"
 
 
@@ -73,7 +76,7 @@ class IsawaRollParameterProvider(DefaultRollParameterProvider):
     Uses Water ring for damage instead of Fire.
     """
 
-    def get_damage_roll_params(self, character, target, skill, attack_extra_rolled, vp=0):
+    def get_damage_roll_params(self, character: Any, target: Any, skill: str, attack_extra_rolled: int, vp: int = 0) -> tuple[int, int, int]:
         # Use water ring for damage
         ring = character.ring("water")
         my_extra_rolled = character.extra_rolled("damage")
@@ -93,7 +96,7 @@ class IsawaAttackAction(AttackAction):
     After the attack, lower own TN by 5 (expires after next attack).
     """
 
-    def skill_roll_params(self):
+    def skill_roll_params(self) -> tuple[int, int, int]:
         (rolled, kept, modifier) = self.subject().get_skill_roll_params(self.target(), self.skill(), vp=self.vp())
         bonus = 3 * self.subject().skill("attack")
         return (rolled, kept, modifier + bonus)
@@ -104,7 +107,7 @@ class IsawaDoubleAttackAction(DoubleAttackAction):
     Custom DoubleAttackAction for Isawa 3rd Dan.
     """
 
-    def skill_roll_params(self):
+    def skill_roll_params(self) -> tuple[int, int, int]:
         (rolled, kept, modifier) = self.subject().get_skill_roll_params(self.target(), self.skill(), vp=self.vp())
         bonus = 3 * self.subject().skill("attack")
         return (rolled, kept, modifier + bonus)
@@ -115,7 +118,7 @@ class IsawaLungeAction(LungeAction):
     Custom LungeAction for Isawa 3rd Dan.
     """
 
-    def skill_roll_params(self):
+    def skill_roll_params(self) -> tuple[int, int, int]:
         (rolled, kept, modifier) = self.subject().get_skill_roll_params(self.target(), self.skill(), vp=self.vp())
         bonus = 3 * self.subject().skill("attack")
         return (rolled, kept, modifier + bonus)
@@ -126,7 +129,7 @@ class IsawaActionFactory(DefaultActionFactory):
     ActionFactory to return Isawa-specific attack actions.
     """
 
-    def get_attack_action(self, subject, target, skill, initiative_action, context, vp=0):
+    def get_attack_action(self, subject: Any, target: Any, skill: str, initiative_action: Any, context: Any, vp: int = 0) -> Any:
         if skill in ("attack", "iaijutsu"):
             return IsawaAttackAction(subject, target, skill, initiative_action, context, vp=vp)
         elif skill == "double attack":
@@ -148,7 +151,7 @@ class IsawaAttackDeclaredListener(Listener):
     lower own TN by 5 (expires after next attack against self).
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.AttackDeclaredEvent):
             if event.action.subject() == character:
                 # Lower own TN by 5
@@ -169,7 +172,7 @@ class IsawaNewRoundListener(Listener):
     re-enable it each round by resetting the character's interrupt state.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.NewRoundEvent):
             character.roll_initiative()
             # Reset interrupt lunge availability by restoring interrupt cost
@@ -183,7 +186,7 @@ class IsawaWoundCheckSucceededListener(Listener):
     After successful wound check, gain WoundCheckFloatingBonus(roll - damage).
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.WoundCheckSucceededEvent):
             if event.subject == character:
                 bonus = event.roll - event.damage

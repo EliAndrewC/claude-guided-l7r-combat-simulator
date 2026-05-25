@@ -10,6 +10,8 @@
 #
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from typing import Any
 
 from simulation.events import AttackFailedEvent, AttackSucceededEvent, EndOfRoundEvent, LightWoundsDamageEvent, RemoveModifierEvent
 
@@ -20,7 +22,7 @@ class ModifierListener(ABC):
     """
 
     @abstractmethod
-    def handle(self, character, event, modifier, context):
+    def handle(self, character: Any, event: Any, modifier: Any, context: Any) -> Iterator[Any]:
         """
         Evaluate whether the modifier should expire, and remove it from the character if so.
         """
@@ -32,7 +34,7 @@ class ExpireAfterNextAttackListener(ModifierListener):
     Expire a modifier after the next attack against the character.
     """
 
-    def handle(self, character, event, modifier, context):
+    def handle(self, character: Any, event: Any, modifier: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, AttackFailedEvent) or isinstance(event, AttackSucceededEvent):
             if character == event.action.target():
                 yield RemoveModifierEvent(character, modifier)
@@ -43,11 +45,11 @@ class ExpireAfterNextAttackByCharacterListener(ModifierListener):
     Expire a modifier after the next attack by a specific attacker against the character.
     """
 
-    def __init__(self, attacker):
+    def __init__(self, attacker: Any) -> None:
         super().__init__()
         self._attacker = attacker
 
-    def handle(self, character, event, modifier, context):
+    def handle(self, character: Any, event: Any, modifier: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, AttackFailedEvent) or isinstance(event, AttackSucceededEvent):
             if character == event.action.target() and self._attacker == event.action.subject():
                 yield RemoveModifierEvent(character, modifier)
@@ -59,12 +61,12 @@ class ExpireAfterNextDamageByCharacterListener(ModifierListener):
     Used for expiring modifiers that affect a character's damage roll.
     """
 
-    def __init__(self, subject, target):
+    def __init__(self, subject: Any, target: Any) -> None:
         super().__init__()
         self._subject = subject
         self._target = target
 
-    def handle(self, character, event, modifier, context):
+    def handle(self, character: Any, event: Any, modifier: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, LightWoundsDamageEvent):
             if character == event.subject and self._target == event.target:
                 yield RemoveModifierEvent(character, modifier)
@@ -76,12 +78,12 @@ class ExpireAfterNDamageRollsListener(ModifierListener):
     Used by the Hiruma 5th Dan technique.
     """
 
-    def __init__(self, attacker, n):
+    def __init__(self, attacker: Any, n: int) -> None:
         super().__init__()
         self._attacker = attacker
         self._remaining = n
 
-    def handle(self, character, event, modifier, context):
+    def handle(self, character: Any, event: Any, modifier: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, LightWoundsDamageEvent):
             if event.subject == self._attacker:
                 self._remaining -= 1
@@ -94,6 +96,6 @@ class ExpireAtEndOfRoundListener(ModifierListener):
     Expire a modifier at the end of the current round.
     """
 
-    def handle(self, character, event, modifier, context):
+    def handle(self, character: Any, event: Any, modifier: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, EndOfRoundEvent):
             yield RemoveModifierEvent(character, modifier)

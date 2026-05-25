@@ -6,6 +6,8 @@
 # Custom Roll classes for Ninja profession abilities.
 #
 
+from typing import Any
+
 from simulation.mechanics.roll import BaseRoll
 from simulation.mechanics.roll_params import normalize_roll_params
 
@@ -20,17 +22,17 @@ class NinjaDamageReductionRoll(BaseRoll):
     Non-rerolled 10s stay as 10.
     """
 
-    def __init__(self, rolled, kept, reduction=0, faces=10, die_provider=None):
+    def __init__(self, rolled: int, kept: int, reduction: int = 0, faces: int = 10, die_provider: Any = None) -> None:
         super().__init__(rolled, kept, faces, True, die_provider)
         if not isinstance(reduction, int) or reduction < 0:
             raise ValueError("reduction must be a non-negative int")
         self._reduction = reduction
-        self._dice = []
+        self._dice: list[int] = []
 
-    def dice(self):
+    def dice(self) -> list[int]:
         return self._dice
 
-    def roll(self):
+    def roll(self) -> int:
         # Roll all dice without explosion first
         dice = [self.roll_die(faces=self.faces(), explode=False) for _ in range(self._rolled)]
         # Count tens and determine how many to reroll
@@ -57,17 +59,17 @@ class NinjaWoundCheckRoll(BaseRoll):
     At level 2, die rolling 1 becomes 1 + 2*(5-1) = 9, etc.
     """
 
-    def __init__(self, rolled, kept, ability_level=1, faces=10, explode=True, die_provider=None):
+    def __init__(self, rolled: int, kept: int, ability_level: int = 1, faces: int = 10, explode: bool = True, die_provider: Any = None) -> None:
         super().__init__(rolled, kept, faces, explode, die_provider)
         if not isinstance(ability_level, int) or ability_level < 1:
             raise ValueError("ability_level must be a positive int")
         self._ability_level = ability_level
-        self._dice = []
+        self._dice: list[int] = []
 
-    def dice(self):
+    def dice(self) -> list[int]:
         return self._dice
 
-    def roll(self):
+    def roll(self) -> int:
         dice = [self.roll_die(faces=self.faces(), explode=self.explode()) for _ in range(self._rolled)]
         # Apply wound check bonus: dice < 5 get bonus of ability_level * (5 - X)
         adjusted = []
@@ -93,19 +95,19 @@ class NinjaDamageKeepRoll(BaseRoll):
     keep the top 3 + bottom 2 of the remaining 4.
     """
 
-    def __init__(self, rolled, kept, extra_lowest=0, faces=10, explode=True, die_provider=None):
+    def __init__(self, rolled: int, kept: int, extra_lowest: int = 0, faces: int = 10, explode: bool = True, die_provider: Any = None) -> None:
         # Normalize before storing extra_lowest so we know the real kept count
         (norm_rolled, norm_kept, norm_bonus) = normalize_roll_params(rolled, kept)
         super().__init__(norm_rolled, norm_kept, faces, explode, die_provider)
         if not isinstance(extra_lowest, int) or extra_lowest < 0:
             raise ValueError("extra_lowest must be a non-negative int")
         self._extra_lowest = extra_lowest
-        self._dice = []
+        self._dice: list[int] = []
 
-    def dice(self):
+    def dice(self) -> list[int]:
         return self._dice
 
-    def roll(self):
+    def roll(self) -> int:
         dice = [self.roll_die(faces=self.faces(), explode=self.explode()) for _ in range(self._rolled)]
         dice.sort(reverse=True)
         self._dice = dice

@@ -2,6 +2,7 @@
 
 import json
 from dataclasses import dataclass, field
+from typing import Any
 
 from web.models import CharacterConfig, GroupConfig
 
@@ -13,14 +14,14 @@ class VariableOption:
     label: str = ""
     description: str = ""
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         d = {"name": self.name, "label": self.label}
         if self.description:
             d["description"] = self.description
         return d
 
     @classmethod
-    def from_dict(cls, data: dict) -> "VariableOption":
+    def from_dict(cls, data: dict[str, Any]) -> "VariableOption":
         return cls(
             name=data["name"],
             label=data["label"],
@@ -36,7 +37,7 @@ class AnalysisVariable:
     description: str = ""
     options: list[VariableOption] = field(default_factory=list)
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         d = {
             "name": self.name,
             "label": self.label,
@@ -47,7 +48,7 @@ class AnalysisVariable:
         return d
 
     @classmethod
-    def from_dict(cls, data: dict) -> "AnalysisVariable":
+    def from_dict(cls, data: dict[str, Any]) -> "AnalysisVariable":
         return cls(
             name=data["name"],
             label=data["label"],
@@ -77,7 +78,7 @@ class MatchupResult:
     test_victories: int = 0
     num_trials: int = 0
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "matchup_id": self.matchup_id,
             "control_victories": self.control_victories,
@@ -86,7 +87,7 @@ class MatchupResult:
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "MatchupResult":
+    def from_dict(cls, data: dict[str, Any]) -> "MatchupResult":
         return cls(
             matchup_id=data["matchup_id"],
             control_victories=data["control_victories"],

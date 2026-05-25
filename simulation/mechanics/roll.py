@@ -18,41 +18,12 @@ class DieProvider(ABC):
     """
 
     @abstractmethod
-    def roll_die(self, faces=10, explode=True):
-        """
-        roll_die(faces=10, explode=True) -> int
-          faces (int): number of die faces
-          explode (bool): whether to explode dice (see below)
-
-        Returns the result of rolling a simulated die with the given
-        number of faces.
-
-        An "exploding" die adds to the result through recursion if the
-        number of faces is rolled.
-        """
+    def roll_die(self, faces: int = 10, explode: bool = True) -> int:
         pass
 
 
 class DefaultDieProvider(DieProvider):
-    """
-    Simulated dice for the L7R combat simulator.
-
-    Use the singleton instance of this class to avoid excessive
-    object creation during simulations.
-    """
-
-    def roll_die(self, faces=10, explode=True):
-        """
-        roll_die(faces=10, explode=True) -> int
-          faces (int): number of die faces
-          explode (bool): whether to explode dice (see below)
-
-        Returns the result of rolling a simulated die with the given
-        number of faces.
-
-        An "exploding" die adds to the result through recursion if the
-        number of faces is rolled.
-        """
+    def roll_die(self, faces: int = 10, explode: bool = True) -> int:
         result = random.randint(1, faces)
         if explode and result == faces:
             return result + self.roll_die(faces, explode)
@@ -67,59 +38,33 @@ DEFAULT_DIE_PROVIDER = DefaultDieProvider()
 class CalvinistDice(DieProvider):
     """
     Die source whose results are predestined, not random.
-
-    In Calvinist theology, all events are predetermined by God before
-    they occur. Similarly, these dice have their outcomes predestined
-    before they are rolled, making them useful for testing where we
-    need to know exactly what the dice will produce.
-
-    Acts as a FIFO queue. You append or extend the die source with
-    rolled dice (ints), and when a Roll gets results from this source,
-    it pops the earliest queued results.
     """
 
-    def __init__(self):
-        self._dice = []
+    def __init__(self) -> None:
+        self._dice: list[int] = []
 
-    def clear(self):
-        """
-        clear()
-
-        Clears the dice queue to reset for a new test case.
-        """
+    def clear(self) -> None:
         self._dice.clear()
 
-    def extend(self, dice):
-        """
-        extend(dice)
-          dice: list of int
-
-          Extend this die source's results with a list of rolled dice.
-        """
+    def extend(self, dice: list[int]) -> None:
         self._dice.extend(dice)
 
-    def append(self, die):
-        """
-        append(die)
-          die: int
-
-          Append a rolled die to this die source.
-        """
+    def append(self, die: int) -> None:
         self._dice.append(die)
 
-    def roll_die(self, faces=10, explode=True):
+    def roll_die(self, faces: int = 10, explode: bool = True) -> int:
         die = self._dice.pop(0)
         if explode and die == faces:
             return die + self.roll_die(faces, explode)
         else:
             return die
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._dice)
 
 
 class BaseRoll:
-    def __init__(self, rolled, kept, faces=10, explode=True, die_provider=None):
+    def __init__(self, rolled: int, kept: int, faces: int = 10, explode: bool = True, die_provider: DieProvider | None = None) -> None:
         # normalize roll parameters
         (self._rolled, self._kept, self._bonus) = normalize_roll_params(rolled, kept)
         # set die faces
@@ -130,61 +75,50 @@ class BaseRoll:
         if die_provider is not None:
             if not isinstance(die_provider, DieProvider):
                 raise ValueError("die_provider must be a DieProvider")
-            self._die_provider = die_provider
+            self._die_provider: DieProvider = die_provider
         else:
             self._die_provider = DEFAULT_DIE_PROVIDER
 
-    def die_provider(self):
+    def die_provider(self) -> DieProvider:
         return self._die_provider
 
-    def explode(self):
+    def explode(self) -> bool:
         return self._explode
 
-    def faces(self):
+    def faces(self) -> int:
         return self._faces
 
-    def roll_die(self, faces=10, explode=True):
-        """
-        roll_die(faces=10, explode=True) -> int
-          faces (int): number of die faces
-          explode (bool): whether to explode dice (see below)
-
-        Returns the result of rolling a simulated die with the given
-        number of faces.
-
-        An "exploding" die adds to the result through recursion if the
-        number of faces is rolled.
-        """
+    def roll_die(self, faces: int = 10, explode: bool = True) -> int:
         return self.die_provider().roll_die(faces, explode)
 
-    def set_die_provider(self, die_provider):
+    def set_die_provider(self, die_provider: DieProvider) -> None:
         if not isinstance(die_provider, DieProvider):
             raise ValueError("set_die_provider requires a DieProvider")
         self._die_provider = die_provider
 
 
 class Roll(BaseRoll):
-    def __init__(self, rolled, kept, faces=10, explode=True, die_provider=None):
+    def __init__(self, rolled: int, kept: int, faces: int = 10, explode: bool = True, die_provider: DieProvider | None = None) -> None:
         super().__init__(rolled, kept, faces, explode, die_provider)
-        self._dice = []
+        self._dice: list[int] = []
 
-    def dice(self):
+    def dice(self) -> list[int]:
         return self._dice
 
-    def roll(self):
+    def roll(self) -> int:
         self._dice = [self.die_provider().roll_die(faces=self.faces(), explode=self.explode()) for n in range(self._rolled)]
         self._dice.sort(reverse=True)
         return sum(self._dice[: self._kept]) + self._bonus
 
 
 class InitiativeRoll(BaseRoll):
-    def __init__(self, rolled, kept, faces=10, die_provider=None):
+    def __init__(self, rolled: int, kept: int, faces: int = 10, die_provider: DieProvider | None = None) -> None:
         super().__init__(rolled, kept, faces, False, die_provider)
-        self._all_dice = []
+        self._all_dice: list[int] = []
 
-    def all_dice(self):
+    def all_dice(self) -> list[int]:
         return self._all_dice
 
-    def roll(self):
+    def roll(self) -> list[int]:
         self._all_dice = sorted([self.roll_die(faces=self.faces(), explode=False) for n in range(self._rolled)])
         return self._all_dice[: self._kept]

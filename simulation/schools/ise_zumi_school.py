@@ -18,50 +18,53 @@
 # 5th Dan: Spend 1 VP to heal 2 SW after a wound check failure.
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation import events
 from simulation.listeners import Listener
 from simulation.schools.base import BaseSchool
 
 
 class TogashiIseZumiSchool(BaseSchool):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self._ap_base_skill = "precepts"
         self._ap_skills = ["athletics"]
 
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return "precepts"
 
-    def ap_skills(self):
+    def ap_skills(self) -> list[str]:
         return ["athletics"]
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         character.set_listener("new_round", IseZumiNewRoundListener())
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         self.apply_ap(character)
         character.set_ap_multiplier(4)
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         # Contested roll reroll is a social ability, not applicable in combat simulation
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         character.set_listener("wound_check_failed", IseZumiWoundCheckFailedListener())
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["attack", "parry", "athletics"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["athletics"]
 
-    def name(self):
+    def name(self) -> str:
         return "Togashi Ise Zumi School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["athletics", "conviction", "dragon tattoo"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "void"
 
 
@@ -72,7 +75,7 @@ class IseZumiNewRoundListener(Listener):
     TODO: athletics-only restriction on extra action dice.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.NewRoundEvent):
             character.roll_initiative()
             # Roll 1 extra action die (1d10)
@@ -88,7 +91,7 @@ class IseZumiWoundCheckFailedListener(Listener):
     5th Dan: After a failed wound check, spend 1 VP to heal 2 SW.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.WoundCheckFailedEvent):
             if event.subject == character:
                 sw = character.wound_check(event.roll)

@@ -6,7 +6,7 @@
 # Defines disadvantages that a character may take in the L7R combat simulator.
 #
 
-DISADVANTAGES = {
+DISADVANTAGES: dict[str, int] = {
     "bad reputation": -3,
     "clan animosity": -4,
     "contrary": -5,
@@ -36,13 +36,13 @@ DISADVANTAGES = {
 
 
 class Disadvantage:
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         if name not in DISADVANTAGES.keys():
             raise ValueError(f"{name} is not a valid Disadvantage")
         self._name = name
 
-    def cost(self):
+    def cost(self) -> int:
         return DISADVANTAGES[self.name()]
 
-    def name(self):
+    def name(self) -> str:
         return self._name

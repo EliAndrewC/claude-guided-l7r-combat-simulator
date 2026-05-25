@@ -6,6 +6,9 @@
 # Implement Akodo Bushi School.
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation import events
 from simulation.listeners import Listener
 from simulation.mechanics.floating_bonuses import AnyAttackFloatingBonus
@@ -14,36 +17,36 @@ from simulation.strategies.base import Strategy
 
 
 class AkodoBushiSchool(BaseSchool):
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return None
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         character.set_listener("lw_damage", AkodoLightWoundsDamageListener())
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         character.set_listener("wound_check_declared", AkodoWoundCheckDeclaredListener())
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         character.set_listener("wound_check_succeeded", AkodoWoundCheckSucceededListener())
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         character.set_listener("attack_failed", AkodoAttackFailedListener())
         character.set_listener("attack_succeeded", AkodoAttackSucceededListener())
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["attack", "double attack", "wound check"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["wound check"]
 
-    def name(self):
+    def name(self) -> str:
         return "Akodo Bushi School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["double attack", "feint", "iaijutsu"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "water"
 
 
@@ -53,7 +56,7 @@ class AkodoAttackFailedListener(Listener):
     to gain 1 TVP on a failed feint.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.AttackFailedEvent):
             if event.action.subject() == character:
                 if event.action.skill() == "feint":
@@ -66,7 +69,7 @@ class AkodoAttackSucceededListener(Listener):
     to gain 4 TVP on a successful feint.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.AttackSucceededEvent):
             if event.action.subject() == character:
                 if event.action.skill() == "feint":
@@ -78,10 +81,10 @@ class AkodoLightWoundsDamageListener(Listener):
     Listener to implement the Akodo 5th Dan technique.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._strategy = AkodoFifthDanStrategy()
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.LightWoundsDamageEvent):
             if event.subject != character:
                 # observe another character's damage roll
@@ -99,7 +102,7 @@ class AkodoFifthDanStrategy(Strategy):
     per VP spent to the attacker.
     """
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.LightWoundsDamageEvent):
             if event.target == character:
                 # calculate max vp spendable on damage
@@ -118,7 +121,7 @@ class AkodoWoundCheckSucceededListener(Listener):
     to gain a floating bonus after a successful Wound Check.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.WoundCheckSucceededEvent):
             if event.subject == character:
                 bonus = ((event.roll - event.damage) // 5) * character.skill("attack")
@@ -134,10 +137,10 @@ class AkodoWoundCheckDeclaredListener(Listener):
     apply Free Raises to the roll.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._strategy = AkodoWoundCheckRolledStrategy()
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.WoundCheckDeclaredEvent):
             if event.subject == character:
                 roll = character.roll_wound_check(event.damage, event.vp)
@@ -151,7 +154,7 @@ class AkodoWoundCheckRolledStrategy(Strategy):
     whether to spend VP to improve a wound check roll.
     """
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.WoundCheckRolledEvent):
             if event.subject == character:
                 # how many wounds can I tolerate?

@@ -6,7 +6,7 @@
 # Defines advantages that a character may buy in the L7R combat simulator.
 #
 
-ADVANTAGES = {
+ADVANTAGES: dict[str, int] = {
     "charming": 2,
     "discerning": 5,
     "equestrian": 3,
@@ -31,13 +31,13 @@ ADVANTAGES = {
 
 
 class Advantage:
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         if name not in ADVANTAGES.keys():
             raise ValueError(f"{name} is not a valid Advantage")
         self._name = name
 
-    def cost(self):
+    def cost(self) -> int:
         return ADVANTAGES[self.name()]
 
-    def name(self):
+    def name(self) -> str:
         return self._name

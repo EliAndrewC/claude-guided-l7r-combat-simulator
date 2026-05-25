@@ -6,6 +6,8 @@
 # Classes for contested actions in the L7R combat simulator.
 #
 
+from typing import Any
+
 from simulation.actions import Action
 
 
@@ -32,7 +34,7 @@ class ContestedAction(Action):
     subject is the "challenger" in the contest.
     """
 
-    def __init__(self, subject, target, challenger, skill, contested_skill, initiative_action, context, ring=None, vp=0):
+    def __init__(self, subject: Any, target: Any, challenger: Any, skill: str, contested_skill: str, initiative_action: Any, context: Any, ring: str | None = None, vp: int = 0) -> None:
         super().__init__(subject, target, skill, initiative_action, context, ring=ring, vp=vp)
         if challenger != subject and challenger != target:
             raise ValueError("ContestedAction challenger must be the subject or target")
@@ -48,25 +50,25 @@ class ContestedAction(Action):
             self._challenger_skill = contested_skill
             self._defender_skill = skill
         self._contested_skill = contested_skill
-        self._opponent_roll = None
+        self._opponent_roll: int | None = None
 
-    def challenger(self):
+    def challenger(self) -> Any:
         return self._challenger
 
-    def challenger_skill(self):
+    def challenger_skill(self) -> str:
         return self._challenger_skill
 
-    def contested_skill(self):
+    def contested_skill(self) -> str:
         return self._contested_skill
 
-    def defender(self):
+    def defender(self) -> Any:
         return self._defender
 
-    def defender_skill(self):
+    def defender_skill(self) -> str:
         return self._defender_skill
 
-    def opponent_skill_roll(self):
+    def opponent_skill_roll(self) -> int | None:
         return self._opponent_roll
 
-    def set_opponent_skill_roll(self, roll):
+    def set_opponent_skill_roll(self, roll: int) -> None:
         self._opponent_roll = roll

@@ -1082,51 +1082,39 @@ class TestGenericCharacterWriterBuildData(unittest.TestCase):
     """Lines 187, 189: build_data with advantages and disadvantages."""
 
     def test_build_data_includes_advantages(self):
-        """Line 187: advantages loop runs, but calculate_xp_cost
-        has a bug (Advantage.get() does not exist), so build_data raises.
-        This test covers line 187 (the advantage append) and line 212 (the bug)."""
         c = Character("Test")
         c.take_advantage("fierce")
         writer = GenericCharacterWriter()
-        with self.assertRaises(AttributeError):
-            writer.build_data(c)
+        data = writer.build_data(c)
+        self.assertIn("fierce", data["advantages"])
 
     def test_build_data_includes_disadvantages(self):
-        """Line 189: disadvantages loop runs, but calculate_xp_cost
-        has a bug (Disadvantage.get() does not exist), so build_data raises.
-        This test covers line 189 (the disadvantage append) and line 214 (the bug)."""
         c = Character("Test")
         c.take_disadvantage("proud")
         writer = GenericCharacterWriter()
-        with self.assertRaises(AttributeError):
-            writer.build_data(c)
+        data = writer.build_data(c)
+        self.assertIn("proud", data["disadvantages"])
 
 
 class TestGenericCharacterWriterCalculateXpCost(unittest.TestCase):
     """Lines 212, 214: calculate_xp_cost with advantages/disadvantages."""
 
     def test_calculate_xp_cost_with_advantages(self):
-        """Line 212: xp cost includes advantage costs."""
         c = Character("Test")
         c.take_advantage("fierce")
         writer = GenericCharacterWriter()
-        # This calls Advantage(advantage).get().cost() which will fail
-        # because Advantage doesn't have get(). Let's verify it raises.
-        # Actually, Advantage has .cost() directly. Let me check if the code
-        # is actually calling .get().cost() or just .cost()
-        # Line 212: xp_cost += Advantage(advantage).get().cost()
-        # Advantage doesn't have .get(), so this should raise AttributeError
-        with self.assertRaises(AttributeError):
-            writer.calculate_xp_cost(c)
+        # "fierce" costs 2; ring and skill base cost is also included.
+        cost = writer.calculate_xp_cost(c)
+        self.assertGreaterEqual(cost, 2)
 
     def test_calculate_xp_cost_with_disadvantages(self):
-        """Line 214: xp cost includes disadvantage costs."""
         c = Character("Test")
         c.take_disadvantage("proud")
         writer = GenericCharacterWriter()
-        # Same issue: Disadvantage doesn't have .get()
-        with self.assertRaises(AttributeError):
-            writer.calculate_xp_cost(c)
+        # "proud" has cost -2; xp cost is reduced relative to a character without it.
+        baseline = writer.calculate_xp_cost(Character("Other"))
+        cost = writer.calculate_xp_cost(c)
+        self.assertEqual(cost, baseline - 2)
 
 
 class TestProfessionCharacterWriterBuildData(unittest.TestCase):

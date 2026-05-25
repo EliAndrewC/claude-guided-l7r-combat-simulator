@@ -6,6 +6,8 @@
 # Classes for combat actions in the L7R combat simulator.
 #
 
+from typing import Any
+
 from simulation.events import SeriousWoundsDamageEvent
 from simulation.mechanics.initiative_actions import InitiativeAction
 
@@ -22,7 +24,7 @@ class Action:
     coordinate between the characters and the playable event.
     """
 
-    def __init__(self, subject, target, skill, initiative_action, context, ring=None, vp=0):
+    def __init__(self, subject: Any, target: Any, skill: str, initiative_action: InitiativeAction, context: Any, ring: str | None = None, vp: int = 0) -> None:
         """
         __init__(subject, target, skill, initiative_action, context, vp=0)
           subject (Character): character taking the action
@@ -50,73 +52,75 @@ class Action:
         if not isinstance(vp, int):
             raise ValueError("vp must be int")
         self._vp = vp
-        self._skill_roll = None
+        self._skill_roll: int | None = None
 
-    def context(self):
+    def context(self) -> Any:
         return self._context
 
-    def damage_roll_params(self):
+    def damage_roll_params(self) -> Any:
         raise NotImplementedError()
 
-    def initiative_action(self):
+    def initiative_action(self) -> InitiativeAction:
         return self._initiative_action
 
-    def ring(self):
+    def ring(self) -> str | None:
         return self._ring
 
-    def roll_skill(self):
+    def roll_skill(self) -> int:
         self.set_skill_roll(self.subject().roll_skill(self.target(), self.skill(), ring=self.ring(), vp=self.vp()))
-        return self.skill_roll()
+        roll = self.skill_roll()
+        assert roll is not None
+        return roll
 
-    def set_skill_roll(self, roll):
+    def set_skill_roll(self, roll: int) -> None:
         if not isinstance(roll, int):
             raise ValueError("set_skill_roll requires int")
         self._skill_roll = roll
 
-    def set_vp(self, vp):
+    def set_vp(self, vp: int) -> None:
         self._vp = vp
 
-    def skill(self):
+    def skill(self) -> str:
         return self._skill
 
-    def skill_roll(self):
+    def skill_roll(self) -> int | None:
         return self._skill_roll
 
-    def skill_roll_params(self):
+    def skill_roll_params(self) -> Any:
         return self.subject().get_skill_roll_params(self.target(), self.skill(), vp=self.vp())
 
-    def subject(self):
+    def subject(self) -> Any:
         return self._subject
 
-    def target(self):
+    def target(self) -> Any:
         return self._target
 
-    def vp(self):
+    def vp(self) -> int:
         return self._vp
 
 
 class AttackAction(Action):
-    def __init__(self, subject, target, skill, initiative_action, context, ring=None, vp=0):
+    def __init__(self, subject: Any, target: Any, skill: str, initiative_action: InitiativeAction, context: Any, ring: str | None = None, vp: int = 0) -> None:
         super().__init__(subject, target, skill, initiative_action, context, ring=ring, vp=vp)
-        self._damage_roll = None
-        self._damage_roll_params = None
-        self._parries_declared = []
-        self._parries_declined = []
-        self._parries_predeclared = []
+        self._damage_roll: int | None = None
+        self._damage_roll_params: Any = None
+        self._parries_declared: list[Any] = []
+        self._parries_declined: list[Any] = []
+        self._parries_predeclared: list[Any] = []
         self._parried = False
         self._parry_attempted = False
 
-    def add_parry_declared(self, event):
+    def add_parry_declared(self, event: Any) -> None:
         self._parries_declared.append(event)
 
-    def add_parry_predeclared(self, event):
+    def add_parry_predeclared(self, event: Any) -> None:
         self._parries_predeclared.append(event)
         self.add_parry_declared(event)
 
-    def add_parry_declined(self, character):
+    def add_parry_declined(self, character: Any) -> None:
         self._parries_declined.append(character)
 
-    def calculate_extra_damage_dice(self, skill_roll=None, tn=None):
+    def calculate_extra_damage_dice(self, skill_roll: int | None = None, tn: int | None = None) -> int:
         if skill_roll is None:
             skill_roll = self.skill_roll()
         if tn is None:
@@ -124,79 +128,86 @@ class AttackAction(Action):
         if self.parry_attempted():
             return 0
         else:
+            assert skill_roll is not None
             return (skill_roll - tn) // 5
 
-    def damage_roll(self):
+    def damage_roll(self) -> int | None:
         return self._damage_roll
 
-    def damage_roll_params(self):
+    def damage_roll_params(self) -> Any:
         if self.skill_roll() is None:
             return None
         extra_rolled = self.calculate_extra_damage_dice()
         rolled, kept, mod = self.subject().get_damage_roll_params(self.target(), self.skill(), extra_rolled, self.vp())
         return (rolled, kept, mod)
 
-    def direct_damage(self):
+    def direct_damage(self) -> Any:
         return None
 
-    def is_hit(self):
-        return self.skill_roll() >= self.tn() and not self.parried()
+    def is_hit(self) -> bool:
+        roll = self.skill_roll()
+        assert roll is not None
+        return roll >= self.tn() and not self.parried()
 
-    def parried(self):
+    def parried(self) -> bool:
         return self._parried
 
-    def parry_attempted(self):
+    def parry_attempted(self) -> bool:
         return self._parry_attempted
 
-    def parries_declared(self):
+    def parries_declared(self) -> list[Any]:
         return self._parries_declared
 
-    def parries_declined(self):
+    def parries_declined(self) -> list[Any]:
         return self._parries_declined
 
-    def parries_predeclared(self):
+    def parries_predeclared(self) -> list[Any]:
         return self._parries_predeclared
 
-    def parry_tn(self):
-        return self.skill_roll()
+    def parry_tn(self) -> int:
+        roll = self.skill_roll()
+        assert roll is not None
+        return roll
 
-    def roll_damage(self):
+    def roll_damage(self) -> int:
         extra_rolled = self.calculate_extra_damage_dice()
-        damage_roll = self.subject().roll_damage(self.target(), self.skill(), extra_rolled, self.vp())
+        damage_roll: int = self.subject().roll_damage(self.target(), self.skill(), extra_rolled, self.vp())
         damage_roll = max(0, damage_roll)
         self.set_damage_roll(damage_roll)
         return damage_roll
 
-    def set_damage_roll(self, damage):
+    def set_damage_roll(self, damage: int) -> None:
         if not isinstance(damage, int):
             raise ValueError("set_damage_roll requires int")
         self._damage_roll = damage
 
-    def set_parry_attempted(self):
+    def set_parry_attempted(self) -> None:
         self._parry_attempted = True
 
-    def set_parried(self):
+    def set_parried(self) -> None:
         self._parried = True
 
-    def tn(self):
-        return self.target().tn_to_hit()
+    def tn(self) -> int:
+        result: int = self.target().tn_to_hit()
+        return result
 
 
 class CounterattackAction(AttackAction):
-    def __init__(self, subject, target, skill, initiative_action, context, attack, ring=None, vp=0):
+    def __init__(self, subject: Any, target: Any, skill: str, initiative_action: InitiativeAction, context: Any, attack: Any, ring: str | None = None, vp: int = 0) -> None:
         super().__init__(subject, target, skill, initiative_action, context, ring=ring, vp=vp)
         self._original_attack = attack
 
-    def attack(self):
+    def attack(self) -> Any:
         return self._original_attack
 
-    def tn(self):
+    def tn(self) -> int:
         penalty = 0 if self.attack().target() == self.subject() else 5 * self.attack().subject().skill("parry")
-        return self.target().tn_to_hit() + penalty
+        result: int = self.target().tn_to_hit() + penalty
+        return result
 
 
 class DoubleAttackAction(AttackAction):
-    def calculate_extra_damage_dice(self, skill_roll=None, tn=None):
+    def calculate_extra_damage_dice(self, skill_roll: int | None = None, tn: int | None = None) -> int:
         if skill_roll is None:
             skill_roll = self.skill_roll()
         if tn is None:
@@ -209,65 +220,72 @@ class DoubleAttackAction(AttackAction):
                     return 2
                 else:
                     return 4
+        assert skill_roll is not None
         return (skill_roll - tn) // 5
 
-    def direct_damage(self):
+    def direct_damage(self) -> Any:
         if self.parry_attempted():
             return None
         event = SeriousWoundsDamageEvent(self.subject(), self.target(), 1)
-        event._from_double_attack = True
+        event._from_double_attack = True  # type: ignore[attr-defined]
         return event
 
-    def tn(self):
-        return self.target().tn_to_hit() + 20
+    def tn(self) -> int:
+        result: int = self.target().tn_to_hit() + 20
+        return result
 
 
 class FeintAction(AttackAction):
-    def calculate_extra_damage_dice(self, skill_roll=None, tn=None):
+    def calculate_extra_damage_dice(self, skill_roll: int | None = None, tn: int | None = None) -> int:
         return 0
 
-    def damage_roll_params(self):
+    def damage_roll_params(self) -> Any:
         return (0, 0, 0)
 
-    def roll_damage(self):
+    def roll_damage(self) -> int:
         self.set_damage_roll(0)
         return 0
 
 
 class LungeAction(AttackAction):
-    def calculate_extra_damage_dice(self, skill_roll=None, tn=None):
+    def calculate_extra_damage_dice(self, skill_roll: int | None = None, tn: int | None = None) -> int:
         return super().calculate_extra_damage_dice(skill_roll, tn) + 1
 
 
 class ParryAction(Action):
-    def __init__(self, subject, target, skill, initiative_action, context, attack, predeclared=False, ring=None, vp=0):
+    def __init__(self, subject: Any, target: Any, skill: str, initiative_action: InitiativeAction, context: Any, attack: Any, predeclared: bool = False, ring: str | None = None, vp: int = 0) -> None:
         super().__init__(subject, target, skill, initiative_action, context, ring=ring, vp=vp)
         self._attack = attack
         self._predeclared = predeclared
 
-    def attack(self):
+    def attack(self) -> Any:
         return self._attack
 
-    def is_success(self):
-        return self.skill_roll() >= self.tn()
+    def is_success(self) -> bool:
+        roll = self.skill_roll()
+        assert roll is not None
+        return roll >= self.tn()
 
-    def roll_skill(self):
+    def roll_skill(self) -> int:
         penalty = 0
         if self._attack.target() != self.subject():
             # parry on behalf of others has a penalty of 5 * attacker's attack skill
             penalty = 5 * self._attack.subject().skill("attack")
         # roll parry
         self.set_skill_roll(self.subject().roll_skill(self.target(), self.skill(), ring=self.ring(), vp=self.vp()) - penalty)
-        return self.skill_roll()
+        roll = self.skill_roll()
+        assert roll is not None
+        return roll
 
-    def set_attack_parry_declared(self, event):
+    def set_attack_parry_declared(self, event: Any) -> None:
         self._attack.add_parry_declared(event)
 
-    def set_attack_parried(self):
+    def set_attack_parried(self) -> None:
         self._attack.set_parried()
 
-    def set_attack_parry_attempted(self):
+    def set_attack_parry_attempted(self) -> None:
         self._attack.set_parry_attempted()
 
-    def tn(self):
-        return self._attack.parry_tn()
+    def tn(self) -> int:
+        result: int = self._attack.parry_tn()
+        return result

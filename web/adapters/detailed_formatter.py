@@ -1,5 +1,7 @@
 """DetailedEventFormatter for rich combat play-by-play output with emojis and combined events."""
 
+from typing import Any
+
 from simulation import events
 from simulation.duel import (
     DuelEndedEvent,
@@ -26,7 +28,7 @@ from simulation.schools.kakita_school import (
 )
 
 
-def _format_dice(dice: list, kept: int) -> str:
+def _format_dice(dice: list[int], kept: int) -> str:
     """Format a dice list with kept dice **bold** and dropped dice ~~strikethrough~~."""
     if not dice:
         return "[]"
@@ -69,16 +71,16 @@ class DetailedEventFormatter:
     onto single lines with emoji prefixes.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._current_phase = 0
         self._current_round = 0
         self._phase_shown: bool = False
         self._last_wc_passed: dict[str, bool] = {}
         self._last_take_sw_target: str | None = None
 
-    def format_history(self, history: list) -> list[str]:
+    def format_history(self, history: list[Any]) -> list[str]:
         """Main entry point — processes full history after combat."""
-        lines = []
+        lines: list[str] = []
         shown_opening_status = False
         last_status = None
         # Track whether any visible combat output occurred since the last
@@ -135,7 +137,7 @@ class DetailedEventFormatter:
                     else:
                         # Collect VP events between, filtering by attacker subject
                         # to avoid consuming counterattacker's VP events
-                        vp_events: list = []
+                        vp_events: list[Any] = []
                         attacker = event.action.subject()
                         for j in range(i + 1, rolled_idx):
                             if j in consumed:
@@ -155,14 +157,14 @@ class DetailedEventFormatter:
                 # Lookahead for matching CounterattackRolledEvent
                 rolled_idx = self._find_counterattack_rolled(history, i + 1, event.action)
                 if rolled_idx is not None:
-                    vp_events: list = []
+                    vp_events_ca: list[Any] = []
                     for j in range(i + 1, rolled_idx):
                         if j in consumed:
                             continue
                         if isinstance(history[j], events.SpendVoidPointsEvent):
-                            vp_events.append(history[j])
+                            vp_events_ca.append(history[j])
                             consumed.add(j)
-                    vp_infix = self._build_vp_infix(vp_events)
+                    vp_infix = self._build_vp_infix(vp_events_ca)
                     lines.extend(self._format_combined_counterattack(event, history[rolled_idx], vp_infix=vp_infix))
                     consumed.add(rolled_idx)
                 else:
@@ -335,9 +337,9 @@ class DetailedEventFormatter:
             return f"Phase {self._current_phase} | {char_name} |"
         return f"{char_name} |"
 
-    def _format_status_block(self, status: dict) -> list[str]:
+    def _format_status_block(self, status: dict[str, Any]) -> list[str]:
         """Format a status snapshot as a block of lines."""
-        lines = []
+        lines: list[str] = []
         for name, s in status.items():
             crippled = " | CRIPPLED" if s["crippled"] else ""
             lines.append(
@@ -346,7 +348,7 @@ class DetailedEventFormatter:
             )
         return lines
 
-    def _format_initiative(self, event) -> list[str]:
+    def _format_initiative(self, event: Any) -> list[str]:
         lines = ["", "🎲 Initiative:"]
         for name, data in event._detail_initiative.items():
             rolled, kept = data["roll_params"]
@@ -356,23 +358,23 @@ class DetailedEventFormatter:
             lines.append(f"  {name}: {rolled}k{kept} rolled {dice_str} → Actions: {actions}")
         return lines
 
-    def _format_take_attack(self, event) -> list[str]:
+    def _format_take_attack(self, event: Any) -> list[str]:
         subj = event.action.subject().name()
         tgt = event.action.target().name()
         skill = event.action.skill()
         return [f"{self._phase_prefix(subj)} ⚔️ attacks {tgt} ({skill})"]
 
-    def _format_take_counterattack(self, event) -> list[str]:
+    def _format_take_counterattack(self, event: Any) -> list[str]:
         subj = event.action.subject().name()
         tgt = event.action.target().name()
         return [f"{self._phase_prefix(subj)} ⚔️ counterattacks {tgt}"]
 
-    def _format_take_parry(self, event) -> list[str]:
+    def _format_take_parry(self, event: Any) -> list[str]:
         subj = event.action.subject().name()
         tgt = event.action.target().name()
         return [f"{self._phase_prefix(subj)} 🛡️ parries {tgt}"]
 
-    def _format_attack_rolled(self, event) -> list[str]:
+    def _format_attack_rolled(self, event: Any) -> list[str]:
         """Combine attack roll with hit/miss result."""
         if not hasattr(event, "_detail_dice"):
             return [f"  Roll: {event.roll}"]
@@ -423,7 +425,7 @@ class DetailedEventFormatter:
             result = "MISS"
             return [f"{self._phase_prefix(name)} {emoji} Attack: {roll_str} vs {tn_str} — {result}"]
 
-    def _format_counterattack_rolled(self, event) -> list[str]:
+    def _format_counterattack_rolled(self, event: Any) -> list[str]:
         """Standalone counterattack roll with hit/miss result."""
         if not hasattr(event, "_detail_dice"):
             return [f"  Counterattack Roll: {event.roll}"]
@@ -444,7 +446,7 @@ class DetailedEventFormatter:
             result = "MISS"
         return [f"{self._phase_prefix(name)} {emoji} Counterattack: {roll_str} vs TN {tn} — {result}"]
 
-    def _format_contested_iaijutsu_rolled(self, event) -> list[str]:
+    def _format_contested_iaijutsu_rolled(self, event: Any) -> list[str]:
         """Format a contested iaijutsu attack rolled event."""
         action = event.action
         name = action.subject().name()
@@ -503,7 +505,7 @@ class DetailedEventFormatter:
             f"{self._phase_prefix(name)} {label}: {roll_str} vs {opponent_roll} — {result}{extra_str}"
         ]
 
-    def _format_parry_rolled(self, event) -> list[str]:
+    def _format_parry_rolled(self, event: Any) -> list[str]:
         """Combine parry roll with succeeded/failed result."""
         name = event.action.subject().name()
 
@@ -527,7 +529,7 @@ class DetailedEventFormatter:
         result = "SUCCEEDED" if succeeded else "FAILED"
         return [f"{self._phase_prefix(name)} 🛡️ Parry: {roll_str} vs TN {tn} — {result}"]
 
-    def _format_lw_damage(self, event) -> list[str]:
+    def _format_lw_damage(self, event: Any) -> list[str]:
         name = event.target.name()
         attacker = event.subject.name()
 
@@ -546,14 +548,14 @@ class DetailedEventFormatter:
             f" → {name} takes {event.damage} light wounds{total_str}",
         ]
 
-    def _format_sw_damage(self, event) -> list[str]:
+    def _format_sw_damage(self, event: Any) -> list[str]:
         name = event.target.name()
         hearts = "💔" * event.damage
         noun = "wound" if event.damage == 1 else "wounds"
         suffix = " (double attack penalty)" if getattr(event, "_from_double_attack", False) else ""
         return [f"{self._phase_prefix(name)} {hearts} {name} takes {event.damage} serious {noun}{suffix}"]
 
-    def _format_wound_check_rolled(self, event, emoji: str | None = None, vp_infix: str = "") -> list[str]:
+    def _format_wound_check_rolled(self, event: Any, emoji: str | None = None, vp_infix: str = "") -> list[str]:
         """Combine wound check roll with pass/fail."""
         name = event.subject.name()
 
@@ -571,17 +573,17 @@ class DetailedEventFormatter:
 
         return [f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: {rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum} vs TN {event.tn} — {result}"]
 
-    def _format_spend_vp(self, event) -> list[str]:
+    def _format_spend_vp(self, event: Any) -> list[str]:
         name = event.subject.name()
         squares = "⬛" * event.amount
         return [f"{self._phase_prefix(name)} {squares} spends {event.amount} VP on {event.skill}"]
 
-    def _format_keep_lw(self, event) -> list[str]:
+    def _format_keep_lw(self, event: Any) -> list[str]:
         name = event.subject.name()
         lw_total = getattr(event, "_detail_lw_total", event.damage)
         return [f"{self._phase_prefix(name)} 🖤 keeping {lw_total} light wounds"]
 
-    def _format_take_sw(self, event) -> list[str]:
+    def _format_take_sw(self, event: Any) -> list[str]:
         name = event.subject.name()
         voluntary = self._last_wc_passed.get(name, False)
         if voluntary:
@@ -591,7 +593,7 @@ class DetailedEventFormatter:
     # ── Lookahead helpers ──────────────────────────────────────────────
 
     @staticmethod
-    def _has_counterattack_between(history: list, start: int, end: int) -> bool:
+    def _has_counterattack_between(history: list[Any], start: int, end: int) -> bool:
         """Check if any TakeCounterattackActionEvent exists in [start, end)."""
         for j in range(start, end):
             if isinstance(history[j], TakeCounterattackActionEvent):
@@ -599,7 +601,7 @@ class DetailedEventFormatter:
         return False
 
     def _find_attack_rolled(
-        self, history: list, start: int, action: object,
+        self, history: list[Any], start: int, action: object,
     ) -> int | None:
         """Scan forward for a matching AttackRolledEvent.
 
@@ -617,7 +619,7 @@ class DetailedEventFormatter:
         return None
 
     def _find_counterattack_rolled(
-        self, history: list, start: int, action: object,
+        self, history: list[Any], start: int, action: object,
     ) -> int | None:
         """Scan forward up to 5 events for a matching CounterattackRolledEvent."""
         limit = min(start + 5, len(history))
@@ -631,7 +633,7 @@ class DetailedEventFormatter:
         return None
 
     def _find_parry_rolled(
-        self, history: list, start: int, action: object,
+        self, history: list[Any], start: int, action: object,
     ) -> int | None:
         """Scan forward up to 5 events for a matching ParryRolledEvent."""
         limit = min(start + 5, len(history))
@@ -645,7 +647,7 @@ class DetailedEventFormatter:
         return None
 
     def _find_take_sw(
-        self, history: list, start: int, subject_name: str,
+        self, history: list[Any], start: int, subject_name: str,
     ) -> int | None:
         """Scan forward up to 5 events for a matching TakeSeriousWoundEvent."""
         limit = min(start + 5, len(history))
@@ -661,7 +663,7 @@ class DetailedEventFormatter:
         return None
 
     def _find_sw_damage(
-        self, history: list, start: int, subject_name: str,
+        self, history: list[Any], start: int, subject_name: str,
     ) -> int | None:
         """Scan forward up to 5 events for a matching SeriousWoundsDamageEvent."""
         limit = min(start + 5, len(history))
@@ -675,7 +677,7 @@ class DetailedEventFormatter:
         return None
 
     def _find_keep_lw(
-        self, history: list, start: int, subject_name: str,
+        self, history: list[Any], start: int, subject_name: str,
     ) -> int | None:
         """Scan forward up to 5 events for a matching KeepLightWoundsEvent."""
         limit = min(start + 5, len(history))
@@ -691,7 +693,7 @@ class DetailedEventFormatter:
         return None
 
     def _find_wound_check_rolled(
-        self, history: list, start: int, subject_name: str,
+        self, history: list[Any], start: int, subject_name: str,
     ) -> int | None:
         """Scan forward up to 5 events for a matching WoundCheckRolledEvent."""
         limit = min(start + 5, len(history))
@@ -705,7 +707,7 @@ class DetailedEventFormatter:
         return None
 
     def _process_wound_check(
-        self, history: list, wc_idx: int, consumed: set[int], vp_infix: str = "",
+        self, history: list[Any], wc_idx: int, consumed: set[int], vp_infix: str = "",
     ) -> list[str]:
         """Process a WoundCheckRolledEvent with lookahead for TakeSW/KeepLW."""
         event = history[wc_idx]
@@ -733,7 +735,7 @@ class DetailedEventFormatter:
     # ── Combined-line formatters ───────────────────────────────────────
 
     @staticmethod
-    def _build_roll_str(dice: list, rolled: int, kept: int, mod: int, fallback_total: int = 0) -> tuple[str, int]:
+    def _build_roll_str(dice: list[int], rolled: int, kept: int, mod: int, fallback_total: int = 0) -> tuple[str, int]:
         """Build a roll description string and compute the total.
 
         Returns (roll_str, total) where *roll_str* looks like
@@ -756,7 +758,7 @@ class DetailedEventFormatter:
         return f"TN {tn}"
 
     @staticmethod
-    def _build_vp_infix(vp_events: list) -> str:
+    def _build_vp_infix(vp_events: list[Any]) -> str:
         """Build a VP prefix like '⬛ spends 1 VP on attack → ' (or '' if empty)."""
         if not vp_events:
             return ""
@@ -765,7 +767,7 @@ class DetailedEventFormatter:
         skill = vp_events[0].skill
         return f"{squares} spends {total} VP on {skill} → "
 
-    def _format_combined_attack(self, take_event: object, rolled_event: object, vp_infix: str = "") -> list[str]:
+    def _format_combined_attack(self, take_event: Any, rolled_event: Any, vp_infix: str = "") -> list[str]:
         """Build a combined 'attacks … — emoji roll vs TN — RESULT' line."""
         action = take_event.action
         subj = action.subject().name()
@@ -807,7 +809,7 @@ class DetailedEventFormatter:
             result = "MISS"
             return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ attacks {tgt} ({skill}) — {roll_str} vs {tn_str} — {result}"]
 
-    def _format_combined_counterattack(self, take_event: object, rolled_event: object, vp_infix: str = "") -> list[str]:
+    def _format_combined_counterattack(self, take_event: Any, rolled_event: Any, vp_infix: str = "") -> list[str]:
         """Build a combined 'counterattacks TARGET — roll vs TN — RESULT' line."""
         action = take_event.action
         subj = action.subject().name()
@@ -846,7 +848,7 @@ class DetailedEventFormatter:
             result = "MISS"
             return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ counterattacks {tgt} — {roll_str} vs TN {tn} — {result}"]
 
-    def _format_combined_parry(self, take_event: object, rolled_event: object) -> list[str]:
+    def _format_combined_parry(self, take_event: Any, rolled_event: Any) -> list[str]:
         """Build a combined 'parries TARGET — roll vs TN — RESULT' line."""
         action = take_event.action
         subj = action.subject().name()
@@ -872,7 +874,7 @@ class DetailedEventFormatter:
         result = "SUCCEEDED" if succeeded else "FAILED"
         return [f"{self._phase_prefix(subj)} 🛡️ parries {tgt} — {roll_str} vs TN {tn} — {result}"]
 
-    def _format_combined_wound_check_lw(self, wc_event: object, lw_event: object, vp_infix: str = "") -> list[str]:
+    def _format_combined_wound_check_lw(self, wc_event: Any, lw_event: Any, vp_infix: str = "") -> list[str]:
         """Build a combined 'Wound Check … — PASSED → keeping N light wounds' line."""
         name = wc_event.subject.name()
         emoji = "🖤"
@@ -892,7 +894,7 @@ class DetailedEventFormatter:
         lw_total = getattr(lw_event, "_detail_lw_total", lw_event.damage)
         return [f"{wc_str} → keeping {lw_total} light wounds"]
 
-    def _format_combined_wound_check_sw(self, wc_event: object, sw_event: object, sw_count: int = 1, vp_infix: str = "") -> list[str]:
+    def _format_combined_wound_check_sw(self, wc_event: Any, sw_event: Any, sw_count: int = 1, vp_infix: str = "") -> list[str]:
         """Build a combined 'Wound Check … — RESULT → SW text' line."""
         name = wc_event.subject.name()
 

@@ -10,6 +10,7 @@ import argparse as ap
 import logging
 import os
 import sys
+from typing import Any
 
 from simulation.character_file import CharacterReader
 from simulation.context import EngineContext
@@ -26,12 +27,12 @@ script_path = os.path.realpath(__file__)
 script_dirpath = os.path.split(script_path)[0]
 
 
-def error(msg):
+def error(msg: str) -> None:
     logger.error(msg)
     print(msg)
 
 
-def load_characters(dirpath):
+def load_characters(dirpath: str) -> dict[str, Any]:
     """
     load_characters(dirpath) -> dict
       dirpath (str): path to directory containing groups.yaml and character files
@@ -52,7 +53,7 @@ def load_characters(dirpath):
     return characterd
 
 
-def load_groups(dirpath, characterd):
+def load_groups(dirpath: str, characterd: dict[str, Any]) -> list[Any]:
     """
     load_groups(dirpath, characterd) -> list of Group
       dirpath (str): path to directory containing groups.yaml and character files
@@ -70,7 +71,7 @@ def load_groups(dirpath, characterd):
         return GroupsReader().read(f, characterd)
 
 
-def setup_groups(dirpath):
+def setup_groups(dirpath: str) -> list[Any]:
     """
     setup_groups(dirpath) -> list of Group
       dirpath (str): path to directory containing yroups.yaml and character files
@@ -84,7 +85,7 @@ def setup_groups(dirpath):
     return load_groups(dirpath, characters)
 
 
-def main():
+def main() -> None:
     argparser = ap.ArgumentParser()
     argparser.add_argument("-i", "--input-dirpath", help="path to directory containing characters and group definitions", type=str, required=True)
     argparser.add_argument("-o", "--output-dirpath", help="path to directory where output features will be written", type=str, default=os.path.join(script_dirpath, "output"))
@@ -161,7 +162,7 @@ def main():
     report_results(feature_path, ntrials)
 
 
-def report_results(feature_fpath, ntrials):
+def report_results(feature_fpath: str, ntrials: int) -> None:
     # summarize collected features
     summary = SummaryFeatures()
     summary.summarize(feature_fpath, ntrials)

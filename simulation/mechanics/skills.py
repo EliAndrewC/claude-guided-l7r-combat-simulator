@@ -55,16 +55,16 @@ BASIC_SKILL_COST = {1: 2, 2: 2, 3: 3, 4: 3, 5: 3}
 
 
 class Skill:
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         self._name = name
 
-    def cost(self, rank, original_rank=0):
+    def cost(self, rank: int, original_rank: int = 0) -> int:
         raise NotImplementedError()
 
-    def is_advanced(self):
+    def is_advanced(self) -> bool:
         raise NotImplementedError()
 
-    def get(self):
+    def get(self) -> "Skill":
         if self.name() in ADVANCED_SKILLS:
             return AdvancedSkill(self.name())
         elif self.name() in BASIC_SKILLS:
@@ -74,52 +74,52 @@ class Skill:
         else:
             raise ValueError(f"{self.name()} is not a valid skill")
 
-    def name(self):
+    def name(self) -> str:
         return self._name
 
 
 class AdvancedSkill(Skill):
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         if name not in ADVANCED_SKILLS:
             raise ValueError(f"{name} is not a valid advanced skill")
         self._name = name
 
-    def cost(self, rank, original_rank=0):
+    def cost(self, rank: int, original_rank: int = 0) -> int:
         if rank > 5:
             raise ValueError("May not raise a skill beyond rank 5")
         return sum([ADVANCED_SKILL_COST[i] for i in range(original_rank + 1, rank + 1)])
 
-    def is_advanced(self):
+    def is_advanced(self) -> bool:
         return True
 
 
 class BasicSkill(Skill):
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         if name not in BASIC_SKILLS:
             raise ValueError(f"{name} is not a valid basic skill")
         self._name = name
 
-    def cost(self, rank, original_rank=0):
+    def cost(self, rank: int, original_rank: int = 0) -> int:
         if rank > 5:
             raise ValueError("May not raise a skill beyond rank 5")
         return sum([BASIC_SKILL_COST[i] for i in range(original_rank + 1, rank + 1)])
 
-    def is_advanced(self):
+    def is_advanced(self) -> bool:
         return False
 
 
 class KnackSkill(Skill):
     """School knacks that use advanced skill costs but aren't standard advanced skills."""
 
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         if name not in KNACK_SKILLS:
             raise ValueError(f"{name} is not a valid knack skill")
         self._name = name
 
-    def cost(self, rank, original_rank=0):
+    def cost(self, rank: int, original_rank: int = 0) -> int:
         if rank > 5:
             raise ValueError("May not raise a skill beyond rank 5")
         return sum([ADVANCED_SKILL_COST[i] for i in range(original_rank + 1, rank + 1)])
 
-    def is_advanced(self):
+    def is_advanced(self) -> bool:
         return True

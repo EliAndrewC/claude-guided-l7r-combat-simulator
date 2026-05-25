@@ -17,7 +17,7 @@ script_dirpath = os.path.split(script_path)[0]
 
 class ProbabilityProvider(ABC):
     @abstractmethod
-    def initialize(self):
+    def initialize(self) -> None:
         """
         initialize()
 
@@ -26,7 +26,7 @@ class ProbabilityProvider(ABC):
         pass
 
     @abstractmethod
-    def mean_roll(self, rolled, kept, explode=True):
+    def mean_roll(self, rolled: int, kept: int, explode: bool = True) -> float:
         """
         mean_roll(rolled, kept, explode=True) -> int
           rolled (int): rolled dice
@@ -38,7 +38,7 @@ class ProbabilityProvider(ABC):
         pass
 
     @abstractmethod
-    def p(self, x, rolled, kept, explode=True):
+    def p(self, x: int, rolled: int, kept: int, explode: bool = True) -> float:
         """
         p(x, rolled, kept, explode=True) -> float
           x (int): target number
@@ -52,14 +52,14 @@ class ProbabilityProvider(ABC):
 
 
 class DefaultProbabilityProvider(ProbabilityProvider):
-    def __init__(self):
-        self._mean_rolls = {}
-        self._probabilities = {}
+    def __init__(self) -> None:
+        self._mean_rolls: dict[bool, dict[str, int]] = {}
+        self._probabilities: dict[bool, dict[str, list[float]]] = {}
         # default probability chart data paths
         self._data_path_probabilities_rerolled = os.path.join(script_dirpath, "probabilities_rerolled.txt")
         self._data_path_probabilities_not_rerolled = os.path.join(script_dirpath, "probabilities_not_rerolled.txt")
 
-    def initialize(self):
+    def initialize(self) -> None:
         """
         initialize()
 
@@ -72,7 +72,7 @@ class DefaultProbabilityProvider(ProbabilityProvider):
         self._load_mean_roll_data(True)
         self._load_mean_roll_data(False)
 
-    def _load_probability_file(self, path):
+    def _load_probability_file(self, path: str) -> dict[str, list[float]]:
         data = {}
         with open(path) as f:
             for line in f:
@@ -86,7 +86,7 @@ class DefaultProbabilityProvider(ProbabilityProvider):
                 data[roll] = probabilities
         return data
 
-    def _load_mean_roll_data(self, explode):
+    def _load_mean_roll_data(self, explode: bool) -> None:
         for roll in self._probabilities[explode].keys():
             prev_i = 0
             for i, p in enumerate(self._probabilities[explode][roll]):
@@ -95,7 +95,7 @@ class DefaultProbabilityProvider(ProbabilityProvider):
                     break
                 prev_i = i
 
-    def mean_roll(self, rolled, kept, explode=True):
+    def mean_roll(self, rolled: int, kept: int, explode: bool = True) -> float:
         """
         mean_roll(rolled, kept, explode=True) -> int
           rolled (int): rolled dice
@@ -110,7 +110,7 @@ class DefaultProbabilityProvider(ProbabilityProvider):
         # logger.debug('Expected roll for {}: {}'.format(roll_str, expected))
         return expected
 
-    def p(self, x, rolled, kept, explode=True):
+    def p(self, x: int, rolled: int, kept: int, explode: bool = True) -> float:
         """
         p(x, rolled, kept, explode=True) -> float
           x (int): target number

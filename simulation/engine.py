@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import Any
 
 from simulation import events
 from simulation.duel import IaijutsuDuelEvent
@@ -12,14 +13,14 @@ class Engine:
     This runs a loop that runs events on characters in the appropriate order.
     """
 
-    def __init__(self, context):
+    def __init__(self, context: Any) -> None:
         self._context = context
-        self._history = []
+        self._history: list[events.Event] = []
 
-    def context(self):
+    def context(self) -> Any:
         return self._context
 
-    def event(self, event):
+    def event(self, event: events.Event) -> None:
         logger.debug(f"Got {event.name} event")
         self.history().append(event)
         self.context().features().observe_event(event, self.context())
@@ -42,15 +43,15 @@ class Engine:
                 for response in character.event(event, self.context()):
                     self.event(response)
 
-    def history(self):
+    def history(self) -> list[events.Event]:
         return self._history
 
-    def reset(self):
+    def reset(self) -> None:
         self.history().clear()
         self.context().reset()
 
     @abstractmethod
-    def run(self):
+    def run(self) -> None:
         raise NotImplementedError()
 
 
@@ -65,10 +66,10 @@ class CombatEngine(Engine):
     The loop ends when only one side is still fighting.
     """
 
-    def __init__(self, context):
+    def __init__(self, context: Any) -> None:
         super().__init__(context)
 
-    def run(self):
+    def run(self) -> None:
         while True:
             try:
                 self.run_round()
@@ -78,7 +79,7 @@ class CombatEngine(Engine):
             except KeyboardInterrupt:
                 break
 
-    def run_duel(self):
+    def run_duel(self) -> None:
         # validate groups and characters
         if len(self.context().groups()) != 2:
             raise RuntimeError("Duel requires two groups")
@@ -100,7 +101,7 @@ class CombatEngine(Engine):
         # continue in normal melee combat
         self.run()
 
-    def run_round(self):
+    def run_round(self) -> None:
         logger.info(f"Starting Round {self.context().round()}")
         self.event(events.NewRoundEvent(self.context().round()))
         if self.context().phase() != 0:

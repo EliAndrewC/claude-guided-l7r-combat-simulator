@@ -1,5 +1,7 @@
 """CombatObserver, TrackingRollProvider, and DetailedCombatEngine for rich combat output."""
 
+from typing import Any
+
 from simulation import events
 from simulation.duel import (
     DuelInitiativeRolledEvent,
@@ -16,14 +18,15 @@ from simulation.schools.kakita_school import ContestedIaijutsuAttackRolledEvent
 class _RecordingDieProvider(DieProvider):
     """Wraps a DieProvider and records each top-level die result."""
 
-    def __init__(self, inner):
+    def __init__(self, inner: Any) -> None:
         self._inner = inner
-        self.recorded = []
+        self.recorded: list[int] = []
 
-    def roll_die(self, faces=10, explode=True):
-        result = self._inner.roll_die(faces, explode)
+    def roll_die(self, faces: int = 10, explode: bool = True) -> int:
+        result: int = self._inner.roll_die(faces, explode)
         self.recorded.append(result)
-        return result
+        result_int: int = result
+        return result_int
 
 
 class TrackingRollProvider(RollProvider):
@@ -33,20 +36,20 @@ class TrackingRollProvider(RollProvider):
     are captured regardless of whether the inner Roll objects store them.
     """
 
-    def __init__(self, inner):
+    def __init__(self, inner: Any) -> None:
         self._inner = inner
-        self._last_skill_info = None
-        self._last_damage_info = None
-        self._last_wound_check_info = None
-        self._last_initiative_info = None
+        self._last_skill_info: dict[str, Any] | None = None
+        self._last_damage_info: dict[str, Any] | None = None
+        self._last_wound_check_info: dict[str, Any] | None = None
+        self._last_initiative_info: dict[str, Any] | None = None
 
-    def die_provider(self):
+    def die_provider(self) -> Any:
         return self._inner.die_provider()
 
-    def set_die_provider(self, die_provider):
+    def set_die_provider(self, die_provider: Any) -> None:
         self._inner.set_die_provider(die_provider)
 
-    def _with_recording(self, fn):
+    def _with_recording(self, fn: Any) -> tuple[Any, list[int]]:
         """Call fn() with a recording die provider temporarily installed on inner.
 
         Returns (result, recorded_dice).
@@ -60,7 +63,7 @@ class TrackingRollProvider(RollProvider):
             self._inner._die_provider = original_dp
         return result, list(recorder.recorded)
 
-    def get_skill_roll(self, skill, rolled, kept, explode=True):
+    def get_skill_roll(self, skill: str, rolled: int, kept: int, explode: bool = True) -> int:
         result, recorded = self._with_recording(
             lambda: self._inner.get_skill_roll(skill, rolled, kept, explode)
         )
@@ -69,36 +72,40 @@ class TrackingRollProvider(RollProvider):
         inner_info = self._inner.last_skill_info() if hasattr(self._inner, "last_skill_info") else None
         dice = inner_info["dice"] if inner_info and inner_info.get("dice") else recorded
         self._last_skill_info = {"rolled": rolled, "kept": kept, "dice": sorted(dice, reverse=True)}
-        return result
+        result_int: int = result
+        return result_int
 
-    def get_damage_roll(self, rolled, kept):
+    def get_damage_roll(self, rolled: int, kept: int) -> int:
         result, recorded = self._with_recording(
             lambda: self._inner.get_damage_roll(rolled, kept)
         )
         inner_info = self._inner.last_damage_info() if hasattr(self._inner, "last_damage_info") else None
         dice = inner_info["dice"] if inner_info and inner_info.get("dice") else recorded
         self._last_damage_info = {"rolled": rolled, "kept": kept, "dice": sorted(dice, reverse=True)}
-        return result
+        result_int: int = result
+        return result_int
 
-    def get_damage_reduction_roll(self, rolled, kept, reduction):
+    def get_damage_reduction_roll(self, rolled: int, kept: int, reduction: int) -> int:
         result, recorded = self._with_recording(
             lambda: self._inner.get_damage_reduction_roll(rolled, kept, reduction)
         )
         inner_info = self._inner.last_damage_info() if hasattr(self._inner, "last_damage_info") else None
         dice = inner_info["dice"] if inner_info and inner_info.get("dice") else recorded
         self._last_damage_info = {"rolled": rolled, "kept": kept, "dice": sorted(dice, reverse=True)}
-        return result
+        result_int: int = result
+        return result_int
 
-    def get_wound_check_roll(self, rolled, kept, explode=True):
+    def get_wound_check_roll(self, rolled: int, kept: int, explode: bool = True) -> int:
         result, recorded = self._with_recording(
             lambda: self._inner.get_wound_check_roll(rolled, kept, explode=explode)
         )
         inner_info = self._inner.last_wound_check_info() if hasattr(self._inner, "last_wound_check_info") else None
         dice = inner_info["dice"] if inner_info and inner_info.get("dice") else recorded
         self._last_wound_check_info = {"rolled": rolled, "kept": kept, "dice": sorted(dice, reverse=True)}
-        return result
+        result_int: int = result
+        return result_int
 
-    def get_initiative_roll(self, rolled, kept):
+    def get_initiative_roll(self, rolled: int, kept: int) -> list[int]:
         result, recorded = self._with_recording_initiative(
             lambda: self._inner.get_initiative_roll(rolled, kept)
         )
@@ -109,9 +116,10 @@ class TrackingRollProvider(RollProvider):
             if inner_info and inner_info.get("all_dice"):
                 all_dice = inner_info["all_dice"]
         self._last_initiative_info = {"rolled": rolled, "kept": kept, "all_dice": sorted(all_dice)}
-        return result
+        result_list: list[int] = result
+        return result_list
 
-    def _with_recording_initiative(self, fn):
+    def _with_recording_initiative(self, fn: Any) -> tuple[Any, list[int]]:
         """Call fn() with recording for initiative rolls.
 
         Handles KakitaRollProvider's hardcoded KAKITA_INITIATIVE_DIE_PROVIDER
@@ -129,26 +137,26 @@ class TrackingRollProvider(RollProvider):
         # has its dice intercepted.
         original_kakita_dp = kakita_mod.KAKITA_INITIATIVE_DIE_PROVIDER
         recorder = _RecordingDieProvider(original_kakita_dp)
-        kakita_mod.KAKITA_INITIATIVE_DIE_PROVIDER = recorder
+        kakita_mod.KAKITA_INITIATIVE_DIE_PROVIDER = recorder  # type: ignore[assignment]
         try:
             result = fn()
         finally:
             kakita_mod.KAKITA_INITIATIVE_DIE_PROVIDER = original_kakita_dp
         return result, list(recorder.recorded)
 
-    def last_skill_info(self):
+    def last_skill_info(self) -> Any:
         return self._last_skill_info
 
-    def last_damage_info(self):
+    def last_damage_info(self) -> Any:
         return self._last_damage_info
 
-    def last_wound_check_info(self):
+    def last_wound_check_info(self) -> Any:
         return self._last_wound_check_info
 
-    def last_initiative_info(self):
+    def last_initiative_info(self) -> Any:
         return self._last_initiative_info
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         """Delegate any other attribute access to the inner provider."""
         return getattr(self._inner, name)
 
@@ -156,10 +164,10 @@ class TrackingRollProvider(RollProvider):
 class CombatObserver:
     """Observes combat events and annotates them with dice data and character snapshots."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._first_phase_of_round = True
 
-    def on_event(self, event, context):
+    def on_event(self, event: Any, context: Any) -> None:
         if isinstance(event, events.NewRoundEvent):
             self._first_phase_of_round = True
         elif isinstance(event, events.NewPhaseEvent):
@@ -195,7 +203,7 @@ class CombatObserver:
         elif isinstance(event, DuelInitiativeRolledEvent):
             self._annotate_duel_initiative(event, context)
 
-    def _status_snapshot(self, context):
+    def _status_snapshot(self, context: Any) -> dict[str, Any]:
         """Capture a dict of character status keyed by name."""
         status = {}
         for char in context.characters():
@@ -210,7 +218,7 @@ class CombatObserver:
             }
         return status
 
-    def _annotate_phase(self, event, context):
+    def _annotate_phase(self, event: Any, context: Any) -> None:
         # Status snapshot on every phase (formatter decides when to display)
         event._detail_status = self._status_snapshot(context)
 
@@ -230,11 +238,11 @@ class CombatObserver:
             if initiative:
                 event._detail_initiative = initiative
 
-    def _annotate_take_attack(self, event, context):
+    def _annotate_take_attack(self, event: Any, context: Any) -> None:
         """Annotate attack action with pre-action status snapshot."""
         event._detail_status = self._status_snapshot(context)
 
-    def _annotate_attack_rolled(self, event):
+    def _annotate_attack_rolled(self, event: Any) -> None:
         subject = event.action.subject()
         provider = subject.roll_provider()
         info = provider.last_skill_info() if hasattr(provider, "last_skill_info") else None
@@ -243,7 +251,7 @@ class CombatObserver:
         event._detail_tn = event.action.tn()
         event._detail_base_tn = event.action.target().tn_to_hit()
 
-    def _annotate_counterattack_rolled(self, event):
+    def _annotate_counterattack_rolled(self, event: Any) -> None:
         subject = event.action.subject()
         provider = subject.roll_provider()
         info = provider.last_skill_info() if hasattr(provider, "last_skill_info") else None
@@ -251,7 +259,7 @@ class CombatObserver:
         event._detail_params = event.action.skill_roll_params()
         event._detail_tn = event.action.tn()
 
-    def _annotate_parry_rolled(self, event):
+    def _annotate_parry_rolled(self, event: Any) -> None:
         subject = event.action.subject()
         provider = subject.roll_provider()
         info = provider.last_skill_info() if hasattr(provider, "last_skill_info") else None
@@ -259,32 +267,32 @@ class CombatObserver:
         event._detail_params = event.action.skill_roll_params()
         event._detail_tn = event.action.tn()
 
-    def _annotate_contested_iaijutsu_rolled(self, event):
+    def _annotate_contested_iaijutsu_rolled(self, event: Any) -> None:
         subject = event.action.subject()
         provider = subject.roll_provider()
         info = provider.last_skill_info() if hasattr(provider, "last_skill_info") else None
         event._detail_dice = info["dice"] if info else []
         event._detail_params = event.action.skill_roll_params()
 
-    def _annotate_attack_succeeded(self, event):
+    def _annotate_attack_succeeded(self, event: Any) -> None:
         action = event.action
         event._detail_extra_dice = action.calculate_extra_damage_dice()
         event._detail_damage_params = action.damage_roll_params()
         event._detail_skill_roll = action.skill_roll()
         event._detail_tn = action.tn()
 
-    def _annotate_attack_failed(self, event):
+    def _annotate_attack_failed(self, event: Any) -> None:
         action = event.action
         event._detail_skill_roll = action.skill_roll()
         event._detail_tn = action.tn()
 
-    def _annotate_keep_lw(self, event):
+    def _annotate_keep_lw(self, event: Any) -> None:
         event._detail_lw_total = event.subject.lw()
 
-    def _annotate_take_sw(self, event):
+    def _annotate_take_sw(self, event: Any) -> None:
         event._detail_lw_total = event.subject.lw()
 
-    def _annotate_damage(self, event):
+    def _annotate_damage(self, event: Any) -> None:
         attacker = event.subject
         provider = attacker.roll_provider()
         info = provider.last_damage_info() if hasattr(provider, "last_damage_info") else None
@@ -296,7 +304,7 @@ class CombatObserver:
             event._detail_params = (0, 0)
         event._detail_lw_after = event.target.lw() + event.damage
 
-    def _annotate_wound_check(self, event):
+    def _annotate_wound_check(self, event: Any) -> None:
         subject = event.subject
         provider = subject.roll_provider()
         info = provider.last_wound_check_info() if hasattr(provider, "last_wound_check_info") else None
@@ -307,32 +315,32 @@ class CombatObserver:
             event._detail_dice = []
             event._detail_params = (0, 0)
 
-    def _annotate_duel_strike_rolled(self, event):
+    def _annotate_duel_strike_rolled(self, event: Any) -> None:
         subject = event.subject
         provider = subject.roll_provider()
         info = provider.last_skill_info() if hasattr(provider, "last_skill_info") else None
         event._detail_dice = info["dice"] if info else []
         event._detail_roll_params = info if info else None
 
-    def _annotate_stance_rolled(self, event):
+    def _annotate_stance_rolled(self, event: Any) -> None:
         subject = event.subject
         provider = subject.roll_provider()
         info = provider.last_skill_info() if hasattr(provider, "last_skill_info") else None
         event._detail_dice = info["dice"] if info else []
         event._detail_roll_params = info if info else None
 
-    def _annotate_duel_initiative(self, event, context):
+    def _annotate_duel_initiative(self, event: Any, context: Any) -> None:
         event._detail_status = self._status_snapshot(context)
 
 
 class DetailedCombatEngine(CombatEngine):
     """CombatEngine subclass that calls an observer before processing each event."""
 
-    def __init__(self, context, observer):
+    def __init__(self, context: Any, observer: Any) -> None:
         super().__init__(context)
         self._observer = observer
 
-    def event(self, event):
+    def event(self, event: Any) -> None:
         self._observer.on_event(event, self.context())
         super().event(event)
 

@@ -7,18 +7,19 @@
 #
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from simulation.optimizers.attack_optimizers import AttackOptimizer, DamageOptimizer
 
 
 class AttackOptimizerFactory(ABC):
     @abstractmethod
-    def get_optimizer(self, character, target, skill, initiative_action, context):
+    def get_optimizer(self, character: Any, target: Any, skill: str, initiative_action: Any, context: Any) -> Any:
         pass
 
 
-class DefaultAttackOptimizerFactory:
-    def get_optimizer(self, character, target, skill, initiative_action, context):
+class DefaultAttackOptimizerFactory(AttackOptimizerFactory):
+    def get_optimizer(self, character: Any, target: Any, skill: str, initiative_action: Any, context: Any) -> Any:
         if skill == "feint":
             # since feint gets you 1 TVP, you should not spend VP on it
             return AttackOptimizer(character, target, skill, initiative_action, context, max_vp=0, max_ap=2)

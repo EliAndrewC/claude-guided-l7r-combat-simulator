@@ -18,6 +18,9 @@
 #          if roll >= attacker's, cancel attack and hit attacker.
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation import actions, events
 from simulation.listeners import Listener, NewRoundListener
 from simulation.log import logger
@@ -26,29 +29,29 @@ from simulation.strategies.action_factory import DefaultActionFactory
 
 
 class BrotherhoodOfShinseMonkSchool(BaseSchool):
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return "precepts"
 
-    def ap_skills(self):
+    def ap_skills(self) -> list[str]:
         return ["history", "law", "precepts", "wound check", "attack"]
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         # Extra 1k1 on damage (always applied -- monks fight unarmed)
         character.set_extra_rolled("damage", 1)
         character.set_extra_kept("damage", 1)
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         self.apply_ap(character)
         # AP may also be spent to lower action dice by 5 phases
         character.set_listener("new_round", MonkNewRoundListener())
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         # Failed parry attempts don't lower rolled damage dice.
         # Install MonkActionFactory so attacks use MonkAttackAction.
         character.set_action_factory(MONK_ACTION_FACTORY)
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         # After being attacked (before damage), spend action die to counter-attack.
         # If counter-attack roll >= attacker's roll, cancel attack and
         # counter-attack damage is applied to the attacker.
@@ -61,19 +64,19 @@ class BrotherhoodOfShinseMonkSchool(BaseSchool):
             MonkFifthDanNewRoundListener(existing_new_round_listener, fifth_dan_listener),
         )
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["attack", "damage", "wound check"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["attack"]
 
-    def name(self):
+    def name(self) -> str:
         return "Brotherhood of Shinsei Monk School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["conviction", "otherworldliness", "worldliness"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "water"
 
 
@@ -90,7 +93,7 @@ class MonkNewRoundListener(NewRoundListener):
     the initiative roll.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.NewRoundEvent):
             # Roll initiative first (standard behavior)
             character.roll_initiative()
@@ -98,7 +101,7 @@ class MonkNewRoundListener(NewRoundListener):
             self._lower_action_dice(character)
             yield from ()
 
-    def _lower_action_dice(self, character):
+    def _lower_action_dice(self, character: Any) -> None:
         while character.ap() > 0:
             action_dice = character.actions()
             if len(action_dice) == 0:
@@ -134,11 +137,12 @@ class MonkAttackAction(actions.AttackAction):
     removes this penalty -- the monk always gets full extra damage dice.
     """
 
-    def calculate_extra_damage_dice(self, skill_roll=None, tn=None):
+    def calculate_extra_damage_dice(self, skill_roll: int | None = None, tn: int | None = None) -> int:
         if skill_roll is None:
             skill_roll = self.skill_roll()
         if tn is None:
             tn = self.tn()
+        assert skill_roll is not None
         # Ignore parry_attempted -- always calculate normally
         return (skill_roll - tn) // 5
 
@@ -146,7 +150,7 @@ class MonkAttackAction(actions.AttackAction):
 class MonkActionFactory(DefaultActionFactory):
     """ActionFactory that returns MonkAttackAction for attack skills."""
 
-    def get_attack_action(self, subject, target, skill, initiative_action, context, vp=0):
+    def get_attack_action(self, subject: Any, target: Any, skill: str, initiative_action: Any, context: Any, vp: int = 0) -> Any:
         if skill in ("attack", "iaijutsu"):
             return MonkAttackAction(subject, target, skill, initiative_action, context, vp=vp)
         else:
@@ -177,14 +181,14 @@ class MonkFifthDanListener(Listener):
     MonkFifthDanNewRoundListener each new round.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._used_this_round = False
 
-    def reset_round(self):
+    def reset_round(self) -> None:
         """Reset the once-per-round flag."""
         self._used_this_round = False
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.AttackSucceededEvent):
             # Only trigger when the monk is the target
             if event.action.target() != character:
@@ -239,11 +243,11 @@ class MonkFifthDanNewRoundListener(Listener):
     """New round listener that wraps an existing new_round listener
     and also resets the MonkFifthDanListener's once-per-round flag."""
 
-    def __init__(self, wrapped_listener, fifth_dan_listener):
+    def __init__(self, wrapped_listener: Any, fifth_dan_listener: Any) -> None:
         self._wrapped = wrapped_listener
         self._fifth_dan_listener = fifth_dan_listener
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.NewRoundEvent):
             # Reset the 5th Dan once-per-round flag
             self._fifth_dan_listener.reset_round()

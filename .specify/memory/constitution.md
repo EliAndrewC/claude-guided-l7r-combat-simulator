@@ -1,0 +1,104 @@
+# L7R Combat Simulator Constitution
+
+The simulator's purpose is to make the L7R tabletop combat system mechanically
+testable: to play out individual combats, vary parameters that drive
+combatant decisions, and compare character builds against optimal strategies.
+Every principle below exists to keep that purpose attainable.
+
+## Core Principles
+
+### I. Test-First (Non-Negotiable)
+A failing test is written before the code that makes it pass. Red → Green →
+Refactor is the only legal cycle. Test files live under `tests/` and exercise
+the public surface of the module under test. Bug fixes start with a regression
+test that reproduces the bug. No production code lands without a test that
+would have failed before the change.
+
+### II. Rules-Engine Purity
+The rules engine under `simulation/` is pure logic. It does not import from
+`web/`, write to disk, read environment variables, or talk to a UI framework.
+The UI consumes the engine; the engine never reaches into the UI. A change
+that requires the engine to know about Streamlit, sessions, or rendering is a
+design error and must be re-routed through a UI-side adapter.
+
+### III. Upstream Rules Are Truth
+The human-readable rules at
+`https://github.com/EliAndrewC/l7r/tree/master/rules` are the specification
+this simulator implements. When simulator behavior and the rules disagree,
+the simulator is wrong by definition. Out of scope: everything outside the
+`rules/` directory of that repository, and the Between Place / Spirit
+Encounter rules within it. Specs and plans that reference mechanics MUST cite
+the relevant rules file.
+
+### IV. Injectable Randomness
+Engine logic does not call `random.*` directly. Every die roll flows through
+a roll provider (`TrackingRollProvider`, `WoundCheckProvider`, and peers) so
+tests can substitute deterministic or predestined die sources. This is what
+makes property tests, regression tests, and the future strategy-tuning
+experiments possible. New randomness in the engine MUST be introduced through
+a provider, not by importing `random` at the use site.
+
+### V. Pluggable Decisions
+Combatant choices — attack selection, wound-check declaration, light-wounds
+keeping, void-point spending, action timing — are interchangeable objects
+behind factories (`optimizers/`, `strategies/`, `schools/`). Decision logic is
+never hardcoded into the combat loop. This is load-bearing: the project's
+stated goal is to vary these decisions across runs and measure outcomes, which
+is only possible if every decision point is a swappable component.
+
+### VI. Coverage Floor
+Test coverage must stay above 90%. This is a floor, not a target. A change
+that drops coverage below the floor is not done. Uncovered branches in newly
+written code are a code-review blocker, not a follow-up.
+
+## Technical Constraints
+
+- **Language**: Python 3.12 or newer. Type hints are required on all new
+  public functions and methods; `from __future__ import annotations` is
+  acceptable.
+- **UI Framework**: Streamlit only. The engine remains framework-agnostic so a
+  different UI could be added later without touching `simulation/`.
+- **Style**: PEP 8, enforced by `ruff`. Lint must pass on every change.
+- **Scope Boundary**: Between Place and Spirit Encounter rules are
+  permanently out of scope and MUST NOT appear in specs, plans, or tasks.
+
+## Quality Gates
+
+Every change, before it is considered complete:
+
+1. `env/bin/ruff check .` passes with zero errors.
+2. `env/bin/mypy` passes with zero errors. Strict mode is in effect for
+   `simulation/` and `web/`; `tests/` uses a relaxed profile that still
+   checks bodies but does not require annotations. Silencing errors with
+   `# type: ignore` requires an inline justification.
+3. `env/bin/pytest tests/ -v` passes with zero failures.
+4. Coverage remains above 90% (see Principle VI).
+5. If UI code changed, Streamlit has been restarted and the affected page
+   has been exercised in a browser. Type-checking and unit tests verify code
+   correctness, not feature correctness — UI changes require manual
+   verification.
+
+Operational details (exact commands, restart procedure, deploy steps) live in
+`CLAUDE.md`, which is the operational companion to this constitution.
+
+## Governance
+
+This constitution supersedes ad-hoc decisions and prior conventions. When
+`CLAUDE.md`, a spec, a plan, or in-code comments conflict with this document,
+the constitution wins and the conflicting artifact must be updated.
+
+Amendments require:
+1. A written justification (commit message or PR description) explaining the
+   motivating problem.
+2. A version bump per the rules below.
+3. A pass over `.specify/templates/` to confirm no template encodes a now-stale
+   assumption.
+
+**Versioning**: MAJOR for principle removal or backwards-incompatible
+governance change; MINOR for a new principle or section; PATCH for wording,
+clarification, or non-semantic edits.
+
+**Compliance review**: `/speckit-plan` and `/speckit-analyze` MUST surface
+constitution violations as blockers, not suggestions.
+
+**Version**: 1.0.0 | **Ratified**: 2026-05-25 | **Last Amended**: 2026-05-25

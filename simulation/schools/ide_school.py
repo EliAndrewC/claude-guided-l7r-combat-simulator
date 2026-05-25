@@ -17,6 +17,9 @@
 # 5th Dan: Gain 1 TVP when spending VP (not from 3rd dan tact usage)
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation import events
 from simulation.listeners import Listener
 from simulation.mechanics.modifiers import AnyAttackModifier
@@ -25,35 +28,35 @@ from simulation.schools.base import BaseSchool
 
 
 class IdeDiplomatSchool(BaseSchool):
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return None
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         character.set_listener("attack_succeeded", IdeFeintSucceededListener())
         character.set_listener("attack_failed", IdeFeintFailedListener())
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         character.set_listener("attack_rolled", IdeTactSubtractListener())
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         character.set_listener("spend_vp", IdeSpendVPListener())
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["wound check", "initiative", "precepts"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["attack"]
 
-    def name(self):
+    def name(self) -> str:
         return "Ide Diplomat School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["double attack", "feint", "worldliness"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "water"
 
 
@@ -62,7 +65,7 @@ class IdeFeintSucceededListener(Listener):
     After a successful feint, lower target's TN by 10 for the Ide's next attack.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.AttackSucceededEvent):
             if event.action.subject() == character:
                 if event.action.skill() == "feint":
@@ -83,7 +86,7 @@ class IdeFeintFailedListener(Listener):
     We apply the bonus regardless since the rules say "after a feint hits TN".
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.AttackFailedEvent):
             if event.action.subject() == character:
                 if event.action.skill() == "feint":
@@ -105,7 +108,7 @@ class IdeTactSubtractListener(Listener):
     to roll Xk1 (X = tact skill) and subtract from attacker's roll.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.AttackRolledEvent):
             if event.action.target() == character:
                 tact = character.skill("tact")
@@ -126,7 +129,7 @@ class IdeSpendVPListener(Listener):
     5th Dan: Gain 1 TVP when spending VP (not from 3rd dan tact usage).
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.SpendVoidPointsEvent):
             if event.subject == character:
                 character.spend_vp(event.amount)

@@ -6,6 +6,8 @@
 # Factory function to get character Schools for L7R combat simulator from the name of the school.
 #
 
+from typing import Any
+
 from simulation.schools.akodo_school import AkodoBushiSchool
 from simulation.schools.bayushi_school import BayushiBushiSchool
 from simulation.schools.courtier_school import CourtierSchool
@@ -33,7 +35,7 @@ from simulation.schools.shosuro_actor_school import ShosuroActorSchool
 from simulation.schools.yogo_school import YogoWardenSchool
 
 
-def get_school(name):
+def get_school(name: str) -> Any:
     if not isinstance(name, str):
         raise ValueError("get_school name parameter must be str")
     if name == "Akodo Bushi School":

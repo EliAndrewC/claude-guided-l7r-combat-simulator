@@ -19,6 +19,9 @@
 #          set defender's LW to 15 instead of 0
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation import events
 from simulation.actions import DoubleAttackAction
 from simulation.listeners import Listener
@@ -29,35 +32,35 @@ from simulation.strategies.action_factory import DefaultActionFactory
 
 
 class MatsuBushiSchool(BaseSchool):
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return None
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         character.set_roll_provider(MATSU_ROLL_PROVIDER)
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         character.set_listener("spend_vp", MatsuSpendVoidPointsListener())
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         character.set_action_factory(MATSU_ACTION_FACTORY)
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         character.set_listener("wound_check_failed", MatsuWoundCheckFailedListener())
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["double attack", "iaijutsu", "wound check"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["iaijutsu"]
 
-    def name(self):
+    def name(self) -> str:
         return "Matsu Bushi School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["double attack", "iaijutsu", "lunge"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "fire"
 
 
@@ -67,7 +70,7 @@ class MatsuRollProvider(DefaultRollProvider):
     always roll 10 dice on initiative.
     """
 
-    def get_initiative_roll(self, rolled, kept):
+    def get_initiative_roll(self, rolled: int, kept: int) -> list[int]:
         return super().get_initiative_roll(max(rolled, 10), kept)
 
 
@@ -80,7 +83,7 @@ class MatsuSpendVoidPointsListener(Listener):
     on any VP spend, gain WoundCheckFloatingBonus(3 * attack_skill).
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.SpendVoidPointsEvent):
             if event.subject == character:
                 character.spend_vp(event.amount)
@@ -96,28 +99,33 @@ class MatsuDoubleAttackAction(DoubleAttackAction):
     but calculate_extra_damage_dice returns 0 for near-misses.
     """
 
-    def is_hit(self):
+    def is_hit(self) -> bool:
         if self.parried():
             return False
+        roll = self.skill_roll()
+        assert roll is not None
         # Hit if skill roll is within 20 below TN (near-miss) or above TN
-        return self.skill_roll() >= self.tn() - 20
+        return roll >= self.tn() - 20
 
-    def calculate_extra_damage_dice(self, skill_roll=None, tn=None):
+    def calculate_extra_damage_dice(self, skill_roll: int | None = None, tn: int | None = None) -> int:
         if skill_roll is None:
             skill_roll = self.skill_roll()
         if tn is None:
             tn = self.tn()
+        assert skill_roll is not None
         # Near-miss: hit but below actual TN
         if skill_roll < tn:
             return 0
         # Normal hit: use standard DoubleAttackAction logic
         return super().calculate_extra_damage_dice(skill_roll, tn)
 
-    def direct_damage(self):
+    def direct_damage(self) -> Any:
         if self.parry_attempted():
             return None
+        roll = self.skill_roll()
+        assert roll is not None
         # Near-miss: no direct SW damage
-        if self.skill_roll() < self.tn():
+        if roll < self.tn():
             return None
         return super().direct_damage()
 
@@ -127,7 +135,7 @@ class MatsuActionFactory(DefaultActionFactory):
     ActionFactory to return Matsu-specific attack actions.
     """
 
-    def get_attack_action(self, subject, target, skill, initiative_action, context, vp=0):
+    def get_attack_action(self, subject: Any, target: Any, skill: str, initiative_action: Any, context: Any, vp: int = 0) -> Any:
         if skill == "double attack":
             return MatsuDoubleAttackAction(subject, target, skill, initiative_action, context, vp=vp)
         return super().get_attack_action(subject, target, skill, initiative_action, context, vp=vp)
@@ -143,7 +151,7 @@ class MatsuWoundCheckFailedListener(Listener):
     set defender's LW to 15 instead of 0.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.WoundCheckFailedEvent):
             if event.attacker == character:
                 # The standard WoundCheckFailedListener will reset LW to 0

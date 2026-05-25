@@ -40,15 +40,22 @@ as none of it is relevant to this project.
 ## Development Commands
 - **Run unit tests**: `env/bin/pytest tests/ -v`
 - **Run linting**: `env/bin/ruff check .`
+- **Run type check**: `env/bin/mypy` (uses `[tool.mypy]` in `pyproject.toml`: strict on `simulation/` and `web/`, relaxed on `tests/`)
 - **Start web server**: `env/bin/streamlit run web/app.py`
 
 ## Post-Change Checklist
 After every code change, run these steps in order:
 1. **Lint**: `env/bin/ruff check .` — fix any errors before proceeding
-2. **Test**: `env/bin/pytest tests/ -v` — all tests must pass
-3. **Restart Streamlit**: Streamlit does not reliably hot-reload all changes (especially new modules, factory registrations, and sys.path fixes in page files), so a full restart is required after you've completed your implementation and testing of each change. Since `streamlit run` is a long-running server that never exits on its own:
+2. **Type check**: `env/bin/mypy` — must report zero errors. Strict mode is enabled for `simulation/` and `web/`; do not add `# type: ignore` to silence errors without an inline justification.
+3. **Test**: `env/bin/pytest tests/ -v` — all tests must pass
+4. **Restart Streamlit**: Streamlit does not reliably hot-reload all changes (especially new modules, factory registrations, and sys.path fixes in page files), so a full restart is required after you've completed your implementation and testing of each change. Since `streamlit run` is a long-running server that never exits on its own:
    - Start: Run `env/bin/streamlit run web/app.py --server.headless true` using the Bash tool with `run_in_background: true`
    - Verify: After a few seconds, read the background task output file to confirm "You can now view your Streamlit app" appears
 
 ## Manual actions not done after every code change
-4. **Deploy to Fly.io**: The app is deployed to Fly.io at https://l7r-combat-sim.fly.dev/. Do NOT deploy unless the user explicitly asks. Deploy command: `~/.fly/bin/flyctl deploy`
+5. **Deploy to Fly.io**: The app is deployed to Fly.io at https://l7r-combat-sim.fly.dev/. Do NOT deploy unless the user explicitly asks. Deploy command: `~/.fly/bin/flyctl deploy`
+
+<!-- SPECKIT START -->
+For additional context about technologies to be used, project structure,
+shell commands, and other important information, read the current plan
+<!-- SPECKIT END -->

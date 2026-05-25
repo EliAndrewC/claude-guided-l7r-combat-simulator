@@ -8,8 +8,10 @@
 
 import math
 import uuid
+from collections.abc import Iterator
+from typing import TYPE_CHECKING, Any
 
-from simulation import listeners
+from simulation import events, listeners
 from simulation.log import logger
 from simulation.mechanics.knowledge import Knowledge
 from simulation.mechanics.modifiers import FreeRaise
@@ -29,11 +31,14 @@ from simulation.strategies.base import Strategy
 from simulation.strategies.take_action_event_factory import DEFAULT_TAKE_ACTION_EVENT_FACTORY, TakeActionEventFactory
 from simulation.strategies.target_finders import EasiestTargetFinder
 
+if TYPE_CHECKING:
+    from simulation.groups import Group
+
 RING_NAMES = ["air", "earth", "fire", "water", "void"]
 
 
 class Character:
-    def __init__(self, name=None, xp=0):
+    def __init__(self, name: str | None = None, xp: int = 0) -> None:
         # initialize a character ID
         self._character_id = uuid.uuid4().hex
         # initialize name
@@ -46,32 +51,32 @@ class Character:
         # initialize xp
         self._xp = xp
         # initialize rings
-        self._rings = {"air": 2, "earth": 2, "fire": 2, "void": 2, "water": 2}
+        self._rings: dict[str, int] = {"air": 2, "earth": 2, "fire": 2, "void": 2, "water": 2}
         # everything else
-        self._actions = []
-        self._action_factory = DEFAULT_ACTION_FACTORY
+        self._actions: list[int] = []
+        self._action_factory: ActionFactory = DEFAULT_ACTION_FACTORY
         self._attack_rolled_penalty = 0
-        self._advantages = []
-        self._ap_base_skill = None
+        self._advantages: list[str] = []
+        self._ap_base_skill: str | None = None
         self._ap_multiplier = 2
-        self._ap_skills = []
+        self._ap_skills: list[str] = []
         self._ap_spent = 0
-        self._attack_optimizer_factory = DEFAULT_ATTACK_OPTIMIZER_FACTORY
+        self._attack_optimizer_factory: AttackOptimizerFactory = DEFAULT_ATTACK_OPTIMIZER_FACTORY
         self._conviction_spent = 0
         self._damage_reroll_reduction = 0
-        self._disadvantages = []
-        self._discounts = {}
-        self._extra_kept = {}
-        self._extra_rolled = {}
-        self._floating_bonuses = []
-        self._group = None
+        self._disadvantages: list[str] = []
+        self._discounts: dict[str, int] = {}
+        self._extra_kept: dict[str, int] = {}
+        self._extra_rolled: dict[str, int] = {}
+        self._floating_bonuses: list[Any] = []
+        self._group: Group | None = None
         self._interrupt_skills = ["counterattack", "parry"]
-        self._interrupt_costs = {}
+        self._interrupt_costs: dict[str, int] = {}
         self._knowledge = Knowledge()
-        self._modifiers = []
+        self._modifiers: list[Any] = []
         # default listeners
         action_taken_listener = listeners.TakeActionListener()
-        self._listeners = {
+        self._listeners: dict[str, listeners.Listener] = {
             "add_modifier": listeners.AddModifierListener(),
             "attack_declared": listeners.AttackDeclaredListener(),
             "attack_rolled": listeners.AttackRolledListener(),
@@ -97,16 +102,16 @@ class Character:
             "your_move": listeners.YourMoveListener(),
         }
         self._lw = 0
-        self._lw_history = []
-        self._max_vp_provider = None
-        self._profession = None
-        self._roll_parameter_provider = DEFAULT_ROLL_PARAMETER_PROVIDER
-        self._roll_provider = DEFAULT_ROLL_PROVIDER
-        self._school = None
-        self._skills = {"attack": 1, "parry": 1}
-        self._skill_rings = {"attack": "fire", "counterattack": "fire", "damage": "fire", "double attack": "fire", "feint": "fire", "iaijutsu": "fire", "initiative": "void", "lunge": "fire", "parry": "air", "wound check": "water"}
-        # default strategies
-        self._strategies = {
+        self._lw_history: list[int] = []
+        self._max_vp_provider: Any = None
+        self._profession: Profession | None = None
+        self._roll_parameter_provider: RollParameterProvider = DEFAULT_ROLL_PARAMETER_PROVIDER
+        self._roll_provider: RollProvider = DEFAULT_ROLL_PROVIDER
+        self._school: School | None = None
+        self._skills: dict[str, int] = {"attack": 1, "parry": 1}
+        self._skill_rings: dict[str, str] = {"attack": "fire", "counterattack": "fire", "damage": "fire", "double attack": "fire", "feint": "fire", "iaijutsu": "fire", "initiative": "void", "lunge": "fire", "parry": "air", "wound check": "water"}
+        # default strategies (values may be a Strategy or a Listener-backed strategy)
+        self._strategies: dict[str, Any] = {
             "action": strategies.HoldOneActionStrategy(),
             "attack": strategies.UniversalAttackStrategy(),
             "attack_rolled": strategies.AttackRolledStrategy(),
@@ -120,151 +125,92 @@ class Character:
             "wound_check_rolled": strategies.WoundCheckRolledStrategy(),
         }
         self._sw = 0
-        self._take_action_event_factory = DEFAULT_TAKE_ACTION_EVENT_FACTORY
+        self._take_action_event_factory: TakeActionEventFactory = DEFAULT_TAKE_ACTION_EVENT_FACTORY
         self._target_finder = EasiestTargetFinder()
         self._tvp = 0
         self._vp_spent = 0
-        self._weapon = KATANA
-        self._wound_check_optimizer_factory = DEFAULT_WOUND_CHECK_OPTIMIZER_FACTORY
-        self._wound_check_provider = DEFAULT_WOUND_CHECK_PROVIDER
+        self._weapon: Weapon = KATANA
+        self._wound_check_optimizer_factory: WoundCheckOptimizerFactory = DEFAULT_WOUND_CHECK_OPTIMIZER_FACTORY
+        self._wound_check_provider: WoundCheckProvider = DEFAULT_WOUND_CHECK_PROVIDER
         self._void_point_manager = VoidPointManager(self)
 
-    def actions(self):
-        """
-        actions() -> list of int
-
-        Returns the actions this character has remaining for the round.
-        """
+    def actions(self) -> list[int]:
         return self._actions
 
-    def action_factory(self):
-        """
-        action_factory() -> ActionFactory
-
-        Returns this character's action factory, which is used to generate attack, counterattack, and parry actions.
-        Delegating this to a factory helps us support special abilities.
-        """
+    def action_factory(self) -> ActionFactory:
         return self._action_factory
 
-    def action_strategy(self):
+    def action_strategy(self) -> Any:
         return self._strategies["action"]
 
-    def add_discount(self, item, discount):
-        """
-        add_discount(item, discount)
-          item (str): thing to discount
-          discount (int): amount to discount the item
-
-        Grant this character a future discount for buying something (a ring or skill).
-        """
+    def add_discount(self, item: str, discount: int) -> None:
         if item in self._discounts:
             self._discounts[item] += discount
         else:
             self._discounts[item] = discount
 
-    def add_interrupt_skill(self, skill):
+    def add_interrupt_skill(self, skill: str) -> None:
         if not isinstance(skill, str):
             raise ValueError("add_interrupt_skill skill argument must be str")
         if skill not in self._interrupt_skills:
             self._interrupt_skills.append(skill)
 
-    def add_modifier(self, modifier):
-        """
-        add_modifier(modifier)
-
-        Add a modifier to this character.
-        """
+    def add_modifier(self, modifier: Any) -> None:
         # TODO: register modifier listeners
         self._modifiers.append(modifier)
 
-    def advantages(self):
+    def advantages(self) -> list[str]:
         return self._advantages
 
-    def ap(self):
-        """
-        ap() -> int
+    def ap(self) -> int:
+        base = self.ap_base_skill()
+        if base is None:
+            return 0
+        return (self._ap_multiplier * self.skill(base)) - self._ap_spent
 
-        Return the number of Adventure Points (Third Dan Free Raises) this character has available to spend.
-        """
-        return (self._ap_multiplier * self.skill(self.ap_base_skill())) - self._ap_spent
-
-    def ap_base_skill(self):
-        """
-        ap_base_skill() -> str
-
-        Return the base skill used to calculate this character's
-        Adventure Points (3rd Dan Free Raises), or None.
-        """
+    def ap_base_skill(self) -> str | None:
         return self._ap_base_skill
 
-    def attack_optimizer_factory(self):
+    def attack_optimizer_factory(self) -> AttackOptimizerFactory:
         return self._attack_optimizer_factory
 
-    def attack_rolled_penalty(self):
-        """
-        attack_rolled_penalty() -> int
-
-        Returns the penalty to the number of rolled dice an attacker uses
-        when attacking this character (Ninja ability).
-        """
+    def attack_rolled_penalty(self) -> int:
         return self._attack_rolled_penalty
 
-    def attack_rolled_strategy(self):
+    def attack_rolled_strategy(self) -> Any:
         return self._strategies["attack_rolled"]
 
-    def attack_strategy(self):
+    def attack_strategy(self) -> Any:
         return self._strategies["attack"]
 
-    def can_spend_ap(self, skill):
-        """
-        can_spend_ap(skill) -> bool
-          skill (str): name of a skill to check
-
-        Returns whether this character can spend Adventure Points
-        (Third Dan Free Raises) on the given skill.
-        """
+    def can_spend_ap(self, skill: str) -> bool:
         return skill in self._ap_skills
 
-    def character_id(self):
+    def character_id(self) -> str:
         return self._character_id
 
-    def conviction(self):
-        """Return available conviction points (2 * conviction skill rank - spent)."""
+    def conviction(self) -> int:
         return (2 * self.skill("conviction")) - self._conviction_spent
 
-    def max_conviction_per_roll(self):
-        """Return max conviction points spendable on a single roll."""
+    def max_conviction_per_roll(self) -> int:
         return self.skill("conviction")
 
-    def contested_iaijutsu_attack_declared_strategy(self):
+    def contested_iaijutsu_attack_declared_strategy(self) -> Any:
         return self._strategies["contested_iaijutsu_attack_declared"]
 
-    def duel_focus_or_strike_strategy(self):
+    def duel_focus_or_strike_strategy(self) -> Any:
         return self._strategies["duel_focus_or_strike"]
 
-    def damage_reroll_reduction(self):
-        """
-        damage_reroll_reduction() -> int
-
-        Returns the reduction to the number of 10s an attacker rerolls
-        on damage rolls against this character (Ninja ability).
-        """
+    def damage_reroll_reduction(self) -> int:
         return self._damage_reroll_reduction
 
-    def crippled(self):
-        """
-        crippled() -> bool
-
-        Return whether this Character is crippled.
-        Crippled characters do not reroll tens on skill rolls.
-        """
-        # TODO: does anything change this threshold?
+    def crippled(self) -> bool:
         return self.sw() >= self.ring("earth")
 
-    def disadvantages(self):
+    def disadvantages(self) -> list[str]:
         return self._disadvantages
 
-    def event(self, event, context):
+    def event(self, event: events.Event, context: Any) -> Iterator[events.Event]:
         if event.name in self._listeners.keys():
             logger.debug(f"{self._name} handling {event.name}")
             # play event on modifiers first
@@ -275,128 +221,71 @@ class Character:
         else:
             logger.debug(f"{self._name} ignoring {event.name}")
 
-    def extra_kept(self, skill):
+    def extra_kept(self, skill: str) -> int:
         return self._extra_kept.get(skill, 0)
 
-    def extra_rolled(self, skill):
+    def extra_rolled(self, skill: str) -> int:
         return self._extra_rolled.get(skill, 0)
 
-    def floating_bonuses(self, skill):
-        """
-        floating_bonuses(skill) -> list of FloatingBonus
-          skill (str): skill or thing on which the bonuses may be spent
-
-        Returns the list of "floating bonuses" that may be spend on a skill or action.
-        """
+    def floating_bonuses(self, skill: str) -> list[Any]:
         return [bonus for bonus in self._floating_bonuses if bonus.is_applicable(skill)]
 
-    def friends(self):
+    def friends(self) -> Any:
         return self.group()
 
-    def gain_action(self, phase):
-        """
-        gain_action(phase)
-          phase (int): phase of action die
-
-        Gain an action in the given phase.
-        """
+    def gain_action(self, phase: int) -> None:
         if not isinstance(phase, int):
             raise ValueError("gain_action phase must be int")
         self._actions.append(phase)
         self._actions.sort()
 
-    def gain_floating_bonus(self, floating_bonus):
-        """
-        gain_floating_bonus(floating_bonus):
-          floating_bonus (FloatingBonus): a floating bonus
-
-        Gain a "floating bonus" that may be applied to future skill rolls.
-        The floating bonus is an object that knows the skills on whcih it may be used.
-        """
+    def gain_floating_bonus(self, floating_bonus: Any) -> None:
         self._floating_bonuses.append(floating_bonus)
 
-    def gain_tvp(self, n=1):
-        """
-        gain_tvp(n=1)
-          n (int): number of Temporary Void Points to gain
-
-        Gain the specified number of Temporary Void Points.
-        """
+    def gain_tvp(self, n: int = 1) -> None:
         self._tvp += n
 
-    def get_damage_roll_params(self, target, skill, attack_extra_rolled, vp=0):
+    def get_damage_roll_params(self, target: Any, skill: str, attack_extra_rolled: int, vp: int = 0) -> Any:
         return self.roll_parameter_provider().get_damage_roll_params(self, target, skill, attack_extra_rolled, vp=vp)
 
-    def get_initiative_roll_params(self):
+    def get_initiative_roll_params(self) -> Any:
         return self.roll_parameter_provider().get_initiative_roll_params(self)
 
-    def get_skill_ring(self, skill):
-        """
-        get_skill_ring(skill) -> str
-          skill (str): skill of interest
-
-        Returns the ring used to use the given skill.
-        """
+    def get_skill_ring(self, skill: str) -> str:
         if not isinstance(skill, str):
             raise ValueError("skill must be str")
-        return self._skill_rings.get(skill, 0)
+        return self._skill_rings.get(skill, "")
 
-    def get_skill_roll_params(self, target, skill, contested_skill=None, ring=None, vp=0):
+    def get_skill_roll_params(self, target: Any, skill: str, contested_skill: str | None = None, ring: str | None = None, vp: int = 0) -> Any:
         return self.roll_parameter_provider().get_skill_roll_params(self, target, skill, contested_skill=contested_skill, ring=ring, vp=vp)
 
-    def get_wound_check_roll_params(self, vp=0):
+    def get_wound_check_roll_params(self, vp: int = 0) -> Any:
         return self.roll_parameter_provider().get_wound_check_roll_params(self, vp=vp)
 
-    def group(self):
+    def group(self) -> "Group | None":
         return self._group
 
-    def has_action(self, context):
-        """
-        has_action(context) -> bool
-          context (EngineContext): context to provide timing
-
-        Return whether this character has an available action in the current phase.
-        Does not consider interrupt actions.
-        """
+    def has_action(self, context: Any) -> bool:
         if len(self.actions()) == 0:
             return False
         else:
-            return min(self.actions()) <= context.phase()
+            result: bool = min(self.actions()) <= context.phase()
+            return result
 
-    def has_interrupt_action(self, skill, context):
-        """
-        has_interrupt_action(skill, context) -> bool
-          skill (str): name of the skill that would be used
-          context (EngineContext): context to provide timing
-
-        Return whether this character could do an interrupt action in the current phase.
-        """
+    def has_interrupt_action(self, skill: str, context: Any) -> bool:
         if skill in self._interrupt_skills:
             if self.interrupt_cost(skill, context) <= len(self.actions()):
                 return True
         return False
 
-    def interrupt_cost(self, skill, context):
-        """
-        interrupt_cost(skill, context) -> int
-          skill (str): skill to be used
-          context (EngineContext): context to provide timing
-
-        Return the number of actions that must be spent to interrupt
-        using the given skill.
-        """
+    def interrupt_cost(self, skill: str, context: Any) -> int:
         return self._interrupt_costs.get(skill, 2)
 
-    def interrupt_strategy(self):
+    def interrupt_strategy(self) -> Any:
         return self._strategies["interrupt"]
 
-    def initiative_priority(self, max_actions):
-        """
-        initiative_priority(max_actions) -> int
-
-        Calculate the initiative priority for this character.
-        """
-        priority = 0
+    def initiative_priority(self, max_actions: int) -> float:
+        priority = 0.0
         exponent = max_actions + 1
         # initiative priority rewards lower actions
         for action in self._actions:
@@ -406,91 +295,40 @@ class Character:
         priority += self.ring("void")
         return priority
 
-    def is_alive(self):
-        """
-        is_alive() -> bool
-
-        Return whether this character is alive.
-        """
+    def is_alive(self) -> bool:
         return self.sw() <= self.max_sw()
 
-    def is_conscious(self):
-        """
-        is_conscious() -> bool
-
-        Return whether this character is still conscious.
-        """
+    def is_conscious(self) -> bool:
         return self.sw() < self.max_sw()
 
-    def is_fighting(self):
-        """
-        is_fighting() -> bool
-
-        Return whether this character is still fighting.
-        """
-        # TODO: implement a surrender strategy
+    def is_fighting(self) -> bool:
         return self.is_conscious()
 
-    def is_friend(self, character):
-        """
-        is_friend(character) -> bool
-
-        Returns whether a character is a friend (in the same group).
-        """
+    def is_friend(self, character: "Character") -> bool:
+        if self._group is None:
+            return False
         return character in self._group
 
-    def knowledge(self):
-        """
-        knowledge() -> Knowledge
-
-        Returns this character's Knowledge instance.
-        """
+    def knowledge(self) -> Knowledge:
         return self._knowledge
 
-    def light_wounds_strategy(self):
-        """
-        light_wounds_strategy(self) -> KeepLightWoundsStrategy
-
-        Return the KeepLightWoundsStrategy that recommends whether this character should keep light wounds or take a serious wound.
-        """
+    def light_wounds_strategy(self) -> Any:
         return self._strategies["light_wounds"]
 
-    def lw(self):
-        """
-        lw() -> int
-
-        Return this character's current Light Wound total.
-        """
+    def lw(self) -> int:
         return self._lw
 
-    def lw_history(self):
-        """
-        lw_history() -> list of ints
-
-        Return the amounts of damage this character has taken in the past.
-        Used to predict future damage.
-        """
+    def lw_history(self) -> list[int]:
         return self._lw_history
 
-    def max_ap_per_roll(self):
-        """
-        max_ap_per_roll() -> int
-
-        Return the maximum number of Adventure Points (3rd Dan Free Raises)
-        this character may spend on a single roll.
-        """
-        if self.ap_base_skill() is not None:
-            return self.skill(self.ap_base_skill())
+    def max_ap_per_roll(self) -> int:
+        base = self.ap_base_skill()
+        if base is not None:
+            return self.skill(base)
         else:
             return 0
 
-    def max_sw(self):
-        """
-        max_sw() -> int
-
-        Return the number of Serious Wounds this character can take
-        before unconsciousness.
-        """
+    def max_sw(self) -> int:
         if "great destiny" in self._advantages:
             bonus = 1
         elif "permanent wound" in self._disadvantages:
@@ -499,57 +337,45 @@ class Character:
             bonus = 0
         return (self.ring("earth") * 2) + bonus
 
-    def max_vp(self):
-        """
-        max_vp() -> int
-
-        Return this character's capacity for Void Points, not including Temporary Void Points.
-        """
+    def max_vp(self) -> int:
         if self._max_vp_provider is not None:
-            return self._max_vp_provider.max_vp(self)
+            result = self._max_vp_provider.max_vp(self)
+            assert isinstance(result, int)
+            return result
         return min([self.ring(ring) for ring in RING_NAMES]) + self.skill("worldliness")
 
-    def max_vp_per_roll(self):
-        """
-        max_vp_per_roll() -> int
-
-        Return the maximum number of VP this character may spend on a single roll.
-        Characters with the Discordant disadvantage may not spend VP on skills.
-        """
+    def max_vp_per_roll(self) -> int:
         if "discordant" in self._disadvantages:
             return 0
         if self._max_vp_provider is not None:
-            return self._max_vp_provider.max_vp_per_roll(self)
+            result = self._max_vp_provider.max_vp_per_roll(self)
+            assert isinstance(result, int)
+            return result
         return min([self.ring(ring) for ring in RING_NAMES])
 
-    def modifier(self, target, skill):
-        """
-        modifier(target, skill) -> int
-
-        Returns the modifier (positive or negative) for using the given skill on a target.
-        """
+    def modifier(self, target: Any, skill: str) -> int:
         applicable_modifiers = [mod.apply(target, skill) for mod in self._modifiers]
         return sum(applicable_modifiers) if len(applicable_modifiers) > 0 else 0
 
-    def name(self):
+    def name(self) -> str:
         return self._name
 
-    def xp(self):
+    def xp(self) -> int:
         return self._xp
 
-    def parry_strategy(self):
+    def parry_strategy(self) -> Any:
         return self._strategies["parry"]
 
-    def parry_rolled_strategy(self):
+    def parry_rolled_strategy(self) -> Any:
         return self._strategies["parry_rolled"]
 
-    def profession(self):
+    def profession(self) -> Profession | None:
         return self._profession
 
-    def remove_modifier(self, modifier):
+    def remove_modifier(self, modifier: Any) -> None:
         self._modifiers.remove(modifier)
 
-    def reset(self):
+    def reset(self) -> None:
         self._actions = []
         self._ap_spent = 0
         self._conviction_spent = 0
@@ -564,41 +390,16 @@ class Character:
         self._tvp = 0
         self._vp_spent = 0
 
-    def reset_lw(self):
-        """
-        reset_lw()
-
-        Reset this character's Light Wound total to zero.
-        """
+    def reset_lw(self) -> None:
         self._lw = 0
 
-    def ring(self, ring):
-        """
-        ring(ring) -> int
-          ring (str):  name of ring of interest
-
-        Return this character's rank in the named ring.
-        """
+    def ring(self, ring: str) -> int:
         return self._rings[ring]
 
-    def rings(self):
+    def rings(self) -> dict[str, int]:
         return self._rings
 
-    def roll_damage(self, target, skill, attack_extra_rolled=0, vp=0):
-        """
-        roll_damage(target, skill, attack_extra_rolled, vp=0) -> int
-          target (Character): target of the damage roll
-          skill (str): name of the skill used for the attack
-          attack_extra_rolled (int): number of extra rolled dice from the attack roll
-          vp (int): number of Void Points to spend on the roll
-
-        Roll damage for this Character against the specified target,
-        using the specified skill, with the given number of extra rolled
-        dice because of the attack, with the given number of VP.
-
-        This is the function that should be used by other classes to
-        make a Character roll damage.
-        """
+    def roll_damage(self, target: Any, skill: str, attack_extra_rolled: int = 0, vp: int = 0) -> int:
         rolled, kept, mod = self.get_damage_roll_params(target, skill, attack_extra_rolled, vp)
         reduction = target.damage_reroll_reduction() if target is not None else 0
         if reduction > 0:
@@ -606,96 +407,70 @@ class Character:
         else:
             roll = self.roll_provider().get_damage_roll(rolled, kept) + mod
         logger.info(f"{self._name} rolled damage: {roll}")
+        assert isinstance(roll, int)
         return roll
 
-    def roll_initiative(self):
-        """
-        roll_initiative() -> list of ints
-
-        Roll Initiative for this character.
-
-        This is the function that should be used by other classes to
-        make a Character roll initiative.
-        """
+    def roll_initiative(self) -> list[int]:
         (rolled, kept, mod) = self.get_initiative_roll_params()
         self._actions = self.roll_provider().get_initiative_roll(rolled, kept)
         logger.info(f"{self._name} rolled initiative: {self._actions}")
         return self._actions
 
-    def roll_parameter_provider(self):
+    def roll_parameter_provider(self) -> RollParameterProvider:
         return self._roll_parameter_provider
 
-    def roll_provider(self):
+    def roll_provider(self) -> RollProvider:
         return self._roll_provider
 
-    def roll_skill(self, target, skill, contested_skill=None, ring=None, vp=0):
-        """
-        roll_skill(skill, vp=0) -> int
-          target (Character): character targeted with the skill
-          skill (str): skill used for this roll
-          contested_skill (str): if provided, names the skill the target
-            is using to contest.
-          ring (str): ring used for this roll. Defaults to None, which
-            means the character's default ring for this skill is used,
-            but may be specified to use another ring.
-          vp (int): number of Void Points to spend on the roll
-
-        Roll a skill for this character against the specified target.
-        """
+    def roll_skill(self, target: Any, skill: str, contested_skill: str | None = None, ring: str | None = None, vp: int = 0) -> int:
         (rolled, kept, mod) = self.get_skill_roll_params(target, skill, contested_skill, ring, vp)
         explode = not self.crippled()
         roll = self.roll_provider().get_skill_roll(skill, rolled, kept, explode) + mod
         logger.info(f"{self._name} rolled {skill}: {roll}")
+        assert isinstance(roll, int)
         return roll
 
-    def roll_wound_check(self, damage, vp=0, explode=True):
-        """
-        roll_wound_check(damage, vp=0, explode=True) -> int
-          damage (int): light wound total for the wound check
-          vp (int): number of Void Points to spend on the roll
-          explode (bool): whether tens should be rerolled
-
-        Roll a Wound Check for this character.
-        """
+    def roll_wound_check(self, damage: int, vp: int = 0, explode: bool = True) -> int:
         (rolled, kept, mod) = self.get_wound_check_roll_params(vp)
         roll = self.roll_provider().get_wound_check_roll(rolled, kept, explode=explode) + mod
         logger.info(f"{self._name} rolled wound check {roll} against {damage} LW")
+        assert isinstance(roll, int)
         return roll
 
-    def school(self):
+    def school(self) -> School | None:
         return self._school
 
-    def set_action_factory(self, factory):
+    def set_action_factory(self, factory: ActionFactory) -> None:
         if not isinstance(factory, ActionFactory):
             raise ValueError("Character action factory must be an ActionFactory")
         self._action_factory = factory
 
-    def set_ap_base_skill(self, skill):
+    def set_ap_base_skill(self, skill: str) -> None:
         if not isinstance(skill, str):
             raise ValueError("set_ap_base_skill requires str")
         self._ap_base_skill = skill
 
-    def set_ap_multiplier(self, n):
+    def set_ap_multiplier(self, n: int) -> None:
         if not isinstance(n, int):
             raise ValueError("set_ap_multiplier requires int")
         self._ap_multiplier = n
 
-    def set_ap_skills(self, skills):
+    def set_ap_skills(self, skills: list[str]) -> None:
         if not isinstance(skills, list):
             raise ValueError("set_ap_skills requires list")
         self._ap_skills = skills
 
-    def set_action_strategy(self, strategy):
+    def set_action_strategy(self, strategy: Strategy) -> None:
         if not isinstance(strategy, Strategy):
             raise ValueError("Character action strategy must be a Strategy")
         self._strategies["action"] = strategy
 
-    def set_attack_strategy(self, strategy):
+    def set_attack_strategy(self, strategy: Strategy) -> None:
         if not isinstance(strategy, Strategy):
             raise ValueError("Character attack strategy must be a Strategy")
         self._strategies["attack"] = strategy
 
-    def set_actions(self, actions):
+    def set_actions(self, actions: list[int]) -> None:
         if not isinstance(actions, list):
             raise ValueError("Character set_actions requires list of ints")
         for action in actions:
@@ -703,202 +478,111 @@ class Character:
                 raise ValueError("Character set_actions requires list of ints")
         self._actions = actions
 
-    def set_attack_rolled_penalty(self, n):
-        """
-        set_attack_rolled_penalty(n)
-          n (int): penalty to attacker's rolled dice
-
-        Set the penalty to rolled dice that attackers suffer when
-        attacking this character (Ninja ability).
-        """
+    def set_attack_rolled_penalty(self, n: int) -> None:
         if not isinstance(n, int):
             raise ValueError("set_attack_rolled_penalty requires int")
         self._attack_rolled_penalty = n
 
-    def set_attack_optimizer_factory(self, factory):
+    def set_attack_optimizer_factory(self, factory: AttackOptimizerFactory) -> None:
         if not isinstance(factory, AttackOptimizerFactory):
             raise ValueError("set_attack_optimizer_factory requires AttackOptimizerFactory")
         self._attack_optimizer_factory = factory
 
-    def set_damage_reroll_reduction(self, n):
-        """
-        set_damage_reroll_reduction(n)
-          n (int): reduction to the number of 10s rerolled on damage
-
-        Set the reduction to the number of 10s an attacker rerolls
-        on damage rolls against this character (Ninja ability).
-        """
+    def set_damage_reroll_reduction(self, n: int) -> None:
         if not isinstance(n, int):
             raise ValueError("set_damage_reroll_reduction requires int")
         self._damage_reroll_reduction = n
 
-    def set_extra_rolled(self, skill, extra_rolled=1):
-        """
-        set_extra_rolled(skill, extra_rolled)
-          skill (str): skill name
-          extra_rolled (int): number of extra rolled dice.
-
-        Set extra rolled dice for the given skill.
-        """
+    def set_extra_rolled(self, skill: str, extra_rolled: int = 1) -> None:
         if skill in self._extra_rolled.keys():
             self._extra_rolled[skill] += extra_rolled
         else:
             self._extra_rolled[skill] = extra_rolled
 
-    def set_extra_kept(self, skill, extra_kept):
-        """
-        set_extra_kept(skill, extra_rolled)
-          skill (str): skill name
-          extra_kept (int): number of extra kept dice.
-
-        Set extra kept dice for the given skill.
-        """
+    def set_extra_kept(self, skill: str, extra_kept: int) -> None:
         self._extra_kept[skill] = extra_kept
 
-    def set_group(self, group):
+    def set_group(self, group: "Group") -> None:
         self._group = group
 
-    def set_interrupt_cost(self, skill, actions):
-        """
-        set_interrupt_cost(skill, action)
-          skill (str): skill to set
-          actions (int): number of actions to interrupt
-
-        Set the interrupt cost for this character to use an action.
-        """
+    def set_interrupt_cost(self, skill: str, actions: int) -> None:
         self._interrupt_costs[skill] = actions
 
-    def set_max_vp_provider(self, provider):
+    def set_max_vp_provider(self, provider: Any) -> None:
         self._max_vp_provider = provider
 
-    def set_listener(self, event_name, listener):
-        """
-        set_listener(event_name, listener)
-          event_name (str): name of the event to listen for
-          listener (Listener): listener to handle this event
-
-        Set this character's listener for a named event.
-        """
+    def set_listener(self, event_name: str, listener: listeners.Listener) -> None:
         self._listeners[event_name] = listener
 
-    def set_parry_strategy(self, strategy):
+    def set_parry_strategy(self, strategy: Strategy) -> None:
         if not isinstance(strategy, Strategy):
             raise ValueError("Character parry strategy must be a Strategy")
         self._strategies["parry"] = strategy
 
-    def set_profession(self, profession):
+    def set_profession(self, profession: Profession) -> None:
         if not isinstance(profession, Profession):
             raise ValueError("Character set_profession function requires a Profession")
         self._profession = profession
 
-    def set_ring(self, ring, rank):
-        """
-        set_ring(ring, rank)
-          ring (str): name of ring to set
-          rank (int): new ring rank
-
-        Set this character's ring at a new rank.
-        """
+    def set_ring(self, ring: str, rank: int) -> None:
         if ring not in RING_NAMES:
             raise ValueError(f"{ring} is not a ring")
         self._rings[ring.lower()] = rank
 
-    def set_roll_parameter_provider(self, provider):
-        """
-        set_roll_parameter_provider(provider)
-          provider (RollParameterProvider): a RollParameterProvider
-
-        Set an alternative roll parameter provider for this character.
-        Intended to support special schools.
-        """
+    def set_roll_parameter_provider(self, provider: RollParameterProvider) -> None:
         if not isinstance(provider, RollParameterProvider):
             raise ValueError("provider must be a RollParameterProvider")
         self._roll_parameter_provider = provider
 
-    def set_roll_provider(self, provider):
-        """
-        set_roll_provider(provider)
-          provider (RollProvider): a RollProvider capable of doing
-            rolls for damage, initiative, skills, and wound checks.
-
-        Set an alternate roll provider for this character.
-        Intended for use in testing to rig rolls for predictable outcomes.
-        """
-        # verify the given roll_provider satisfies the roll provider API
+    def set_roll_provider(self, provider: RollProvider) -> None:
         if not isinstance(provider, RollProvider):
             raise ValueError("provider must be a RollProvider")
         self._roll_provider = provider
 
-    def set_school(self, school):
+    def set_school(self, school: School) -> None:
         if not isinstance(school, School):
             raise ValueError("Character set_school function requires a School")
         self._school = school
 
-    def set_skill(self, skill, rank):
-        """
-        set_skill(skill, rank)
-          skill (str): name of skill to set
-          rank (int): new skill rank
-
-        Set this character's skill at a new rank.
-        """
+    def set_skill(self, skill: str, rank: int) -> None:
         self._skills[skill.lower()] = rank
 
-    def set_strategy(self, name, strategy):
+    def set_strategy(self, name: str, strategy: Any) -> None:
         self._strategies[name] = strategy
 
-    def set_take_action_event_factory(self, factory):
+    def set_take_action_event_factory(self, factory: TakeActionEventFactory) -> None:
         if not isinstance(factory, TakeActionEventFactory):
             raise ValueError("Character take action event factory must be a TakeActionEventFactory")
         self._take_action_event_factory = factory
 
-    def set_weapon(self, weapon):
+    def set_weapon(self, weapon: Weapon) -> None:
         if not isinstance(weapon, Weapon):
             raise ValueError("set_weapon requires Weapon")
         self._weapon = weapon
 
-    def set_wound_check_optimizer_factory(self, factory):
+    def set_wound_check_optimizer_factory(self, factory: WoundCheckOptimizerFactory) -> None:
         if not isinstance(factory, WoundCheckOptimizerFactory):
             raise ValueError("set_wound_check_optimizer_factory requires WoundCheckOptimizerFactory")
         self._wound_check_optimizer_factory = factory
 
-    def set_wound_check_provider(self, provider):
+    def set_wound_check_provider(self, provider: WoundCheckProvider) -> None:
         if not isinstance(provider, WoundCheckProvider):
             raise ValueError("Provider is not a WoundCheckProvider")
         self._wound_check_provider = provider
 
-    def skill(self, skill):
-        """
-        skill(skill) -> int
-          skill (str): name of skill of interest
-
-        Returns this character's rank in the given skill.
-        """
+    def skill(self, skill: str) -> int:
         return self._skills.get(skill, 0)
 
-    def skills(self):
+    def skills(self) -> dict[str, int]:
         return self._skills
 
-    def spend_action(self, initiative_action):
-        """
-        spend_action(phase)
-          initiative_action (InitiativeAction): initiative action being spent
-
-        Spend a character's action dice.
-        """
+    def spend_action(self, initiative_action: Any) -> None:
         for die in initiative_action.dice():
             if die not in self._actions:
                 raise ValueError(f"{self.name()} does not have an action in phase {die}")
             self._actions.remove(die)
 
-    def spend_ap(self, skill, n):
-        """
-        spend_ap(skill, n)
-          skill (str): name of the skill for which points are being spent
-          n (int): number of points being spent
-
-        Spend Adventure Points (Third Dan Free Raises) if allowed.
-        """
+    def spend_ap(self, skill: str, n: int) -> None:
         if not self.can_spend_ap(skill):
             raise ValueError(f"{self.name()} may not spend Adventure Points on {skill}")
         if n > 0:
@@ -906,29 +590,16 @@ class Character:
                 raise ValueError("{} does not have enough Adventure Points")
             self._ap_spent += n
 
-    def spend_conviction(self, n):
-        """Spend conviction points."""
+    def spend_conviction(self, n: int) -> None:
         if n > 0:
             if self.conviction() < n:
                 raise ValueError("Not enough conviction points")
             self._conviction_spent += n
 
-    def spend_floating_bonus(self, bonus):
-        """
-        spend_floating_bonus(bonus)
-          bonus (FloatingBonus): floating bonus being spent
-
-        Spend a floating bonus.
-        """
+    def spend_floating_bonus(self, bonus: Any) -> None:
         self._floating_bonuses.remove(bonus)
 
-    def spend_vp(self, n):
-        """
-        spend_vp(n)
-          n (int): number of Void Points to spend
-
-        Spend Void Points.
-        """
+    def spend_vp(self, n: int) -> None:
         if self.vp() < n:
             raise ValueError("Not enough Void Points")
         still_unspent = n
@@ -942,96 +613,63 @@ class Character:
             else:
                 raise ValueError("Not enough Void Points")
 
-    def sw(self):
-        """
-        sw() -> int
-
-        Return the number of Serious Wounds this character has taken.
-        """
+    def sw(self) -> int:
         return self._sw
 
-    def sw_remaining(self):
-        """
-        sw_remaining() -> int
-
-        Return the number of Serious Wounds this character has remaining
-        before unconsciousness.
-        """
+    def sw_remaining(self) -> int:
         return self.max_sw() - self.sw()
 
-    def take_action_event_factory(self):
+    def take_action_event_factory(self) -> TakeActionEventFactory:
         return self._take_action_event_factory
 
-    def take_advantage(self, advantage):
+    def take_advantage(self, advantage: str) -> None:
         self._advantages.append(advantage)
         if advantage == "strength of the earth":
             self.add_modifier(FreeRaise(self, "wound check"))
 
-    def take_disadvantage(self, disadvantage):
+    def take_disadvantage(self, disadvantage: str) -> None:
         self._disadvantages.append(disadvantage)
 
-    def take_lw(self, amount):
-        """
-        take_lw(amount)
-          amount (int): amount of Light Wounds to take
-
-        Add the given amount of Light Wounds to this character's Light
-        Wound total.
-        """
+    def take_lw(self, amount: int) -> None:
         logger.info(f"{self._name} takes {amount} Light Wounds (new total: {amount + self.lw()})")
         self._lw += amount
         self._lw_history.append(amount)
 
-    def take_sw(self, amount):
+    def take_sw(self, amount: int) -> None:
         logger.info(f"{self._name} takes {amount} Serious Wounds")
         self._sw += amount
 
-    def target_finder(self):
+    def target_finder(self) -> EasiestTargetFinder:
         return self._target_finder
 
-    def tn_to_hit(self):
+    def tn_to_hit(self) -> int:
         return (5 * (1 + self.skill("parry"))) + self.modifier(None, "tn to hit")
 
-    def tvp(self):
-        """
-        tvp() -> int
-
-        Return the number of Temporary Void Points this character has available to spend.
-        Characters should spend TVP very freely.
-        """
+    def tvp(self) -> int:
         return self._tvp
 
-    def void_point_manager(self):
+    def void_point_manager(self) -> VoidPointManager:
         return self._void_point_manager
 
-    def vp(self):
-        """
-        vp() -> int
-
-        Return the number of Void Points this character has available to spend.
-        """
+    def vp(self) -> int:
         return self.max_vp() - self._vp_spent + self._tvp
 
-    def weapon(self):
+    def weapon(self) -> Weapon:
         return self._weapon
 
-    def wound_check(self, roll, lw=None):
+    def wound_check(self, roll: int, lw: int | None = None) -> int:
         if lw is None:
             lw = self.lw()
         return self.wound_check_provider().wound_check(roll, lw)
 
-    def wound_check_optimizer_factory(self):
+    def wound_check_optimizer_factory(self) -> WoundCheckOptimizerFactory:
         return self._wound_check_optimizer_factory
 
-    def wound_check_rolled_strategy(self):
+    def wound_check_rolled_strategy(self) -> Any:
         return self._strategies["wound_check_rolled"]
 
-    def wound_check_provider(self):
+    def wound_check_provider(self) -> WoundCheckProvider:
         return self._wound_check_provider
 
-    def wound_check_strategy(self):
-        """
-        wound_check_strategy() -> WoundCheckStrategy
-        Return a WoundCheckStrategy that recommends how this character will spend VP on wound checks.
-        """
+    def wound_check_strategy(self) -> Any:
         return self._strategies["wound_check"]

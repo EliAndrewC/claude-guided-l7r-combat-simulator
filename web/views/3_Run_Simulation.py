@@ -1,3 +1,5 @@
+from typing import Any
+
 import streamlit as st
 
 from simulation.schools.factory import get_school
@@ -68,6 +70,7 @@ else:
     with tab_batch:
         num_trials = st.number_input("Number of trials", min_value=1, max_value=1000, value=100, step=10)
         if st.button("Run Batch Simulation"):
+            result: Any
             with st.spinner(f"Running {num_trials} trials..."):
                 try:
                     result = run_batch(characters, groups, num_trials)

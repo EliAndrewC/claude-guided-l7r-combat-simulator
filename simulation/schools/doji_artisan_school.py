@@ -18,6 +18,9 @@
 # 5th Dan: On TN/contested rolls, bonus = (X-10)/5 where X = TN or opponent's roll.
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation import events
 from simulation.exceptions import NotEnoughActions
 from simulation.listeners import Listener, NewRoundListener
@@ -29,22 +32,22 @@ from simulation.strategies.take_action_event_factory import DefaultTakeActionEve
 
 
 class DojiArtisanSchool(BaseSchool):
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return "culture"
 
-    def ap_skills(self):
+    def ap_skills(self) -> list[str]:
         return ["bragging", "culture", "heraldry", "manipulation", "counterattack", "wound check"]
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         # Counterattack as interrupt at cost of 1 action die
         character.set_interrupt_cost("counterattack", 1)
         character.set_strategy("interrupt", DojiArtisanCounterattackInterruptStrategy())
         character.set_take_action_event_factory(DOJI_ARTISAN_TAKE_ACTION_EVENT_FACTORY)
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         self.apply_ap(character)
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         # Phase bonus when attacking target who hasn't attacked this round
         tracker = DojiArtisanAttackTracker()
@@ -53,24 +56,24 @@ class DojiArtisanSchool(BaseSchool):
         character.set_listener("new_round", DojiArtisanNewRoundListener(tracker))
         character.set_listener("attack_rolled", DojiArtisanAttackRolledListener(character, tracker))
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         # On TN/contested rolls, bonus = (X-10)/5 where X = TN or opponent's roll.
         # This requires knowing the TN or opponent's contested roll at roll time.
         character.set_roll_parameter_provider(DojiFifthDanRollParameterProvider())
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["counterattack", "manipulation", "wound check"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["manipulation"]
 
-    def name(self):
+    def name(self) -> str:
         return "Doji Artisan School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["counterattack", "oppose social", "worldliness"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "water"
 
 
@@ -85,7 +88,7 @@ class DojiArtisanCounterattackInterruptStrategy(CounterattackInterruptStrategy):
     Also calculates bonus = attacker's roll // 5 and stores it on the action.
     """
 
-    def _should_counterattack(self, character, event, context):
+    def _should_counterattack(self, character: Any, event: Any, context: Any) -> bool:
         """Only counterattack on AttackRolledEvent (need to see the roll)."""
         if not isinstance(event, events.AttackRolledEvent):
             return False
@@ -94,7 +97,7 @@ class DojiArtisanCounterattackInterruptStrategy(CounterattackInterruptStrategy):
             return False
         return super()._should_counterattack(character, event, context)
 
-    def _do_counterattack(self, character, event, context):
+    def _do_counterattack(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         """Execute the counterattack with VP=1 and attacker roll bonus."""
         initiative_action = self._choose_action(character, context)
         # Calculate attacker's roll bonus
@@ -112,7 +115,7 @@ class DojiArtisanCounterattackInterruptStrategy(CounterattackInterruptStrategy):
         yield events.SpendActionEvent(character, "counterattack", initiative_action)
         yield character.take_action_event_factory().get_take_counterattack_action_event(counterattack)
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.AttackDeclaredEvent):
             # Do NOT counterattack on declaration -- we need to see the roll
             return
@@ -135,7 +138,7 @@ class DojiArtisanTakeCounterattackActionEvent(events.TakeCounterattackActionEven
     Also spends 1 VP (which was declared on the action with vp=1).
     """
 
-    def play(self, context):
+    def play(self, context: Any) -> Iterator[Any]:
         yield events.CounterattackDeclaredEvent(self.action)
         self.action.roll_skill()
         # Apply the attacker's roll bonus
@@ -165,7 +168,7 @@ class DojiArtisanTakeActionEventFactory(DefaultTakeActionEventFactory):
     """Custom TakeActionEventFactory that returns Doji Artisan-specific
     counterattack events."""
 
-    def get_take_counterattack_action_event(self, action):
+    def get_take_counterattack_action_event(self, action: Any) -> Any:
         return DojiArtisanTakeCounterattackActionEvent(action)
 
 
@@ -179,18 +182,18 @@ class DojiArtisanAttackTracker:
     """Tracks which characters have attacked the Doji Artisan this round.
     Used by the 4th Dan ability to determine phase bonus eligibility."""
 
-    def __init__(self):
-        self._attackers = set()
+    def __init__(self) -> None:
+        self._attackers: set[Any] = set()
 
-    def has_attacked(self, character):
+    def has_attacked(self, character: Any) -> bool:
         """Return whether the given character has attacked the artisan this round."""
         return character in self._attackers
 
-    def record_attacker(self, character):
+    def record_attacker(self, character: Any) -> None:
         """Record that the given character has attacked the artisan."""
         self._attackers.add(character)
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset the tracker at the start of a new round."""
         self._attackers.clear()
 
@@ -199,11 +202,11 @@ class DojiArtisanAttackDeclaredListener(Listener):
     """Listener that records when opponents attack the Doji Artisan.
     Also delegates to the standard AttackDeclaredListener for interrupt handling."""
 
-    def __init__(self, doji, tracker):
+    def __init__(self, doji: Any, tracker: Any) -> None:
         self._doji = doji
         self._tracker = tracker
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.AttackDeclaredEvent):
             if character == self._doji:
                 # Record attacker if they are targeting the Doji
@@ -217,23 +220,23 @@ class DojiArtisanAttackDeclaredListener(Listener):
                     if event.action.subject() not in character.group():
                         from simulation import modifier_listeners
                         from simulation.mechanics import modifiers
-                        modifier = modifiers.AnyAttackModifier(character, event.subject(), 5)
-                        attack_listener = modifier_listeners.ExpireAfterNextAttackByCharacterListener(modifier, event.action.subject())
-                        end_of_round_listener = modifier_listeners.ExpireAtEndOfRoundListener(modifier)
+                        modifier = modifiers.AnyAttackModifier(character, event.action.subject(), 5)
+                        attack_listener = modifier_listeners.ExpireAfterNextAttackByCharacterListener(event.action.subject())
+                        end_of_round_listener = modifier_listeners.ExpireAtEndOfRoundListener()
                         modifier.register_listener("attack_failed", attack_listener)
                         modifier.register_listener("attack_succeeded", attack_listener)
                         modifier.register_listener("end_of_round", end_of_round_listener)
-                        yield events.AddModifierEvent(modifier)
+                        yield events.AddModifierEvent(character, modifier)
 
 
 class DojiArtisanNewRoundListener(Listener):
     """Listener that resets the attack tracker each round and rolls initiative."""
 
-    def __init__(self, tracker):
+    def __init__(self, tracker: Any) -> None:
         self._tracker = tracker
         self._default_listener = NewRoundListener()
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.NewRoundEvent):
             self._tracker.reset()
             yield from self._default_listener.handle(character, event, context)
@@ -246,11 +249,11 @@ class DojiArtisanAttackRolledListener(Listener):
 
     Also delegates to the standard AttackRolledListener for interrupt/parry handling."""
 
-    def __init__(self, doji, tracker):
+    def __init__(self, doji: Any, tracker: Any) -> None:
         self._doji = doji
         self._tracker = tracker
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.AttackRolledEvent):
             if character == self._doji:
                 # Apply 4th Dan phase bonus if the Doji is the attacker
@@ -280,7 +283,7 @@ class DojiArtisanAttackRolledListener(Listener):
 class DojiFifthDanRollParameterProvider(DefaultRollParameterProvider):
     """5th Dan: on TN/contested rolls, bonus = max(0, (TN - 10) / 5)."""
 
-    def get_skill_roll_params(self, character, target, skill, contested_skill=None, ring=None, vp=0):
+    def get_skill_roll_params(self, character: Any, target: Any, skill: str, contested_skill: str | None = None, ring: str | None = None, vp: int = 0) -> tuple[int, int, int]:
         rolled, kept, modifier = super().get_skill_roll_params(character, target, skill, contested_skill, ring, vp)
         # For attack rolls, the TN is the target's TN to hit
         if target is not None:
@@ -289,7 +292,7 @@ class DojiFifthDanRollParameterProvider(DefaultRollParameterProvider):
             modifier += bonus
         return normalize_roll_params(rolled, kept, modifier)
 
-    def get_wound_check_roll_params(self, character, vp=0):
+    def get_wound_check_roll_params(self, character: Any, vp: int = 0) -> tuple[int, int, int]:
         rolled, kept, modifier = super().get_wound_check_roll_params(character, vp)
         # For wound checks, X = LW total (the TN).
         # Since we don't have the TN at this point, we use LW.

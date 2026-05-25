@@ -7,76 +7,77 @@
 #
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from simulation.mechanics.modifiers import FreeRaise
 
 
 class School(ABC):
     @abstractmethod
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         pass
 
     @abstractmethod
-    def ap_skills(self):
+    def ap_skills(self) -> list[str]:
         pass
 
     @abstractmethod
-    def apply_ap(self, character):
+    def apply_ap(self, character: Any) -> None:
         pass
 
     @abstractmethod
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         pass
 
     @abstractmethod
-    def apply_rank_one_ability(self, character):
+    def apply_rank_one_ability(self, character: Any) -> None:
         pass
 
     @abstractmethod
-    def apply_rank_two_ability(self, character):
+    def apply_rank_two_ability(self, character: Any) -> None:
         pass
 
     @abstractmethod
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         pass
 
     @abstractmethod
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         pass
 
     @abstractmethod
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         pass
 
     @abstractmethod
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         pass
 
     @abstractmethod
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         pass
 
     @abstractmethod
-    def name(self):
+    def name(self) -> str:
         pass
 
     @abstractmethod
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         pass
 
     @abstractmethod
-    def school_ring(self):
+    def school_ring(self) -> str:
         pass
 
 
 class BaseSchool(School):
-    def __init__(self):
-        self._ap_base_skill = None
-        self._ap_skills = []
-        self._free_raises_skills = []
-        self._skills = dict([(skill, 1) for skill in self.school_knacks()])
+    def __init__(self) -> None:
+        self._ap_base_skill: str | None = None
+        self._ap_skills: list[str] = []
+        self._free_raises_skills: list[str] = []
+        self._skills: dict[str, int] = dict([(skill, 1) for skill in self.school_knacks()])
 
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         """
         ap_base_skill() -> str
 
@@ -86,15 +87,15 @@ class BaseSchool(School):
         """
         return self._ap_base_skill
 
-    def ap_skills(self):
+    def ap_skills(self) -> list[str]:
         return self._ap_skills
 
-    def apply_ap(self, character):
+    def apply_ap(self, character: Any) -> None:
         if self.ap_base_skill() is not None:
             character.set_ap_base_skill(self.ap_base_skill())
             character.set_ap_skills(self.ap_skills())
 
-    def apply_rank_one_ability(self, character):
+    def apply_rank_one_ability(self, character: Any) -> None:
         """
         apply_rank_one_ability(character)
 
@@ -103,7 +104,7 @@ class BaseSchool(School):
         for skill in self.extra_rolled():
             character.set_extra_rolled(skill, 1)
 
-    def apply_rank_two_ability(self, character):
+    def apply_rank_two_ability(self, character: Any) -> None:
         """
         apply_rank_two_ability(character)
 
@@ -112,7 +113,7 @@ class BaseSchool(School):
         for skill in self.free_raise_skills():
             character.add_modifier(FreeRaise(character, skill))
 
-    def apply_school_ability(self, character, rank):
+    def apply_school_ability(self, character: Any, rank: int) -> None:
         """
         apply_school_ability(character, rank)
 
@@ -129,7 +130,7 @@ class BaseSchool(School):
         elif rank == 5:
             self.apply_rank_five_ability(character)
 
-    def apply_school_ring_raise_and_discount(self, character):
+    def apply_school_ring_raise_and_discount(self, character: Any) -> None:
         """
         apply_school_ring_raise_and_discount(character)
 
@@ -140,7 +141,7 @@ class BaseSchool(School):
         character.set_ring(self.school_ring(), cur_rank + 1)
         character.add_discount(self.school_ring(), 5)
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         """
         apply_rank_three_ability(character)
 
@@ -148,7 +149,7 @@ class BaseSchool(School):
         """
         raise NotImplementedError()
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         """
         apply_rank_four_ability(character)
 
@@ -156,7 +157,7 @@ class BaseSchool(School):
         """
         raise NotImplementedError()
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         """
         apply_rank_five_ability(character)
 
@@ -164,7 +165,7 @@ class BaseSchool(School):
         """
         raise NotImplementedError()
 
-    def apply_school_ring(self, character):
+    def apply_school_ring(self, character: Any) -> None:
         """
         apply_school_ring(character)
 
@@ -174,7 +175,7 @@ class BaseSchool(School):
             raise ValueError(f"{character.name()}'s {self.school_ring()} ring is not 2, cannot apply school ring bonus")
         character.set_ring(self.school_ring(), 3)
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         """
         apply_special_ability(character)
 
@@ -183,7 +184,7 @@ class BaseSchool(School):
         """
         raise NotImplementedError()
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         """
         free_raise_skills() -> list of str
 
@@ -191,7 +192,7 @@ class BaseSchool(School):
         """
         raise NotImplementedError()
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         """
         extra_rolled() -> list of str
 
@@ -199,7 +200,7 @@ class BaseSchool(School):
         """
         raise NotImplementedError()
 
-    def name(self):
+    def name(self) -> str:
         """
         name() -> str
 
@@ -207,7 +208,7 @@ class BaseSchool(School):
         """
         raise NotImplementedError()
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         """
         school_knacks() -> list of str
 
@@ -215,7 +216,7 @@ class BaseSchool(School):
         """
         raise NotImplementedError()
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         """
         school_ring() -> str
 

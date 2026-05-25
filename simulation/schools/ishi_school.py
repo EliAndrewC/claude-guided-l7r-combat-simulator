@@ -18,6 +18,9 @@
 # 5th Dan: Negate opponent's school/profession for a fight (TODO)
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation import events
 from simulation.character import RING_NAMES
 from simulation.listeners import Listener
@@ -27,59 +30,59 @@ from simulation.schools.base import BaseSchool
 class IshiMaxVPProvider:
     """Custom VP provider for the Isawa Ishi School special ability."""
 
-    def __init__(self, school_rank=1):
+    def __init__(self, school_rank: int = 1) -> None:
         self._school_rank = school_rank
 
-    def set_school_rank(self, rank):
+    def set_school_rank(self, rank: int) -> None:
         self._school_rank = rank
 
-    def max_vp(self, character):
-        highest_ring = max(character.ring(ring) for ring in RING_NAMES)
+    def max_vp(self, character: Any) -> int:
+        highest_ring: int = max(character.ring(ring) for ring in RING_NAMES)
         return highest_ring + self._school_rank
 
-    def max_vp_per_roll(self, character):
-        lowest_ring = min(character.ring(ring) for ring in RING_NAMES)
+    def max_vp_per_roll(self, character: Any) -> int:
+        lowest_ring: int = min(character.ring(ring) for ring in RING_NAMES)
         return max(0, lowest_ring - 1)
 
 
 class IsawaIshiSchool(BaseSchool):
-    def __init__(self):
+    def __init__(self) -> None:
         self._vp_provider = IshiMaxVPProvider()
         super().__init__()
 
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return None
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         character.set_max_vp_provider(self._vp_provider)
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         character.set_listener("attack_rolled", IshiAllyBoostListener())
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         # Contested roll VP restriction is a social ability, not applicable in combat simulation
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         # TODO: negate opponent's school/profession for a fight
         pass
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["precepts", "wound check", "initiative"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["attack"]
 
-    def name(self):
+    def name(self) -> str:
         return "Isawa Ishi School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["absorb void", "kharmic spin", "otherworldliness"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "void"
 
-    def vp_provider(self):
+    def vp_provider(self) -> "IshiMaxVPProvider":
         return self._vp_provider
 
 
@@ -89,7 +92,7 @@ class IshiAllyBoostListener(Listener):
     (X = precepts) to the ally's roll.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.AttackRolledEvent):
             subject = event.action.subject()
             if subject != character and character.group() is not None and subject in character.group() and context.formation().is_adjacent(character, subject):

@@ -21,6 +21,9 @@
 # 7. Either/both hit: transition to normal melee combat.
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation.events import Event, LightWoundsDamageEvent
 from simulation.exceptions import DuelEnded
 from simulation.log import logger
@@ -28,7 +31,7 @@ from simulation.mechanics.floating_bonuses import FloatingBonus
 from simulation.strategies.base import Strategy
 
 
-def normalize_duel_roll_params(rolled, kept, bonus=0):
+def normalize_duel_roll_params(rolled: int, kept: int, bonus: int = 0) -> tuple[int, int, int]:
     """Normalize roll params with duel rules: excess kept above 10 = +5 each (not +2)."""
     if rolled > 10:
         excess_rolled = rolled - 10
@@ -48,13 +51,13 @@ def normalize_duel_roll_params(rolled, kept, bonus=0):
 # ── Duel Events ──────────────────────────────────────────────────────
 
 class ShowMeYourStanceDeclaredEvent(Event):
-    def __init__(self, subject):
+    def __init__(self, subject: Any) -> None:
         super().__init__("duel_stance_declared")
         self.subject = subject
 
 
 class ShowMeYourStanceRolledEvent(Event):
-    def __init__(self, subject, roll, discerned_fire, discerned_tn):
+    def __init__(self, subject: Any, roll: int, discerned_fire: int, discerned_tn: int) -> None:
         super().__init__("duel_stance_rolled")
         self.subject = subject
         self.roll = roll
@@ -63,7 +66,7 @@ class ShowMeYourStanceRolledEvent(Event):
 
 
 class DuelInitiativeRolledEvent(Event):
-    def __init__(self, challenger, defender, challenger_roll, defender_roll, winner):
+    def __init__(self, challenger: Any, defender: Any, challenger_roll: int, defender_roll: int, winner: Any) -> None:
         super().__init__("duel_initiative_rolled")
         self.challenger = challenger
         self.defender = defender
@@ -73,7 +76,7 @@ class DuelInitiativeRolledEvent(Event):
 
 
 class IaijutsuFocusEvent(Event):
-    def __init__(self, subject, challenger, defender, challenger_tn, defender_tn):
+    def __init__(self, subject: Any, challenger: Any, defender: Any, challenger_tn: int, defender_tn: int) -> None:
         super().__init__("duel_focus")
         self.subject = subject
         self.challenger = challenger
@@ -83,7 +86,7 @@ class IaijutsuFocusEvent(Event):
 
 
 class IaijutsuStrikeEvent(Event):
-    def __init__(self, subject, challenger, defender, challenger_tn, defender_tn):
+    def __init__(self, subject: Any, challenger: Any, defender: Any, challenger_tn: int, defender_tn: int) -> None:
         super().__init__("duel_strike")
         self.subject = subject
         self.challenger = challenger
@@ -93,7 +96,7 @@ class IaijutsuStrikeEvent(Event):
 
 
 class DuelStrikeRolledEvent(Event):
-    def __init__(self, subject, target, roll, tn, is_hit, extra_damage_dice):
+    def __init__(self, subject: Any, target: Any, roll: int, tn: int, is_hit: bool, extra_damage_dice: int) -> None:
         super().__init__("duel_strike_rolled")
         self.subject = subject
         self.target = target
@@ -104,7 +107,7 @@ class DuelStrikeRolledEvent(Event):
 
 
 class DuelResheathEvent(Event):
-    def __init__(self, challenger, defender, higher_roller):
+    def __init__(self, challenger: Any, defender: Any, higher_roller: Any) -> None:
         super().__init__("duel_resheath")
         self.challenger = challenger
         self.defender = defender
@@ -112,7 +115,7 @@ class DuelResheathEvent(Event):
 
 
 class DuelEndedEvent(Event):
-    def __init__(self, challenger, defender):
+    def __init__(self, challenger: Any, defender: Any) -> None:
         super().__init__("duel_ended")
         self.challenger = challenger
         self.defender = defender
@@ -123,44 +126,44 @@ class DuelEndedEvent(Event):
 class DuelStrikeAction:
     """Encapsulates the strike roll and damage for a duel attack."""
 
-    def __init__(self, subject, target, tn):
+    def __init__(self, subject: Any, target: Any, tn: int) -> None:
         self._subject = subject
         self._target = target
         self._tn = tn
-        self._skill_roll = None
-        self._damage_roll = None
+        self._skill_roll: int | None = None
+        self._damage_roll: int | None = None
 
-    def subject(self):
+    def subject(self) -> Any:
         return self._subject
 
-    def target(self):
+    def target(self) -> Any:
         return self._target
 
-    def tn(self):
+    def tn(self) -> int:
         return self._tn
 
-    def skill_roll(self):
+    def skill_roll(self) -> int | None:
         return self._skill_roll
 
-    def is_hit(self):
+    def is_hit(self) -> bool:
         return self._skill_roll is not None and self._skill_roll >= self._tn
 
-    def extra_damage_dice(self):
+    def extra_damage_dice(self) -> int:
         if self._skill_roll is None:
             return 0
         return max(0, self._skill_roll - self._tn)
 
-    def roll_skill(self):
+    def roll_skill(self) -> int:
         """Roll Fire+Iaijutsu with no exploding 10s."""
         (rolled, kept, mod) = self._subject.get_skill_roll_params(
             self._target, "iaijutsu", ring=None, vp=0
         )
-        roll = self._subject.roll_provider().get_skill_roll("iaijutsu", rolled, kept, explode=False) + mod
+        roll: int = self._subject.roll_provider().get_skill_roll("iaijutsu", rolled, kept, explode=False) + mod
         self._skill_roll = roll
         logger.info(f"{self._subject.name()} duel strike roll: {roll} vs TN {self._tn}")
         return roll
 
-    def roll_damage(self):
+    def roll_damage(self) -> int:
         """Roll damage with duel normalization (+5 per excess kept above 10k10)."""
         extra = self.extra_damage_dice()
         ring = self._subject.ring(self._subject.get_skill_ring("damage"))
@@ -170,16 +173,16 @@ class DuelStrikeAction:
         mod = self._subject.modifier(None, "damage")
         rolled, kept, mod = normalize_duel_roll_params(rolled, kept, mod)
         # Damage rolls DO explode in duels
-        roll = self._subject.roll_provider().get_damage_roll(rolled, kept) + mod
+        roll: int = self._subject.roll_provider().get_damage_roll(rolled, kept) + mod
         roll = max(0, roll)
         self._damage_roll = roll
         logger.info(f"{self._subject.name()} duel damage roll: {roll}")
         return roll
 
-    def damage_roll(self):
+    def damage_roll(self) -> int | None:
         return self._damage_roll
 
-    def damage_roll_params(self):
+    def damage_roll_params(self) -> tuple[int, int, int]:
         """Return the (rolled, kept, mod) for damage, for annotation purposes."""
         extra = self.extra_damage_dice()
         ring = self._subject.ring(self._subject.get_skill_ring("damage"))
@@ -189,11 +192,12 @@ class DuelStrikeAction:
         mod = self._subject.modifier(None, "damage")
         return normalize_duel_roll_params(rolled, kept, mod)
 
-    def skill_roll_params(self):
+    def skill_roll_params(self) -> tuple[int, int, int]:
         """Return the (rolled, kept, mod) for the skill roll, for annotation purposes."""
-        return self._subject.get_skill_roll_params(
+        result: tuple[int, int, int] = self._subject.get_skill_roll_params(
             self._target, "iaijutsu", ring=None, vp=0
         )
+        return result
 
 
 # ── Duel Strategy ────────────────────────────────────────────────────
@@ -201,7 +205,7 @@ class DuelStrikeAction:
 class DuelState:
     """State passed to duel strategies to inform focus/strike decisions."""
 
-    def __init__(self, subject_tn, opponent, opponent_tn, focus_count):
+    def __init__(self, subject_tn: int, opponent: Any, opponent_tn: int, focus_count: int) -> None:
         self.subject_tn = subject_tn
         self.opponent = opponent
         self.opponent_tn = opponent_tn
@@ -211,18 +215,18 @@ class DuelState:
 class AlwaysStrikeDuelStrategy(Strategy):
     """Simple duel strategy: always choose to strike immediately."""
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: Any, context: Any) -> Any:
         return "strike"
 
 
 class FocusThenStrikeDuelStrategy(Strategy):
     """Duel strategy: focus a specified number of times, then strike."""
 
-    def __init__(self, focus_count=1):
+    def __init__(self, focus_count: int = 1) -> None:
         self._focus_count = focus_count
         self._focuses_done = 0
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: Any, context: Any) -> Any:
         if self._focuses_done < self._focus_count:
             self._focuses_done += 1
             return "focus"
@@ -237,7 +241,7 @@ class SurvivalDuelStrategy(Strategy):
 
     MAX_FOCUSES = 5
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: Any, context: Any) -> Any:
         if event is None or not hasattr(event, 'opponent'):
             return "strike"
         if event.focus_count >= self.MAX_FOCUSES:
@@ -258,7 +262,7 @@ class SurvivalDuelStrategy(Strategy):
         return "strike"
 
     @staticmethod
-    def _estimate_roll(character, opponent, context):
+    def _estimate_roll(character: Any, opponent: Any, context: Any) -> int:
         """Estimate a character's expected iaijutsu strike roll.
 
         Uses get_skill_roll_params to account for school bonuses,
@@ -268,8 +272,9 @@ class SurvivalDuelStrategy(Strategy):
             opponent, "iaijutsu", ring=None, vp=0
         )
         if context is not None:
-            return context.mean_roll(rolled, kept) + mod
-        return kept * 6 + mod
+            result: int = context.mean_roll(rolled, kept) + mod
+            return result
+        return kept * 6 + mod  # type: ignore[no-any-return]
 
 
 # ── Duel Orchestrator ────────────────────────────────────────────────
@@ -277,12 +282,12 @@ class SurvivalDuelStrategy(Strategy):
 class IaijutsuDuelEvent(Event):
     """Top-level playable event that runs the full iaijutsu duel."""
 
-    def __init__(self, challenger, defender):
+    def __init__(self, challenger: Any, defender: Any) -> None:
         super().__init__("iaijutsu_duel")
         self.challenger = challenger
         self.defender = defender
 
-    def play(self, context):
+    def play(self, context: Any) -> Iterator[Event]:
         challenger = self.challenger
         defender = self.defender
 
@@ -422,7 +427,7 @@ class IaijutsuDuelEvent(Event):
                 higher_roller.gain_floating_bonus(FloatingBonus("damage", 5))
                 logger.info(f"{higher_roller.name()} gains a free raise on damage from resheath")
 
-    def _roll_stance(self, subject, opponent):
+    def _roll_stance(self, subject: Any, opponent: Any) -> int:
         """Roll Air+Iaijutsu for Show Me Your Stance (no exploding 10s)."""
         from simulation.mechanics.roll_params import normalize_roll_params
         air = subject.ring("air")
@@ -431,22 +436,23 @@ class IaijutsuDuelEvent(Event):
         rolled = air + skill + extra_rolled
         kept = air
         rolled, kept, mod = normalize_roll_params(rolled, kept, 0)
-        roll = subject.roll_provider().get_skill_roll("iaijutsu", rolled, kept, explode=False) + mod
+        roll: int = subject.roll_provider().get_skill_roll("iaijutsu", rolled, kept, explode=False) + mod
         return roll
 
-    def _roll_contested(self, subject, opponent):
+    def _roll_contested(self, subject: Any, opponent: Any) -> int:
         """Roll Fire+Iaijutsu for contested initiative."""
         (rolled, kept, mod) = subject.get_skill_roll_params(
             opponent, "iaijutsu", ring=None, vp=0
         )
-        roll = subject.roll_provider().get_skill_roll("iaijutsu", rolled, kept, explode=True) + mod
+        roll: int = subject.roll_provider().get_skill_roll("iaijutsu", rolled, kept, explode=True) + mod
         return roll
 
     @staticmethod
-    def _get_duel_choice(character, opponent, subject_tn, opponent_tn, focus_count, context):
+    def _get_duel_choice(character: Any, opponent: Any, subject_tn: int, opponent_tn: int, focus_count: int, context: Any) -> str:
         """Ask the character's duel strategy for focus or strike."""
         strategy = character.duel_focus_or_strike_strategy()
         if strategy is None:
             strategy = SurvivalDuelStrategy()
         state = DuelState(subject_tn, opponent, opponent_tn, focus_count)
-        return strategy.recommend(character, state, context)
+        result: str = strategy.recommend(character, state, context)
+        return result

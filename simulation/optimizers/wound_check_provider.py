@@ -9,12 +9,12 @@ class WoundCheckProvider(ABC):
     """
 
     @abstractmethod
-    def wound_check(self, character, roll, lw=None):
+    def wound_check(self, roll: int, lw: int) -> int:
         pass
 
 
 class DefaultWoundCheckProvider(WoundCheckProvider):
-    def wound_check(self, roll, lw):
+    def wound_check(self, roll: int, lw: int) -> int:
         """
         wound_check(roll, lw) -> int
           wound_check_roll (int): wound check roll

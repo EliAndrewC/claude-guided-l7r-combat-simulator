@@ -6,6 +6,8 @@
 # Class to help characters reserve Void Points for future use.
 #
 
+from typing import Any
+
 from simulation.mechanics.skills import EXTENDED_SKILLS
 
 
@@ -21,11 +23,11 @@ class VoidPointManager:
     special ability.
     """
 
-    def __init__(self, character):
+    def __init__(self, character: Any) -> None:
         self._character = character
-        self._reservations = {}
+        self._reservations: dict[str, int] = {}
 
-    def cancel(self, skill):
+    def cancel(self, skill: str) -> None:
         """
         cancel(skill)
           skill (str): skill for which the reservation is being cancelled
@@ -38,7 +40,7 @@ class VoidPointManager:
             raise ValueError(f"Invalid skill: {skill}")
         self._reservations.pop(skill)
 
-    def clear(self):
+    def clear(self) -> None:
         """
         clear()
 
@@ -46,7 +48,7 @@ class VoidPointManager:
         """
         self._reservations.clear()
 
-    def reserve(self, skill, vp):
+    def reserve(self, skill: str, vp: int) -> None:
         """
         reserve(skill, vp)
           skill (str): skill that the Void Points will be used for
@@ -64,7 +66,7 @@ class VoidPointManager:
             raise ValueError("reserve vp must be int")
         self._reservations[skill] = vp
 
-    def reserved(self, skill):
+    def reserved(self, skill: str) -> int:
         """
         reserved(skill) -> int
           skill (str): skill of interest
@@ -77,7 +79,7 @@ class VoidPointManager:
             raise ValueError(f"Invalid skill: {skill}")
         return self._reservations.get(skill, 0)
 
-    def vp(self, skill):
+    def vp(self, skill: str) -> int:
         """
         vp(skill) -> int
           skill (str): skill of interest
@@ -91,4 +93,5 @@ class VoidPointManager:
         if skill not in EXTENDED_SKILLS:
             raise ValueError(f"Invalid skill: {skill}")
         available = self._character.vp() - sum([v for (k, v) in self._reservations.items() if k != skill])
-        return max(available, 0)
+        result: int = max(available, 0)
+        return result

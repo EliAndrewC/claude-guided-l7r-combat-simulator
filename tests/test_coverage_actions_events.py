@@ -780,16 +780,13 @@ class TestCrippledEvent(unittest.TestCase):
 
 
 class TestNotCrippledEvent(unittest.TestCase):
-    """Test NotCrippledEvent constructor.
-    Note: NotCrippledEvent has a bug -- it passes (name, subject) to Event.__init__
-    which only accepts (name). This causes a TypeError.
-    We test that the constructor is called (covering line 294) and that it raises."""
+    """Test NotCrippledEvent constructor."""
 
-    def test_init_raises_due_to_bug(self):
-        """Lines 293-294: NotCrippledEvent constructor has a bug passing extra arg to Event."""
+    def test_init(self):
         sub = Character("sub")
-        with self.assertRaises(TypeError):
-            NotCrippledEvent("not_crippled", sub)
+        event = NotCrippledEvent(sub)
+        self.assertEqual("not_crippled", event.name)
+        self.assertEqual(sub, event.subject)
 
 
 class TestSurrenderEvent(unittest.TestCase):
@@ -1198,15 +1195,11 @@ class TestWoundCheckSucceededListenerCoverage(unittest.TestCase):
 
 
 class TestTakeActionListenerCoverage(unittest.TestCase):
-    """Test TakeActionListener for other characters observing actions.
-    Note: TakeActionEvent and subclasses use .action (from ActionEvent),
-    not .subject, but TakeActionListener checks event.subject.
-    TakeAttackActionEvent has no .subject attribute (bug in listeners.py line 147).
-    We test that the listener hits the isinstance check (line 146) and then
-    the AttributeError occurs on the buggy line."""
+    """Test TakeActionListener for other characters observing actions."""
 
-    def test_other_character_observes_action_hits_bug(self):
-        """Lines 145-149: TakeActionListener hits bug when accessing event.subject"""
+    def test_other_character_observes_action(self):
+        """When a non-actor receives a TakeActionEvent, the listener records
+        the observed action on its knowledge."""
         attacker = Character("attacker")
         attacker.set_ring("fire", 5)
         attacker.set_skill("attack", 4)
@@ -1218,9 +1211,9 @@ class TestTakeActionListenerCoverage(unittest.TestCase):
         from simulation.events import TakeAttackActionEvent
         event = TakeAttackActionEvent(attack)
         listener = TakeActionListener()
-        # TakeAttackActionEvent has no .subject, so this raises AttributeError
-        with self.assertRaises(AttributeError):
-            list(listener.handle(target, event, context))
+        # No exception expected; the listener silently observes.
+        responses = list(listener.handle(target, event, context))
+        self.assertEqual(responses, [])
 
 
 class TestGainTemporaryVoidPointsListenerCoverage(unittest.TestCase):

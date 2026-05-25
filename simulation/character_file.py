@@ -9,6 +9,8 @@
 # If you wanted ASN.1 or XML instead, I'm not sorry.
 #
 
+from typing import Any
+
 import yaml
 
 from simulation.character_builder import CharacterBuilder
@@ -69,10 +71,10 @@ class CharacterReader:
     xp: 1000000
     """
 
-    def read(self, f):
+    def read(self, f: Any) -> Any:
         data = yaml.safe_load(f)
         xp = int(data.get("xp", 100))
-        builder = CharacterBuilder().with_xp(xp)
+        builder: Any = CharacterBuilder().with_xp(xp)
         if "name" in data.keys():
             builder.with_name(data["name"])
         # take profession or school
@@ -94,7 +96,7 @@ class CharacterReader:
         builder = self._take_abilities(data, builder)
         return builder.build()
 
-    def _buy_rings(self, data, builder):
+    def _buy_rings(self, data: dict[str, Any], builder: Any) -> Any:
         # character must have rings
         if "rings" not in data.keys():
             raise OSError("Invalid Character (no rings)")
@@ -102,7 +104,7 @@ class CharacterReader:
             builder.buy_ring(ring, rank)
         return builder
 
-    def _buy_skills(self, data, builder):
+    def _buy_skills(self, data: dict[str, Any], builder: Any) -> Any:
         # character must have skills
         if "skills" not in data.keys():
             raise OSError("Invalid Character (no skills)")
@@ -116,7 +118,7 @@ class CharacterReader:
             builder.buy_skill(skill, rank)
         return builder
 
-    def _set_strategies(self, data, builder):
+    def _set_strategies(self, data: dict[str, Any], builder: Any) -> Any:
         # strategies are optional
         if "strategies" in data.keys():
             for event, strategy_name in data["strategies"].items():
@@ -124,7 +126,7 @@ class CharacterReader:
                 builder.set_strategy(event, strategy)
         return builder
 
-    def _take_abilities(self, data, builder):
+    def _take_abilities(self, data: dict[str, Any], builder: Any) -> Any:
         if "abilities" in data.keys():
             abilityd = data["abilities"]
             for name in abilityd.keys():
@@ -137,14 +139,14 @@ class CharacterReader:
                     builder.take_ability(name)
         return builder
 
-    def _take_advantages(self, data, builder):
+    def _take_advantages(self, data: dict[str, Any], builder: Any) -> Any:
         # advantages are optional
         if "advantages" in data.keys():
             for advantage in data["advantages"]:
                 builder.take_advantage(advantage.lower())
         return builder
 
-    def _take_disadvantages(self, data, builder):
+    def _take_disadvantages(self, data: dict[str, Any], builder: Any) -> Any:
         # disadvantages are optional
         if "disadvantages" in data.keys():
             for disadvantage in data["disadvantages"]:
@@ -157,7 +159,7 @@ class CharacterWriter:
     Writes a character to a YAML format file.
     """
 
-    def write(self, character, f):
+    def write(self, character: Any, f: Any) -> None:
         if character.profession():
             return ProfessionCharacterWriter().write(character, f)
         elif character.school():
@@ -173,11 +175,11 @@ class GenericCharacterWriter(CharacterWriter):
     CharacterWriter for characters without a samurai school or a peasant profession.
     """
 
-    def write(self, character, f):
+    def write(self, character: Any, f: Any) -> None:
         yaml.dump(self.build_data(character), f)
 
-    def build_data(self, character):
-        data = {"rings": {}, "skills": {}, "advantages": [], "disadvantages": []}
+    def build_data(self, character: Any) -> dict[str, Any]:
+        data: dict[str, Any] = {"rings": {}, "skills": {}, "advantages": [], "disadvantages": []}
         data["name"] = character.name()
         for ring, rank in character.rings().items():
             data["rings"][ring] = rank
@@ -191,7 +193,7 @@ class GenericCharacterWriter(CharacterWriter):
         data["xp"] = xp_cost
         return data
 
-    def calculate_ring_cost(self, character, ring, rank):
+    def calculate_ring_cost(self, character: Any, ring: str, rank: int) -> int:
         if rank == 2:
             return 0
         elif rank > 5:
@@ -199,19 +201,19 @@ class GenericCharacterWriter(CharacterWriter):
         else:
             return sum([(5 * i) for i in range(3, rank + 1)])
 
-    def calculate_skill_cost(self, character, skill, rank):
+    def calculate_skill_cost(self, character: Any, skill: str, rank: int) -> int:
         return Skill(skill).get().cost(rank)
 
-    def calculate_xp_cost(self, character):
+    def calculate_xp_cost(self, character: Any) -> int:
         xp_cost = 0
         for skill, rank in character.skills().items():
             xp_cost += self.calculate_skill_cost(character, skill, rank)
         for ring, rank in character.rings().items():
             xp_cost += self.calculate_ring_cost(character, ring, rank)
         for advantage in character.advantages():
-            xp_cost += Advantage(advantage).get().cost()
+            xp_cost += Advantage(advantage).cost()
         for disadvantage in character.disadvantages():
-            xp_cost += Disadvantage(disadvantage).get().cost()
+            xp_cost += Disadvantage(disadvantage).cost()
         return xp_cost
 
 
@@ -221,7 +223,7 @@ class ProfessionCharacterWriter(GenericCharacterWriter):
     # TODO: support profession abilities
     """
 
-    def build_data(self, character):
+    def build_data(self, character: Any) -> dict[str, Any]:
         data = super().build_data(character)
         data["profession"] = character.profession().name()
         return data
@@ -232,12 +234,12 @@ class SchoolCharacterWriter(GenericCharacterWriter):
     CharacterWriter for samurai characters.
     """
 
-    def build_data(self, character):
+    def build_data(self, character: Any) -> dict[str, Any]:
         data = super().build_data(character)
         data["school"] = character.school().name()
         return data
 
-    def calculate_skill_cost(self, character, skill, rank):
+    def calculate_skill_cost(self, character: Any, skill: str, rank: int) -> int:
         original_rank = 0
         if skill in ("attack", "parry"):
             original_rank = 1
@@ -245,7 +247,7 @@ class SchoolCharacterWriter(GenericCharacterWriter):
             original_rank = 1
         return Skill(skill).get().cost(rank, original_rank)
 
-    def calculate_ring_cost(self, character, ring, rank):
+    def calculate_ring_cost(self, character: Any, ring: str, rank: int) -> int:
         original_rank = 2
         discount = 0
         if ring == character.school().school_ring():
@@ -258,5 +260,6 @@ class SchoolCharacterWriter(GenericCharacterWriter):
             discount = 5
         return max(sum([(5 * i) - discount for i in range(original_rank + 1, rank + 1)]), 0)
 
-    def school_rank(self, character):
-        return min([character.skill(skill) for skill in character.school().school_knacks()])
+    def school_rank(self, character: Any) -> int:
+        result: int = min([character.skill(skill) for skill in character.school().school_knacks()])
+        return result

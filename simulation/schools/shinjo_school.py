@@ -17,6 +17,9 @@
 # 5th Dan: After successful parry, gain WoundCheckFloatingBonus(parry_roll - attack_roll)
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation import events
 from simulation.listeners import Listener
 from simulation.mechanics.floating_bonuses import WoundCheckFloatingBonus
@@ -24,38 +27,38 @@ from simulation.schools.base import BaseSchool
 
 
 class ShinjoBushiSchool(BaseSchool):
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return None
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         # Track action die hold bonus via SpendActionListener
         character.set_listener("spend_action", ShinjoSpendActionListener())
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         character.set_listener("parry_succeeded", ShinjoParryListener())
         character.set_listener("parry_failed", ShinjoParryListener())
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         character.set_listener("new_round", ShinjoNewRoundListener())
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         character.set_listener("parry_succeeded", ShinjoFifthDanParryListener())
         character.set_listener("parry_failed", ShinjoParryListener())
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["double attack", "initiative", "parry"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["parry"]
 
-    def name(self):
+    def name(self) -> str:
         return "Shinjo Bushi School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["double attack", "iaijutsu", "lunge"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "air"
 
 
@@ -66,7 +69,7 @@ class ShinjoSpendActionListener(Listener):
     Track original die phase and compute bonus when action is spent.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.SpendActionEvent):
             if event.subject == character:
                 # Calculate hold bonus: 2 * (current_phase - die_phase)
@@ -87,7 +90,7 @@ class ShinjoParryListener(Listener):
     After parry (success/fail), decrease all remaining action dice by attack_skill.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, (events.ParrySucceededEvent, events.ParryFailedEvent)):
             if event.action.subject() == character:
                 decrease = character.skill("attack")
@@ -104,7 +107,7 @@ class ShinjoNewRoundListener(Listener):
     After rolling initiative, set highest action die to 1.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.NewRoundEvent):
             character.roll_initiative()
             actions = character.actions()
@@ -123,7 +126,7 @@ class ShinjoFifthDanParryListener(Listener):
     Also includes 3rd Dan effect (decrease action dice).
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.ParrySucceededEvent):
             if event.action.subject() == character:
                 # 3rd Dan: decrease action dice

@@ -6,6 +6,8 @@
 # Classes to optimize resources spent on attack actions.
 #
 
+from typing import Any
+
 from simulation.mechanics.knowledge import TheoreticalCharacter
 
 
@@ -16,13 +18,13 @@ class ExpectedAttackRoll:
     context.
     """
 
-    def __init__(self, roll, vp, ap, p):
+    def __init__(self, roll: float, vp: int, ap: int, p: float) -> None:
         self.roll = roll
         self.ap = ap
         self.vp = vp
         self.p = p
 
-    def value(self, unoptimized_roll):
+    def value(self, unoptimized_roll: float) -> float:
         return self.roll - unoptimized_roll
 
 
@@ -39,7 +41,7 @@ class AttackOptimizer:
     benefit for exceeding the TN.
     """
 
-    def __init__(self, subject, target, skill, initiative_action, context, max_vp=None, max_ap=None):
+    def __init__(self, subject: Any, target: Any, skill: str, initiative_action: Any, context: Any, max_vp: int | None = None, max_ap: int | None = None) -> None:
         self.subject = subject
         self.target = target
         self.theoretical_target = TheoreticalCharacter(subject.knowledge(), target)
@@ -50,15 +52,15 @@ class AttackOptimizer:
         # set this information later
         self.original_max_ap = max_ap
         self.original_max_vp = max_vp
-        self.action = None
+        self.action: Any = None
         self.tn = 0
-        self.expected_rolls = []
+        self.expected_rolls: list[Any] = []
         self.initialize()
 
-    def get_action(self, vp):
+    def get_action(self, vp: int) -> Any:
         return self.subject.action_factory().get_attack_action(self.subject, self.target, self.skill, self.initiative_action, self.context, vp=vp)
 
-    def initialize(self):
+    def initialize(self) -> None:
         # determine possible expenditures of ap and vp
         self.max_ap = self.original_max_ap
         self.max_vp = self.original_max_vp
@@ -87,7 +89,7 @@ class AttackOptimizer:
         # sort expected rolls in ascending order
         self.expected_rolls.sort(key=lambda x: x.roll)
 
-    def optimize(self, threshold=0):
+    def optimize(self, threshold: float = 0) -> Any:
         """
         optimize(threshold=0) -> AttackAction or None
           threshold (float): threshold for probability of hitting desired
@@ -115,15 +117,16 @@ class DamageOptimizer(AttackOptimizer):
     a better damage roll.
     """
 
-    def initialize(self):
+    def initialize(self) -> None:
         super().initialize()
-        self.expected_kept_damage = {}
+        assert self.action is not None
+        self.expected_kept_damage: dict[Any, int] = {}
         for r in self.expected_rolls:
             extra_rolled = self.action.calculate_extra_damage_dice(r.roll, self.tn)
             (rolled, kept, bonus) = self.subject.get_damage_roll_params(self.target, self.skill, extra_rolled)
             self.expected_kept_damage[(r.vp, r.ap)] = kept
 
-    def optimize(self, threshold=0):
+    def optimize(self, threshold: float = 0) -> Any:
         """
         optimize(threshold=0) -> AttackAction or None
           threshold (float): threshold for probability of hitting desired
@@ -159,6 +162,7 @@ class DamageOptimizer(AttackOptimizer):
                 break
         # reject recommendation if probability of success is under threshold
         if recommendation is not None:
+            assert recommendation_expected_roll is not None
             p = recommendation_expected_roll.p
             if p < threshold:
                 recommendation = None

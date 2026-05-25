@@ -9,18 +9,18 @@
 
 
 class Weapon:
-    def __init__(self, name, rolled, kept):
+    def __init__(self, name: str, rolled: int, kept: int) -> None:
         self._name = name
         self._rolled = rolled
         self._kept = kept
 
-    def name(self):
+    def name(self) -> str:
         return self._name
 
-    def kept(self):
+    def kept(self) -> int:
         return self._kept
 
-    def rolled(self):
+    def rolled(self) -> int:
         return self._rolled
 
 

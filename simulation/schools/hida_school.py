@@ -13,6 +13,9 @@
 # on their attack roll (+5).
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation.events import TakeCounterattackActionEvent
 from simulation.schools.base import BaseSchool
 from simulation.strategies.base import CounterattackInterruptStrategy
@@ -20,40 +23,40 @@ from simulation.strategies.take_action_event_factory import DefaultTakeActionEve
 
 
 class HidaBushiSchool(BaseSchool):
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return None
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         character.set_interrupt_cost("counterattack", 1)
         character.set_take_action_event_factory(HIDA_TAKE_ACTION_EVENT_FACTORY)
         character.set_strategy("interrupt", CounterattackInterruptStrategy())
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         # TODO: Reroll 2X dice on counterattack or X dice on other attacks
         pass
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         # TODO: Instead of wound check, spend 2 SW to reset LW to 0
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         # TODO: After successful counterattack, add excess roll to wound check;
         # may counterattack after seeing opponent's damage roll
         pass
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["attack", "counterattack", "wound check"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["counterattack"]
 
-    def name(self):
+    def name(self) -> str:
         return "Hida Bushi School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["counterattack", "iaijutsu", "lunge"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "water"
 
 
@@ -66,7 +69,7 @@ class HidaTakeCounterattackActionEvent(TakeCounterattackActionEvent):
     store the bonus as a pending attribute on the attack action.
     """
 
-    def play(self, context):
+    def play(self, context: Any) -> Iterator[Any]:
         if self.action.initiative_action().is_interrupt():
             original_attack = self.action.attack()
             bonus = getattr(original_attack, '_counterattack_roll_bonus', 0)
@@ -77,7 +80,7 @@ class HidaTakeCounterattackActionEvent(TakeCounterattackActionEvent):
 class HidaTakeActionEventFactory(DefaultTakeActionEventFactory):
     """Custom TakeActionEventFactory that returns Hida-specific counterattack events."""
 
-    def get_take_counterattack_action_event(self, action):
+    def get_take_counterattack_action_event(self, action: Any) -> Any:
         return HidaTakeCounterattackActionEvent(action)
 
 

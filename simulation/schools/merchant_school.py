@@ -17,6 +17,8 @@
 #
 
 import math
+from collections.abc import Iterator
+from typing import Any
 
 from simulation import events
 from simulation.log import logger
@@ -45,7 +47,7 @@ class MerchantAttackOptimizerFactory(AttackOptimizerFactory):
     after seeing the roll result, so the optimizer always passes max_vp=0.
     """
 
-    def get_optimizer(self, character, target, skill, initiative_action, context):
+    def get_optimizer(self, character: Any, target: Any, skill: str, initiative_action: Any, context: Any) -> Any:
         if skill == "feint":
             return AttackOptimizer(
                 character, target, skill, initiative_action, context,
@@ -72,7 +74,7 @@ class MerchantAttackRolledStrategy(AttackRolledStrategy):
     value of keeping one additional die).
     """
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         # Let the base strategy handle AP, floating bonuses, conviction first
         result_events = list(super().recommend(character, event, context))
         # Find the (possibly updated) AttackRolledEvent from the results
@@ -123,7 +125,7 @@ class MerchantWoundCheckRolledStrategy(WoundCheckRolledStrategy):
     is still bad and VP is available, spend VP post-roll adding +5 per VP.
     """
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         # Let the base strategy handle floating bonuses, AP, conviction first
         result_events = list(super().recommend(character, event, context))
         # Find the (possibly updated) WoundCheckRolledEvent
@@ -178,7 +180,7 @@ class MerchantWoundCheckRolledStrategy(WoundCheckRolledStrategy):
 # 5th Dan: Reroll dice
 # ---------------------------------------------------------------
 
-def _find_dice_to_reroll(dice, kept):
+def _find_dice_to_reroll(dice: list[int], kept: int) -> list[int]:
     """Find optimal dice indices to reroll.
 
     Args:
@@ -204,8 +206,8 @@ def _find_dice_to_reroll(dice, kept):
     if not low_indices:
         return []
 
-    best_indices = []
-    best_expected_gain = 0
+    best_indices: list[int] = []
+    best_expected_gain: float = 0
 
     for x in range(1, len(low_indices) + 1):
         # Take the x lowest-value dice from the candidates
@@ -239,68 +241,70 @@ class MerchantRollProvider(RollProvider):
     and replaces them with new rolls.
     """
 
-    def __init__(self, inner, reroll_die_provider=None):
+    def __init__(self, inner: Any, reroll_die_provider: Any = None) -> None:
         self._inner = inner
         if reroll_die_provider is not None:
             self._reroll_die_provider = reroll_die_provider
         else:
             self._reroll_die_provider = DEFAULT_DIE_PROVIDER
 
-    def die_provider(self):
-        return self._inner.die_provider()
+    def die_provider(self) -> Any:
+        result: Any = self._inner.die_provider()
+        return result
 
-    def get_damage_reduction_roll(self, rolled, kept, reduction):
+    def get_damage_reduction_roll(self, rolled: int, kept: int, reduction: int) -> int:
         result = self._inner.get_damage_reduction_roll(rolled, kept, reduction)
         info = self._inner.last_damage_info()
         return self._maybe_reroll(result, info, rolled, kept, "damage")
 
-    def get_damage_roll(self, rolled, kept):
+    def get_damage_roll(self, rolled: int, kept: int) -> int:
         result = self._inner.get_damage_roll(rolled, kept)
         info = self._inner.last_damage_info()
         return self._maybe_reroll(result, info, rolled, kept, "damage")
 
-    def get_initiative_roll(self, rolled, kept):
+    def get_initiative_roll(self, rolled: int, kept: int) -> list[int]:
         # No reroll on initiative
-        return self._inner.get_initiative_roll(rolled, kept)
+        result: list[int] = self._inner.get_initiative_roll(rolled, kept)
+        return result
 
-    def get_skill_roll(self, skill, rolled, kept, explode=True):
+    def get_skill_roll(self, skill: str, rolled: int, kept: int, explode: bool = True) -> int:
         result = self._inner.get_skill_roll(skill, rolled, kept, explode=explode)
         info = self._inner.last_skill_info()
         return self._maybe_reroll(result, info, rolled, kept, "skill")
 
-    def get_wound_check_roll(self, rolled, kept, explode=True):
+    def get_wound_check_roll(self, rolled: int, kept: int, explode: bool = True) -> int:
         result = self._inner.get_wound_check_roll(rolled, kept, explode=explode)
         info = self._inner.last_wound_check_info()
         return self._maybe_reroll(result, info, rolled, kept, "wound_check")
 
-    def last_damage_info(self):
+    def last_damage_info(self) -> Any:
         return self._inner.last_damage_info()
 
-    def last_damage_roll(self):
+    def last_damage_roll(self) -> Any:
         return self._inner.last_damage_roll()
 
-    def last_initiative_info(self):
+    def last_initiative_info(self) -> Any:
         return self._inner.last_initiative_info()
 
-    def last_initiative_roll(self):
+    def last_initiative_roll(self) -> Any:
         return self._inner.last_initiative_roll()
 
-    def last_skill_info(self):
+    def last_skill_info(self) -> Any:
         return self._inner.last_skill_info()
 
-    def last_skill_roll(self):
+    def last_skill_roll(self) -> Any:
         return self._inner.last_skill_roll()
 
-    def last_wound_check_info(self):
+    def last_wound_check_info(self) -> Any:
         return self._inner.last_wound_check_info()
 
-    def last_wound_check_roll(self):
+    def last_wound_check_roll(self) -> Any:
         return self._inner.last_wound_check_roll()
 
-    def set_die_provider(self, die_provider):
+    def set_die_provider(self, die_provider: Any) -> None:
         self._inner.set_die_provider(die_provider)
 
-    def _maybe_reroll(self, original_total, info, rolled, kept, roll_type):
+    def _maybe_reroll(self, original_total: int, info: Any, rolled: int, kept: int, roll_type: str) -> int:
         """Apply the Merchant 5th Dan reroll if beneficial.
 
         Returns the new total after potential rerolls.
@@ -337,18 +341,18 @@ class MerchantRollProvider(RollProvider):
         original_kept_sum = sum(original_dice[:kept])
         bonus = original_total - original_kept_sum
 
-        new_total = sum(dice[:kept]) + bonus
+        new_total: int = sum(dice[:kept]) + bonus
         return new_total
 
 
 class MerchantSchool(BaseSchool):
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return "sincerity"
 
-    def ap_skills(self):
+    def ap_skills(self) -> list[str]:
         return ["commerce", "heraldry", "interrogation", "sincerity", "attack", "wound check"]
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         # VP after initial roll: install custom optimizer and strategies
         # that never pre-allocate VP, but can spend VP post-roll.
         character.set_attack_optimizer_factory(MerchantAttackOptimizerFactory())
@@ -356,30 +360,30 @@ class MerchantSchool(BaseSchool):
         character.set_strategy("wound_check", MerchantWoundCheckStrategy())
         character.set_strategy("wound_check_rolled", MerchantWoundCheckRolledStrategy())
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         self.apply_ap(character)
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         # Rank 5.0 higher for stipend — no-op in combat
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         # After non-initiative roll, reroll dice summing to >= 5*(X-1).
         # Wrap current roll provider with MerchantRollProvider.
         inner = character.roll_provider()
         character.set_roll_provider(MerchantRollProvider(inner))
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["interrogation", "sincerity", "wound check"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["interrogation"]
 
-    def name(self):
+    def name(self) -> str:
         return "Merchant School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["discern honor", "oppose knowledge", "worldliness"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "water"

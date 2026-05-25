@@ -16,6 +16,9 @@
 # 5th Dan: Reduce Air, Fire, Water of chosen characters by 1.
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation import events
 from simulation.listeners import Listener
 from simulation.log import logger
@@ -25,23 +28,23 @@ from simulation.schools.base import BaseSchool
 
 
 class KitsukiMagistrateSchool(BaseSchool):
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return "investigation"
 
-    def ap_skills(self):
+    def ap_skills(self) -> list[str]:
         return ["attack", "wound check"]
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         character.set_roll_parameter_provider(KitsukiRollParameterProvider())
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         self.apply_ap(character)
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         # TODO: automatically know Void, parry, and phase of each character's next action
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         # Reduce Air, Fire, Water of all opponents by 1 on the first round.
         existing_listener = character._listeners.get("new_round")
         character.set_listener(
@@ -49,26 +52,26 @@ class KitsukiMagistrateSchool(BaseSchool):
             KitsukiFifthDanNewRoundListener(existing_listener),
         )
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["interrogation", "investigation", "wound check"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["interrogation"]
 
-    def name(self):
+    def name(self) -> str:
         return "Kitsuki Magistrate School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["discern honor", "iaijutsu", "presence"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "water"
 
 
 class KitsukiRollParameterProvider(DefaultRollParameterProvider):
     """Add 2*Water to all attack roll modifiers."""
 
-    def get_skill_roll_params(self, character, target, skill, contested_skill=None, ring=None, vp=0):
+    def get_skill_roll_params(self, character: Any, target: Any, skill: str, contested_skill: str | None = None, ring: str | None = None, vp: int = 0) -> tuple[int, int, int]:
         rolled, kept, modifier = super().get_skill_roll_params(character, target, skill, contested_skill, ring, vp)
         if skill in ATTACK_SKILLS:
             modifier += 2 * character.ring("water")
@@ -82,11 +85,11 @@ class KitsukiFifthDanNewRoundListener(Listener):
     Wraps an existing new_round listener so initiative is still rolled.
     """
 
-    def __init__(self, wrapped_listener):
+    def __init__(self, wrapped_listener: Any) -> None:
         self._wrapped = wrapped_listener
         self._applied = False
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         # Delegate to the wrapped listener first (rolls initiative)
         if self._wrapped is not None:
             yield from self._wrapped.handle(character, event, context)

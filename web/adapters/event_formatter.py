@@ -1,7 +1,9 @@
+from typing import Any
+
 from simulation import events
 
 
-def format_event(event) -> str | None:
+def format_event(event: Any) -> str | None:
     """Convert a single engine event to a human-readable string, or None if irrelevant."""
     if isinstance(event, events.NewRoundEvent):
         return f"--- Round {event.round} ---"
@@ -47,9 +49,9 @@ def format_event(event) -> str | None:
     return None
 
 
-def format_history(history: list) -> list[str]:
+def format_history(history: list[Any]) -> list[str]:
     """Convert a full event history into a list of human-readable lines, filtering out irrelevant events."""
-    lines = []
+    lines: list[str] = []
     for event in history:
         line = format_event(event)
         if line is not None:

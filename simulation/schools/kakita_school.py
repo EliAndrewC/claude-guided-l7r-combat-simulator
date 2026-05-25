@@ -7,10 +7,12 @@
 #
 
 import random
+from collections.abc import Iterator
+from typing import Any
 
 from simulation import events
 from simulation.actions import AttackAction, DoubleAttackAction, LungeAction
-from simulation.events import ContestedActionEvent, Event, LightWoundsDamageEvent
+from simulation.events import ContestedActionEvent, Event, LightWoundsDamageEvent, SpendVoidPointsEvent
 from simulation.listeners import Listener
 from simulation.mechanics.contested_actions import ContestedAction
 from simulation.mechanics.initiative_actions import InitiativeAction
@@ -25,38 +27,38 @@ from simulation.strategies.base import BaseParryStrategy, UniversalAttackStrateg
 
 
 class KakitaBushiSchool(BaseSchool):
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return None
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         character.set_listener("new_phase", KakitaNewPhaseListener())
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         character.set_roll_parameter_provider(KAKITA_ROLL_PARAMETER_PROVIDER)
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         character.set_action_factory(KAKITA_ACTION_FACTORY)
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         character.set_roll_provider(KAKITA_ROLL_PROVIDER)
         character.set_attack_strategy(KAKITA_ATTACK_STRATEGY)
         character.set_parry_strategy(KAKITA_PARRY_STRATEGY)
         character.add_interrupt_skill("iaijutsu")
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["double attack", "iaijutsu", "initiative"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["iaijutsu"]
 
-    def name(self):
+    def name(self) -> str:
         return "Kakita Bushi School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["double attack", "iaijutsu", "lunge"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "fire"
 
 
@@ -133,34 +135,38 @@ class ContestedIaijutsuAttackAction(ContestedAction):
     exceeded yours."
     """
 
-    def calculate_extra_damage_dice(self, opponent_skill_roll=None, skill_roll=None):
+    def calculate_extra_damage_dice(self, opponent_skill_roll: int | None = None, skill_roll: int | None = None) -> int:
         if skill_roll is None:
             skill_roll = self.skill_roll()
         if opponent_skill_roll is None:
             opponent_skill_roll = self.opponent_skill_roll()
+        assert skill_roll is not None
+        assert opponent_skill_roll is not None
         return (skill_roll - opponent_skill_roll) // 5
 
-    def damage_roll(self):
+    def damage_roll(self) -> int | None:
         return self._damage_roll
 
-    def is_hit(self):
+    def is_hit(self) -> bool:
         extra_rolled = self.calculate_extra_damage_dice()
         (rolled, kept, bonus) = self.challenger().get_damage_roll_params(self.defender(), self.challenger_skill(), extra_rolled)
-        return kept > 0
+        result: bool = kept > 0
+        return result
 
-    def roll_damage(self):
+    def roll_damage(self) -> int:
         extra_rolled = self.calculate_extra_damage_dice()
         damage_roll = self.challenger().roll_damage(self.defender(), self.skill(), extra_rolled, vp=self.vp())
         damage_roll = max(0, damage_roll)
         self.set_damage_roll(damage_roll)
-        return damage_roll
+        result: int = damage_roll
+        return result
 
-    def set_damage_roll(self, damage):
+    def set_damage_roll(self, damage: int) -> None:
         if not isinstance(damage, int):
             raise ValueError("set_damage_roll requires int")
         self._damage_roll = damage
 
-    def skill_roll_params(self):
+    def skill_roll_params(self) -> tuple[int, int, int]:
         (rolled, kept, modifier) = super().skill_roll_params()
         if self.skill() == "attack":
             # TODO: consider rewriting this as an expiring Modifier instead
@@ -173,51 +179,49 @@ class TakeContestedIaijutsuAttackAction(Event):
     Playable event to run the contested attack action from the Kakita 5th Dan ability.
     """
 
-    def __init__(self, challenger, defender, challenger_action, defender_action):
+    def __init__(self, challenger: Any, defender: Any, challenger_action: Any, defender_action: Any) -> None:
         super().__init__("take_contested_iaijutsu_attack_action")
         self._challenger = challenger
         self._defender = defender
         self._challenger_action = challenger_action
         self._defender_action = defender_action
 
-    def play(self, context):
+    def play(self, context: Any) -> Iterator[Any]:
         yield from self.declare(context)
         yield from self.roll_skill(context)
         if self.challenger_action().is_hit():
             yield from self.roll_damage()
 
-    def challenger(self):
+    def challenger(self) -> Any:
         return self._challenger
 
-    def challenger_action(self):
+    def challenger_action(self) -> Any:
         return self._challenger_action
 
-    def declare(self, context):
+    def declare(self, context: Any) -> Iterator[Any]:
         yield ContestedIaijutsuAttackDeclaredEvent(self.challenger_action())
         yield ContestedIaijutsuAttackDeclaredEvent(self.defender_action())
 
-    def defender(self):
+    def defender(self) -> Any:
         return self._defender
 
-    def defender_action(self):
+    def defender_action(self) -> Any:
         return self._defender_action
 
-    def roll_damage(self):
+    def roll_damage(self) -> Iterator[Any]:
         damage_roll = self.challenger_action().roll_damage()
         yield LightWoundsDamageEvent(self.challenger(), self.defender(), damage_roll)
 
-    def roll_skill(self, context):
+    def roll_skill(self, context: Any) -> Iterator[Any]:
         # challenger rolls
         challenger_roll = self.challenger_action().roll_skill()
         # spend challenger VP
         if self.challenger_action().vp() > 0:
-            yield SpendVoidPointsEvent(self.challenger(), self.challenger_action().skill(), self.challenger_action().vp())  # noqa: F821 - TODO: incomplete
-        # defender rolls
+            yield SpendVoidPointsEvent(self.challenger(), self.challenger_action().skill(), self.challenger_action().vp())        # defender rolls
         defender_roll = self.defender_action().roll_skill()
         # spend defender VP
         if self.defender_action().vp() > 0:
-            yield SpendVoidPointsEvent(self.defender(), self.defender_action().skill(), self.defender_action().vp())  # noqa: F821 - TODO: incomplete
-        # set opposing character's roll on each side's action
+            yield SpendVoidPointsEvent(self.defender(), self.defender_action().skill(), self.defender_action().vp())        # set opposing character's roll on each side's action
         self.challenger_action().set_opponent_skill_roll(defender_roll)
         self.defender_action().set_opponent_skill_roll(challenger_roll)
         # yield rolled events
@@ -226,12 +230,12 @@ class TakeContestedIaijutsuAttackAction(Event):
 
 
 class ContestedIaijutsuAttackDeclaredEvent(ContestedActionEvent):
-    def __init__(self, action):
+    def __init__(self, action: Any) -> None:
         super().__init__("contested_iaijutsu_attack_declared", action)
 
 
 class ContestedIaijutsuAttackRolledEvent(ContestedActionEvent):
-    def __init__(self, action):
+    def __init__(self, action: Any) -> None:
         super().__init__("contested_iaijutsu_attack_rolled", action)
 
 
@@ -241,7 +245,7 @@ class ContestedIaijutsuAttackDeclaredListener(Listener):
     Character needs to decide how many VP to spend.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, ContestedIaijutsuAttackDeclaredEvent):
             if event.action.subject() == character:
                 character.contested_iaijutsu_attack_declared_strategy().handle(character, event, context)
@@ -258,7 +262,7 @@ class ContestedIaijutsuAttackDeclaredStrategy(Listener):
     need to spend VP to reduce damage.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, ContestedIaijutsuAttackDeclaredEvent):
             challenger = event.action.challenger()
             if challenger != character:
@@ -268,7 +272,7 @@ class ContestedIaijutsuAttackDeclaredStrategy(Listener):
                 character.knowledge().observe_skill(challenger, "iaijutsu", 5)
                 character.knowledge().observe_skill(challenger, "lunge", 5)
                 character.knowledge().observe_ring(challenger, "fire", 5)
-            if event.subject == character and challenger != character and character.void_point_manager().vp("attack") > 0:
+            if event.action.defender() == character and challenger != character and character.void_point_manager().vp("attack") > 0:
                 # estimate challenger's roll
                 challenger_roll = context.mean_roll(10, 6, 5)
                 # estimate my roll
@@ -296,7 +300,7 @@ class KakitaAttackAction(AttackAction):
     within striking range."
     """
 
-    def skill_roll_params(self):
+    def skill_roll_params(self) -> tuple[int, int, int]:
         (rolled, kept, modifier) = self.subject().get_skill_roll_params(self.target(), self.skill(), vp=self.vp())
         # calculate tempo bonus
         subject_tempo = self.context().phase()
@@ -314,7 +318,7 @@ class KakitaDoubleAttackAction(DoubleAttackAction):
     ability.
     """
 
-    def skill_roll_params(self):
+    def skill_roll_params(self) -> tuple[int, int, int]:
         (rolled, kept, modifier) = self.subject().get_skill_roll_params(self.target(), self.skill(), vp=self.vp())
         # calculate tempo bonus
         subject_tempo = self.context().phase()
@@ -332,7 +336,7 @@ class KakitaLungeAction(LungeAction):
     ability.
     """
 
-    def skill_roll_params(self):
+    def skill_roll_params(self) -> tuple[int, int, int]:
         (rolled, kept, modifier) = self.subject().get_skill_roll_params(self.target(), self.skill(), vp=self.vp())
         # calculate tempo bonus
         subject_tempo = self.context().phase()
@@ -353,7 +357,7 @@ class KakitaAttackStrategy(UniversalAttackStrategy):
     normal UniversalAttackStrategy behavior is used.
     """
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.YourMoveEvent) and character.has_action(context) and context.phase() == 0:
             # Phase 0 attacks must use iaijutsu
             initiative_action = self.choose_action(character, "iaijutsu", context)
@@ -376,7 +380,7 @@ class KakitaInterruptAttackStrategy(KakitaAttackStrategy):
     dice to make an iaijutsu attack out of turn.
     """
 
-    def recommend(self, character, event, context):
+    def recommend(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.YourMoveEvent):
             if character.has_action(context):
                 # Normal behavior: Phase 0 iaijutsu or universal attacks
@@ -396,7 +400,7 @@ class KakitaInterruptAttackStrategy(KakitaAttackStrategy):
                 yield events.NoActionEvent(character)
 
 
-def _no_vp_optimizer(character, target, skill, initiative_action, context):
+def _no_vp_optimizer(character: Any, target: Any, skill: str, initiative_action: Any, context: Any) -> Any:
     """Create an optimizer that never spends VP."""
     if skill == "feint":
         return AttackOptimizer(
@@ -424,14 +428,14 @@ class KakitaInterruptAttackStrategy05(KakitaInterruptAttackStrategy):
 class KakitaNoVPAttackStrategy(KakitaAttackStrategy):
     """Kakita attack strategy that never spends VP on attacks."""
 
-    def _get_optimizer(self, character, target, skill, initiative_action, context):
+    def _get_optimizer(self, character: Any, target: Any, skill: str, initiative_action: Any, context: Any) -> Any:
         return _no_vp_optimizer(character, target, skill, initiative_action, context)
 
 
 class KakitaNoVPInterruptAttackStrategy(KakitaInterruptAttackStrategy):
     """Kakita interrupt attack strategy that never spends VP on attacks."""
 
-    def _get_optimizer(self, character, target, skill, initiative_action, context):
+    def _get_optimizer(self, character: Any, target: Any, skill: str, initiative_action: Any, context: Any) -> Any:
         return _no_vp_optimizer(character, target, skill, initiative_action, context)
 
 
@@ -447,7 +451,7 @@ class KakitaParryStrategy(BaseParryStrategy):
       (expected damage >= remaining serious wounds).
     """
 
-    def _recommend(self, character, event, context):
+    def _recommend(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         # Never interrupt parry — future actions are too valuable
         if not character.has_action(context):
             return
@@ -486,7 +490,7 @@ class KakitaActionFactory(DefaultActionFactory):
     ActionFactory to return Kakita specific attack action implementations.
     """
 
-    def get_attack_action(self, subject, target, skill, initiative_action, context, vp=0):
+    def get_attack_action(self, subject: Any, target: Any, skill: str, initiative_action: Any, context: Any, vp: int = 0) -> Any:
         if skill in ("attack", "iaijutsu"):
             return KakitaAttackAction(subject, target, skill, initiative_action, context, vp=vp)
         elif skill == "double attack":
@@ -507,7 +511,7 @@ class KakitaInitiativeDieProvider(DieProvider):
     used for Kakita initiative rolls.
     """
 
-    def roll_die(self, faces=10, explode=True):
+    def roll_die(self, faces: int = 10, explode: bool = True) -> int:
         """
         roll_die(faces=10, explode=True) -> int
           faces (int): ignored
@@ -540,10 +544,10 @@ class KakitaNewPhaseListener(Listener):
     exceeded yours."
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._target_finder = target_finders.FinishHimTargetFinder()
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.NewPhaseEvent) and event.phase == 0:
             initiative_action = InitiativeAction([], 0)
             target = self._target_finder.find_target(character, "iaijutsu", initiative_action, context)
@@ -569,7 +573,7 @@ class KakitaRollParameterProvider(DefaultRollParameterProvider):
     iaijutsu."
     """
 
-    def get_damage_roll_params(self, character, target, skill, attack_extra_rolled, vp=0):
+    def get_damage_roll_params(self, character: Any, target: Any, skill: str, attack_extra_rolled: int, vp: int = 0) -> tuple[int, int, int]:
         # calculate extra rolled dice
         ring = character.ring(character.get_skill_ring("damage"))
         my_extra_rolled = character.extra_rolled("damage")
@@ -594,7 +598,7 @@ class KakitaRollProvider(DefaultRollProvider):
     Phase 0."
     """
 
-    def get_initiative_roll(self, rolled, kept):
+    def get_initiative_roll(self, rolled: int, kept: int) -> list[int]:
         roll = InitiativeRoll(rolled, kept, die_provider=KAKITA_INITIATIVE_DIE_PROVIDER)
         result = roll.roll()
         self._last_initiative_roll = roll

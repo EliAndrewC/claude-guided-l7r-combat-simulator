@@ -11,6 +11,7 @@
 #
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from simulation.actions import AttackAction, CounterattackAction, ParryAction
 from simulation.events import TakeAttackActionEvent, TakeCounterattackActionEvent, TakeParryActionEvent
@@ -27,15 +28,15 @@ class TakeActionEventFactory(ABC):
     """
 
     @abstractmethod
-    def get_take_attack_action_event(self, action):
+    def get_take_attack_action_event(self, action: Any) -> TakeAttackActionEvent:
         pass
 
     @abstractmethod
-    def get_take_counterattack_action_event(self, action):
+    def get_take_counterattack_action_event(self, action: Any) -> TakeCounterattackActionEvent:
         pass
 
     @abstractmethod
-    def get_take_parry_action_event(self, action):
+    def get_take_parry_action_event(self, action: Any) -> TakeParryActionEvent:
         pass
 
 
@@ -45,7 +46,7 @@ class DefaultTakeActionEventFactory(TakeActionEventFactory):
     and TakeParryActionEvent.
     """
 
-    def get_take_attack_action_event(self, action):
+    def get_take_attack_action_event(self, action: Any) -> TakeAttackActionEvent:
         """
         get_take_attack_action_event(action) -> TakeAttackActionEvent
           action (Action): an AttackAction
@@ -57,7 +58,7 @@ class DefaultTakeActionEventFactory(TakeActionEventFactory):
         else:
             raise ValueError("get_take_attack_action_event only supports TakeAttackAction")
 
-    def get_take_counterattack_action_event(self, action):
+    def get_take_counterattack_action_event(self, action: Any) -> TakeCounterattackActionEvent:
         """
         get_take_counterattack_action_event(action) -> TakeCounterattackActionEvent
           action (CounterattackAction): a CounterattackAction
@@ -69,7 +70,7 @@ class DefaultTakeActionEventFactory(TakeActionEventFactory):
         else:
             raise ValueError("get_take_counterattack_action_event requires CounterattackAction")
 
-    def get_take_parry_action_event(self, action):
+    def get_take_parry_action_event(self, action: Any) -> TakeParryActionEvent:
         """
         get_take_parry_action_event(action) -> TakeParryActionEvent
           action (Action): a ParryAction

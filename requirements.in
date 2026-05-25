@@ -4,6 +4,7 @@ streamlit
 
 # Linting
 ruff
+mypy
 
 # Testing
 pytest

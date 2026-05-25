@@ -8,6 +8,7 @@ to produce XP breakdown comments in the output YAML.
 """
 
 import os
+from typing import Any
 
 import yaml
 
@@ -98,7 +99,7 @@ def _consolidate_details(
             ((n, by_name[n]) for n in order)]
 
 
-def _format_breakdown_comments(breakdown: dict) -> str:
+def _format_breakdown_comments(breakdown: dict[str, Any]) -> str:
     """Format XP breakdown as YAML comment lines."""
     lines = []
     total = breakdown["total_xp"]
@@ -148,7 +149,7 @@ def generate_template(
     school_key: str,
     total_xp: int,
     priorities: list[tuple[str, str, int]] | None = None,
-) -> tuple[CharacterConfig, dict]:
+) -> tuple[CharacterConfig, dict[str, Any]]:
     """Generate a CharacterConfig for a school/profession at the given XP tier.
 
     Reserves 20% of XP for non-combat skills. School characters get attack
@@ -172,7 +173,7 @@ def generate_template(
     non_combat_xp = total_xp - combat_budget
 
     name = school_key.replace("_", " ").title()
-    builder = CharacterBuilder().with_xp(total_xp).with_name(name)
+    builder: Any = CharacterBuilder().with_xp(total_xp).with_name(name)
 
     if is_profession:
         builder = builder.with_profession()
@@ -339,10 +340,10 @@ def generate_template(
 def write_template_yaml(
     config: CharacterConfig,
     output_path: str,
-    breakdown: dict | None = None,
+    breakdown: dict[str, Any] | None = None,
 ) -> None:
     """Write a CharacterConfig to a YAML template file with XP breakdown."""
-    data: dict = {"name": config.name, "xp": config.xp}
+    data: dict[str, Any] = {"name": config.name, "xp": config.xp}
 
     if config.char_type == "profession":
         data["profession"] = config.template_school if config.template_school else "Wave Man"

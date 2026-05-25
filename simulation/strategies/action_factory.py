@@ -8,12 +8,13 @@
 #
 
 from abc import ABC
+from typing import Any
 
 from simulation import actions
 
 
 class ActionFactory(ABC):
-    def get_attack_action(self, subject, target, skill, initiative_action, context, vp=0):
+    def get_attack_action(self, subject: Any, target: Any, skill: str, initiative_action: Any, context: Any, vp: int = 0) -> Any:
         """
         get_attack_action(subject, target, skill, vp=0) -> AttackAction
           subject (Character): attacker
@@ -27,7 +28,7 @@ class ActionFactory(ABC):
         """
         pass
 
-    def get_counterattack_action(self, subject, target, attack, skill, initiative_action, context, vp=0):
+    def get_counterattack_action(self, subject: Any, target: Any, attack: Any, skill: str, initiative_action: Any, context: Any, vp: int = 0) -> Any:
         """
         get_counterattack_action(subject, target, attack, skill, vp=0) -> CounterattackAction
           subject (Character): attacker
@@ -42,7 +43,7 @@ class ActionFactory(ABC):
         """
         pass
 
-    def get_parry_action(self, subject, target, attack, skill, initiative_action, context, vp=0):
+    def get_parry_action(self, subject: Any, target: Any, attack: Any, skill: str, initiative_action: Any, context: Any, vp: int = 0) -> Any:
         """
         get_parry_action(subject, target, attack, skill, initiative_action, context, vp=0) -> ParryAction
           subject (Character): attacker
@@ -63,7 +64,7 @@ class DefaultActionFactory(ActionFactory):
     ActionFactory used by characters who do not have special abilities that modify these skills.
     """
 
-    def get_attack_action(self, subject, target, skill, initiative_action, context, vp=0):
+    def get_attack_action(self, subject: Any, target: Any, skill: str, initiative_action: Any, context: Any, vp: int = 0) -> Any:
         if skill in ("attack", "iaijutsu"):
             return actions.AttackAction(subject, target, skill, initiative_action, context, vp=vp)
         elif skill == "double attack":
@@ -75,10 +76,10 @@ class DefaultActionFactory(ActionFactory):
         else:
             raise ValueError(f"Invalid attack skill: {skill}")
 
-    def get_counterattack_action(self, subject, target, attack, skill, initiative_action, context, vp=0):
+    def get_counterattack_action(self, subject: Any, target: Any, attack: Any, skill: str, initiative_action: Any, context: Any, vp: int = 0) -> Any:
         return actions.CounterattackAction(subject, target, skill, initiative_action, context, attack, vp=vp)
 
-    def get_parry_action(self, subject, target, attack, skill, initiative_action, context, vp=0):
+    def get_parry_action(self, subject: Any, target: Any, attack: Any, skill: str, initiative_action: Any, context: Any, vp: int = 0) -> Any:
         return actions.ParryAction(subject, target, skill, initiative_action, context, attack, vp=vp)
 
 

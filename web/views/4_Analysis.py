@@ -4,6 +4,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
+from typing import Any
+
 import streamlit as st
 
 from web.analysis.aggregator import StudySummary, compute_study_summary_with_tags
@@ -46,7 +48,7 @@ def _show_table_of_contents() -> None:
         st.divider()
 
 
-def _load_matchup_into_sim(matchup_id: str, matchup_configs: dict) -> None:
+def _load_matchup_into_sim(matchup_id: str, matchup_configs: dict[str, Any]) -> None:
     """Load a matchup into session state and switch to the simulation page."""
     matchup = matchup_configs.get(matchup_id)
     if matchup:
@@ -102,8 +104,8 @@ def _show_simple_comparison(aid: str, result: AnalysisResult) -> None:
 
     # Filters
     col_filter1, col_filter2 = st.columns(2)
-    all_tiers = sorted(set(p["kakita_xp"] for p in parsed))
-    all_opponents = sorted(set(p["opponent"] for p in parsed))
+    all_tiers = sorted({str(p["kakita_xp"]) for p in parsed})
+    all_opponents = sorted({str(p["opponent"]) for p in parsed})
 
     with col_filter1:
         selected_tiers = st.multiselect("XP Tier", all_tiers, default=all_tiers)
@@ -116,10 +118,10 @@ def _show_simple_comparison(aid: str, result: AnalysisResult) -> None:
     ]
 
     # Build comparison table: pair up no_interrupt vs interrupt results
-    groups = defaultdict(dict)
+    groups: defaultdict[tuple[Any, ...], dict[str, Any]] = defaultdict(dict)
     for p in filtered:
         key = (p["kakita_xp"], p["opponent"], p["opponent_xp"], p["xp_delta"])
-        groups[key][p["strategy"]] = p["result"]
+        groups[key][str(p["strategy"])] = p["result"]
 
     # Build matchup config lookup for Load buttons
     builder = get_builder(aid)
@@ -500,7 +502,7 @@ def _show_variable_detail(
     result: AnalysisResult,
     summary: StudySummary,
     definition: AnalysisDefinition,
-    matchup_configs: dict,
+    matchup_configs: dict[str, Any],
     tags_by_id: dict[str, dict[str, str]],
 ) -> None:
     """Tier 2: Detailed view for a single variable."""
@@ -594,19 +596,19 @@ def _show_variable_detail(
             st.markdown(f"**vs {opp_label}**")
 
             # Build a table: rows = XP tiers, columns = options + diff
-            rows = []
+            rows: list[dict[str, str | int]] = []
             for xp_tier in sorted(opp_data.keys(), key=int):
                 opt_rates = opp_data[xp_tier]
-                row: dict[str, str | int] = {"XP": int(xp_tier)}
+                tier_row: dict[str, str | int] = {"XP": int(xp_tier)}
                 rates_for_diff = []
                 for opt_name in option_names:
                     rate = opt_rates.get(opt_name, 0.0)
-                    row[option_labels.get(opt_name, opt_name)] = f"{rate:.1f}%"
+                    tier_row[option_labels.get(opt_name, opt_name)] = f"{rate:.1f}%"
                     rates_for_diff.append(rate)
                 if len(rates_for_diff) >= 2:
                     diff = max(rates_for_diff) - min(rates_for_diff)
-                    row["Spread"] = f"{diff:.1f}%"
-                rows.append(row)
+                    tier_row["Spread"] = f"{diff:.1f}%"
+                rows.append(tier_row)
 
             if rows:
                 st.table(rows)
@@ -638,7 +640,7 @@ def _show_full_results_table(
     aid: str,
     result: AnalysisResult,
     definition: AnalysisDefinition,
-    matchup_configs: dict,
+    matchup_configs: dict[str, Any],
     tags_by_id: dict[str, dict[str, str]],
 ) -> None:
     """Tier 3: Full results table with multi-dimensional filters."""

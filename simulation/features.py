@@ -9,6 +9,7 @@
 
 import csv
 import math
+from typing import IO, Any
 
 from simulation import events
 from simulation.mechanics.skills import ATTACK_SKILLS
@@ -114,46 +115,46 @@ class SummaryFeatures:
     * Average damage per attack
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._control_victories = 0
         self._test_victories = 0
         # summary statistics
-        self._summary = {}
+        self._summary: dict[str, Any] = {}
         # common results
-        self._data = {}
+        self._data: dict[str, Any] = {}
         # results given control group victory
-        self._control_data = {}
-        self._control_summary = {}
+        self._control_data: dict[str, Any] = {}
+        self._control_summary: dict[str, Any] = {}
         # results given test group victory
-        self._test_data = {}
-        self._test_summary = {}
+        self._test_data: dict[str, Any] = {}
+        self._test_summary: dict[str, Any] = {}
         self.initialize()
 
-    def initialize(self):
+    def initialize(self) -> None:
         for field in FIELDNAMES:
             self._data[field] = 0
             self._control_data[field] = 0
             self._test_data[field] = 0
 
-    def observe(self, trial_features):
+    def observe(self, trial_features: Any) -> None:
         if trial_features.get_winner() == -1:
             self._control_victories += 1
         else:
             self._test_victories += 1
 
-    def mean(self, total, n):
+    def mean(self, total: float, n: int) -> float:
         if n == 0:
             return 0
         else:
             return total / n
 
-    def stdev(self, sumsquares, n, mean):
+    def stdev(self, sumsquares: float, n: int, mean: float) -> float:
         if n == 0:
             return 0
         else:
             return math.sqrt((sumsquares / n) - (mean * mean))
 
-    def summarize(self, feature_fpath, ntrials):
+    def summarize(self, feature_fpath: str, ntrials: int) -> None:
         # load data
         with open(feature_fpath) as f:
             reader = csv.DictReader(f, fieldnames=FIELDNAMES)
@@ -201,7 +202,7 @@ class SummaryFeatures:
         self.summarize_wound_checks(self._control_data, self._control_summary, self._control_victories)
         self.summarize_wound_checks(self._test_data, self._test_summary, self._test_victories)
 
-    def summarize_actions(self, datad, summaryd, n):
+    def summarize_actions(self, datad: dict[str, Any], summaryd: dict[str, Any], n: int) -> None:
         #
         # summarize actions taken
         summaryd["control_actions_taken_mean"] = self.mean(datad["control_actions_taken"], n)
@@ -224,7 +225,7 @@ class SummaryFeatures:
         summaryd["test_parries_succeeded_mean"] = self.mean(datad["test_parries_succeeded"], n)
         return
 
-    def summarize_damage(self, datad, summaryd, n):
+    def summarize_damage(self, datad: dict[str, Any], summaryd: dict[str, Any], n: int) -> None:
         #
         # summarize control group damage rolls
         control_damage_mean = self.mean(datad["control_damage_rolls_sum"], datad["control_damage_rolls_count"])
@@ -242,7 +243,7 @@ class SummaryFeatures:
         #
         return
 
-    def summarize_duration(self, datad, summaryd, n):
+    def summarize_duration(self, datad: dict[str, Any], summaryd: dict[str, Any], n: int) -> None:
         #
         # summarize duration in rounds
         summaryd["duration_rounds_mean"] = self.mean(datad["duration_rounds"], n)
@@ -251,14 +252,14 @@ class SummaryFeatures:
         summaryd["duration_phases_mean"] = self.mean(datad["duration_phases"], n)
         return
 
-    def summarize_keep_lw(self, datad, summaryd, n):
+    def summarize_keep_lw(self, datad: dict[str, Any], summaryd: dict[str, Any], n: int) -> None:
         #
         # mean LW kept
         summaryd["control_keep_lw_total_mean"] = self.mean(datad["control_keep_lw_total_sum"], datad["control_keep_lw_total_count"])
         summaryd["test_keep_lw_total_mean"] = self.mean(datad["test_keep_lw_total_sum"], datad["test_keep_lw_total_count"])
         return
 
-    def summarize_sw_remaining(self, datad, summaryd, n):
+    def summarize_sw_remaining(self, datad: dict[str, Any], summaryd: dict[str, Any], n: int) -> None:
         #
         # summarize sw taken
         summaryd["control_sw_taken_mean"] = self.mean(datad["control_sw"], n)
@@ -269,14 +270,14 @@ class SummaryFeatures:
         summaryd["control_sw_remaining_mean"] = self.mean(datad["control_sw_remaining"], n)
         return
 
-    def summarize_take_sw(self, datad, summaryd, n):
+    def summarize_take_sw(self, datad: dict[str, Any], summaryd: dict[str, Any], n: int) -> None:
         #
         # mean LW total when taking a SW after successful Wound Check
         summaryd["control_lw_at_voluntary_sw_mean"] = self.mean(datad["control_lw_at_voluntary_sw_sum"], datad["control_lw_at_voluntary_sw_count"])
         summaryd["test_lw_at_voluntary_sw_mean"] = self.mean(datad["test_lw_at_voluntary_sw_sum"], datad["test_lw_at_voluntary_sw_count"])
         return
 
-    def summarize_vp(self, datad, summaryd, n):
+    def summarize_vp(self, datad: dict[str, Any], summaryd: dict[str, Any], n: int) -> None:
         #
         # vp remaining
         summaryd["control_vp_remaining_mean"] = self.mean(datad["control_vp_remaining"], n)
@@ -295,7 +296,7 @@ class SummaryFeatures:
         summaryd["test_vp_spent_wound_checks_mean"] = self.mean(datad["test_vp_spent_wound_checks"], n)
         return
 
-    def summarize_wound_checks(self, datad, summaryd, n):
+    def summarize_wound_checks(self, datad: dict[str, Any], summaryd: dict[str, Any], n: int) -> None:
         #
         # wound checks succeeded
         summaryd["control_wc_succeeded_mean"] = self.mean(datad["control_wc_succeeded"], n)
@@ -318,7 +319,7 @@ class SummaryFeatures:
         summaryd["test_wc_succeeded_margin_mean"] = self.mean(datad["test_wc_succeeded_margin_sum"], datad["test_wc_succeeded_margin_count"])
         return
 
-    def print_report(self):
+    def print_report(self) -> None:
         # duration summary
         print("Average combat duration in rounds: {:.2f}".format(self._summary["duration_rounds_mean"]))
         print("Average combat duration in phases: {:.2f}".format(self._summary["duration_phases_mean"]))
@@ -464,18 +465,18 @@ class TrialFeatures:
     Features of a single run.
     """
 
-    def __init__(self):
-        self._data = {}
+    def __init__(self) -> None:
+        self._data: dict[str, Any] = {}
         self._winner = 0
         self.initialize()
 
-    def clear(self):
+    def clear(self) -> None:
         self.initialize()
 
-    def data(self):
+    def data(self) -> dict[str, Any]:
         return self._data
 
-    def display_data(self):
+    def display_data(self) -> dict[str, Any]:
         """Return data with _sum/_sumsquares replaced by _avg/_stdev."""
         result = {}
         for k, v in self._data.items():
@@ -496,10 +497,10 @@ class TrialFeatures:
                 result[k] = v
         return result
 
-    def winner(self):
+    def winner(self) -> int:
         return self._winner
 
-    def initialize(self):
+    def initialize(self) -> None:
         """
         Questions we might ask after a simulation:
         * Winner's normal initiative actions per round compared to loser
@@ -570,7 +571,7 @@ class TrialFeatures:
         self._data["test_vp_spent_attacks"] = 0
         self._data["test_vp_spent_wound_checks"] = 0
 
-    def observe_event(self, event, context):
+    def observe_event(self, event: events.Event, context: Any) -> None:
         if isinstance(event, events.NewPhaseEvent):
             self.observe_phase()
         elif isinstance(event, events.NewRoundEvent):
@@ -605,68 +606,68 @@ class TrialFeatures:
         elif isinstance(event, events.TakeSeriousWoundEvent):
             self.observe_take_sw(event, context)
 
-    def observe_action(self, event, context):
+    def observe_action(self, event: Any, context: Any) -> None:
         if event.subject in context.test_group():
             self._data["test_actions_taken"] += 1
         else:
             self._data["control_actions_taken"] += 1
 
-    def observe_attack(self, event, context):
+    def observe_attack(self, event: Any, context: Any) -> None:
         if event.action.subject() in context.test_group():
             self._data["test_attacks_taken"] += 1
         else:
             self._data["control_attacks_taken"] += 1
 
-    def observe_attack_succeeded(self, event, context):
+    def observe_attack_succeeded(self, event: Any, context: Any) -> None:
         if event.action.subject() in context.test_group():
             self._data["test_attacks_succeeded"] += 1
         else:
             self._data["control_attacks_succeeded"] += 1
 
-    def observe_keep_lw(self, event, context):
+    def observe_keep_lw(self, event: Any, context: Any) -> None:
         if event.subject in context.test_group():
             self._data["test_keep_lw_total"].append(event.damage)
         else:
             self._data["control_keep_lw_total"].append(event.damage)
 
-    def observe_lw(self, event, context):
+    def observe_lw(self, event: Any, context: Any) -> None:
         if event.subject in context.test_group():
             self._data["test_damage_rolls"].append(event.damage)
         else:
             self._data["control_damage_rolls"].append(event.damage)
 
-    def observe_parry(self, event, context):
+    def observe_parry(self, event: Any, context: Any) -> None:
         if event.action.subject() in context.test_group():
             self._data["test_parries_taken"] += 1
         else:
             self._data["control_parries_taken"] += 1
 
-    def observe_parry_succeeded(self, event, context):
+    def observe_parry_succeeded(self, event: Any, context: Any) -> None:
         if event.action.subject() in context.test_group():
             self._data["test_parries_succeeded"] += 1
         else:
             self._data["control_parries_succeeded"] += 1
 
-    def observe_phase(self):
+    def observe_phase(self) -> None:
         self._data["duration_phases"] += 1
 
-    def observe_round(self):
+    def observe_round(self) -> None:
         self._data["duration_rounds"] += 1
 
-    def observe_sw(self, event, context):
+    def observe_sw(self, event: Any, context: Any) -> None:
         if event.subject in context.test_group():
             self._data["test_sw"] += event.damage
         else:
             self._data["control_sw"] += event.damage
 
-    def observe_take_sw(self, event, context):
+    def observe_take_sw(self, event: Any, context: Any) -> None:
         # observes LW total when character takes SW voluntarily
         if event.subject in context.test_group():
             self._data["test_lw_at_voluntary_sw"].append(event.damage)
         else:
             self._data["control_lw_at_voluntary_sw"].append(event.damage)
 
-    def observe_vp_spent(self, event, context):
+    def observe_vp_spent(self, event: Any, context: Any) -> None:
         if event.subject in context.test_group():
             self._data["test_vp_spent"] += 1
             if event.skill in ATTACK_SKILLS:
@@ -680,7 +681,7 @@ class TrialFeatures:
             elif event.skill == "wound check":
                 self._data["control_vp_spent_wound_checks"] += 1
 
-    def observe_winner(self, result):
+    def observe_winner(self, result: int) -> None:
         """
         observe_winner(result)
 
@@ -692,7 +693,7 @@ class TrialFeatures:
         self._winner = result
         self._data["winner"] = result
 
-    def observe_wound_check_failed(self, event, context):
+    def observe_wound_check_failed(self, event: Any, context: Any) -> None:
         if event.subject in context.test_group():
             self._data["test_wc_failed"] += 1
             self._data["test_wc_failed_margin"].append(event.tn - event.roll)
@@ -702,7 +703,7 @@ class TrialFeatures:
             self._data["control_wc_failed_margin"].append(event.tn - event.roll)
             self._data["control_wc_failed_lw_total"].append(event.damage)
 
-    def observe_wound_check_succeeded(self, event, context):
+    def observe_wound_check_succeeded(self, event: Any, context: Any) -> None:
         if event.subject in context.test_group():
             self._data["test_wc_succeeded"] += 1
             self._data["test_wc_succeeded_margin"].append(event.roll - event.tn)
@@ -710,7 +711,7 @@ class TrialFeatures:
             self._data["control_wc_succeeded"] += 1
             self._data["control_wc_succeeded_margin"].append(event.roll - event.tn)
 
-    def complete(self, context):
+    def complete(self, context: Any) -> None:
         self.complete_damage_rolls(context)
         self.complete_keep_lw(context)
         self.complete_sw_remaining(context)
@@ -718,7 +719,7 @@ class TrialFeatures:
         self.complete_vp_remaining(context)
         self.complete_wound_checks(context)
 
-    def complete_damage_rolls(self, context):
+    def complete_damage_rolls(self, context: Any) -> None:
         # get count, sum, and sum of squares for control damage rolls
         control_damage = self._data["control_damage_rolls"]
         self._data["control_damage_rolls_sum"] = sum(control_damage)
@@ -732,7 +733,7 @@ class TrialFeatures:
         self._data["test_damage_rolls_count"] = len(test_damage)
         self._data.pop("test_damage_rolls")
 
-    def complete_keep_lw(self, context):
+    def complete_keep_lw(self, context: Any) -> None:
         # get count, sum, and sum of squares for LW total when keeping LW
         control_keep_lw_total = self._data["control_keep_lw_total"]
         self._data["control_keep_lw_total_sum"] = sum(control_keep_lw_total)
@@ -746,13 +747,13 @@ class TrialFeatures:
         self._data["test_keep_lw_total_count"] = len(test_keep_lw_total)
         self._data.pop("test_keep_lw_total")
 
-    def complete_sw_remaining(self, context):
+    def complete_sw_remaining(self, context: Any) -> None:
         control_sw_remaining = sum([character.sw_remaining() for character in context.groups()[0]])
         test_sw_remaining = sum([character.sw_remaining() for character in context.groups()[1]])
         self._data["control_sw_remaining"] = control_sw_remaining
         self._data["test_sw_remaining"] = test_sw_remaining
 
-    def complete_take_sw(self, context):
+    def complete_take_sw(self, context: Any) -> None:
         # get count, sum, and sum of squares for control LW total
         # when voluntarily taking SW after a successful wound check
         control_lw_at_voluntary_sw = self._data["control_lw_at_voluntary_sw"]
@@ -767,13 +768,13 @@ class TrialFeatures:
         self._data["test_lw_at_voluntary_sw_count"] = len(test_lw_at_voluntary_sw)
         self._data.pop("test_lw_at_voluntary_sw")
 
-    def complete_vp_remaining(self, context):
+    def complete_vp_remaining(self, context: Any) -> None:
         control_vp_remaining = sum([character.vp() for character in context.groups()[0]])
         test_vp_remaining = sum([character.vp() for character in context.groups()[1]])
         self._data["control_vp_remaining"] = control_vp_remaining
         self._data["test_vp_remaining"] = test_vp_remaining
 
-    def complete_wound_checks(self, context):
+    def complete_wound_checks(self, context: Any) -> None:
         # get count, sum, and sum of squares for control wound check failed margin
         control_wc_failed_margin = self._data["control_wc_failed_margin"]
         self._data["control_wc_failed_margin_sum"] = sum(control_wc_failed_margin)
@@ -811,11 +812,11 @@ class TrialFeatures:
         self._data["test_wc_succeeded_margin_count"] = len(test_wc_succeeded_margin)
         self._data.pop("test_wc_succeeded_margin")
 
-    def write(self, f):
+    def write(self, f: IO[str]) -> None:
         writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
         writer.writerow(self._data)
 
 
-def write_feature_file_header(f):
+def write_feature_file_header(f: IO[str]) -> None:
     writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
     writer.writeheader()

@@ -17,6 +17,9 @@
 # 5th Dan: TBD
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation import events
 from simulation.listeners import Listener
 from simulation.mechanics.roll_params import DefaultRollParameterProvider, normalize_roll_params
@@ -24,36 +27,36 @@ from simulation.schools.base import BaseSchool
 
 
 class YogoWardenSchool(BaseSchool):
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return None
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         character.set_listener("sw_damage", YogoSeriousWoundsDamageListener())
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         character.set_listener("spend_vp", YogoSpendVoidPointsListener())
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         character.set_roll_parameter_provider(YOGO_ROLL_PARAMETER_PROVIDER)
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         # TBD
         pass
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["attack", "damage", "wound check"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["wound check"]
 
-    def name(self):
+    def name(self) -> str:
         return "Yogo Warden School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["double attack", "feint", "iaijutsu"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "earth"
 
 
@@ -63,7 +66,7 @@ class YogoSeriousWoundsDamageListener(Listener):
     to gain TVP when taking a serious wound.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.SeriousWoundsDamageEvent):
             if event.target == character:
                 character.take_sw(event.damage)
@@ -85,7 +88,7 @@ class YogoSpendVoidPointsListener(Listener):
     to reduce LW by 2*attack_skill when spending VP.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.SpendVoidPointsEvent):
             if event.subject == character:
                 character.spend_vp(event.amount)
@@ -101,7 +104,7 @@ class YogoRollParameterProvider(DefaultRollParameterProvider):
     +10 per VP on wound checks instead of +5.
     """
 
-    def get_wound_check_roll_params(self, character, vp=0):
+    def get_wound_check_roll_params(self, character: Any, vp: int = 0) -> tuple[int, int, int]:
         ring = character.ring(character.get_skill_ring("wound check"))
         rolled = ring + 1 + character.extra_rolled("wound check") + vp
         kept = ring + character.extra_kept("wound check") + vp

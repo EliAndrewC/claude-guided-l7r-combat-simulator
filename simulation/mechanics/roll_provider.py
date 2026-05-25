@@ -7,156 +7,118 @@
 #
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from simulation.mechanics.ninja_rolls import NinjaDamageReductionRoll
-from simulation.mechanics.roll import InitiativeRoll, Roll
+from simulation.mechanics.roll import DieProvider, InitiativeRoll, Roll
 
 
 class RollProvider(ABC):
     @abstractmethod
-    def die_provider(self):
+    def die_provider(self) -> Any:
         pass
 
     @abstractmethod
-    def get_damage_reduction_roll(self, rolled, kept, reduction):
+    def get_damage_reduction_roll(self, rolled: int, kept: int, reduction: int) -> int:
         pass
 
     @abstractmethod
-    def get_damage_roll(self, rolled, kept):
+    def get_damage_roll(self, rolled: int, kept: int) -> int:
         pass
 
     @abstractmethod
-    def get_initiative_roll(self, rolled, kept):
+    def get_initiative_roll(self, rolled: int, kept: int) -> list[int]:
         pass
 
     @abstractmethod
-    def get_skill_roll(self, skill, rolled, kept, explode=True):
+    def get_skill_roll(self, skill: str, rolled: int, kept: int, explode: bool = True) -> int:
         pass
 
     @abstractmethod
-    def get_wound_check_roll(self, rolled, kept, explode=True):
+    def get_wound_check_roll(self, rolled: int, kept: int, explode: bool = True) -> int:
         pass
 
     @abstractmethod
-    def set_die_provider(self, die_provider):
+    def set_die_provider(self, die_provider: DieProvider) -> None:
         pass
 
 
 class DefaultRollProvider(RollProvider):
-    def __init__(self, die_provider=None):
+    def __init__(self, die_provider: Any = None) -> None:
         self._die_provider = die_provider
-        self._last_skill_roll = None
-        self._last_damage_roll = None
-        self._last_wound_check_roll = None
-        self._last_initiative_roll = None
-        self._last_skill_info = None
-        self._last_damage_info = None
-        self._last_wound_check_info = None
-        self._last_initiative_info = None
+        self._last_skill_roll: Any = None
+        self._last_damage_roll: Any = None
+        self._last_wound_check_roll: Any = None
+        self._last_initiative_roll: Any = None
+        self._last_skill_info: dict[str, Any] | None = None
+        self._last_damage_info: dict[str, Any] | None = None
+        self._last_wound_check_info: dict[str, Any] | None = None
+        self._last_initiative_info: dict[str, Any] | None = None
 
-    def die_provider(self):
+    def die_provider(self) -> Any:
         return self._die_provider
 
-    def get_damage_reduction_roll(self, rolled, kept, reduction):
-        """
-        get_damage_reduction_roll(rolled, kept, reduction) -> int
-          rolled (int): number of rolled dice
-          kept (int): number of kept dice
-          reduction (int): reduction to number of 10s rerolled
-
-        Return a damage roll where the attacker rerolls fewer 10s (Ninja ability).
-        """
+    def get_damage_reduction_roll(self, rolled: int, kept: int, reduction: int) -> int:
         roll = NinjaDamageReductionRoll(rolled, kept, reduction=reduction, die_provider=self.die_provider())
         result = roll.roll()
         self._last_damage_roll = roll
         self._last_damage_info = {"rolled": rolled, "kept": kept, "dice": list(roll.dice())}
         return result
 
-    def get_damage_roll(self, rolled, kept):
-        """
-        get_damage_roll(rolled, kept) -> int
-          rolled (int): number of rolled dice
-          kept (int): number of kept dice
-
-        Return a damage roll using the specified number of rolled and kept dice.
-        """
+    def get_damage_roll(self, rolled: int, kept: int) -> int:
         roll = Roll(rolled, kept, die_provider=self.die_provider())
         result = roll.roll()
         self._last_damage_roll = roll
         self._last_damage_info = {"rolled": rolled, "kept": kept, "dice": list(roll.dice())}
         return result
 
-    def get_initiative_roll(self, rolled, kept):
-        """
-        get_initiative_roll(rolled, kept) -> list of int
-          rolled (int): number of rolled dice
-          kept (int): number of kept dice
-
-        Return an initiative roll using the specified number of rolled and kept dice.
-        """
+    def get_initiative_roll(self, rolled: int, kept: int) -> list[int]:
         roll = InitiativeRoll(rolled, kept, die_provider=self.die_provider())
         result = roll.roll()
         self._last_initiative_roll = roll
         self._last_initiative_info = {"rolled": rolled, "kept": kept, "all_dice": list(roll.all_dice())}
         return result
 
-    def get_skill_roll(self, skill, rolled, kept, explode=True):
-        """
-        get_skill_roll(skill, rolled, kept) -> int
-          skill (str): name of skill being used
-          rolled (int): number of rolled dice
-          kept (int): number of kept dice
-          explode (bool): whether tens should be rerolled
-
-        Return a skill roll using the specified number of rolled and kept dice.
-        """
+    def get_skill_roll(self, skill: str, rolled: int, kept: int, explode: bool = True) -> int:
         roll = Roll(rolled, kept, die_provider=self.die_provider(), explode=explode)
         result = roll.roll()
         self._last_skill_roll = roll
         self._last_skill_info = {"rolled": rolled, "kept": kept, "dice": list(roll.dice())}
         return result
 
-    def get_wound_check_roll(self, rolled, kept, explode=True):
-        """
-        get_wound_check_roll(rolled, kept, explode=True) -> int
-          rolled (int): number of rolled dice
-          kept (int): number of kept dice
-          explode (bool): whether tens should be rerolled
-
-        Return a Wound Check roll using the specified number of rolled and kept dice.
-        """
+    def get_wound_check_roll(self, rolled: int, kept: int, explode: bool = True) -> int:
         roll = Roll(rolled, kept, die_provider=self.die_provider(), explode=explode)
         result = roll.roll()
         self._last_wound_check_roll = roll
         self._last_wound_check_info = {"rolled": rolled, "kept": kept, "dice": list(roll.dice())}
         return result
 
-    def last_damage_roll(self):
+    def last_damage_roll(self) -> Any:
         return self._last_damage_roll
 
-    def last_damage_info(self):
+    def last_damage_info(self) -> dict[str, Any] | None:
         return self._last_damage_info
 
-    def last_initiative_roll(self):
+    def last_initiative_roll(self) -> Any:
         return self._last_initiative_roll
 
-    def last_initiative_info(self):
+    def last_initiative_info(self) -> dict[str, Any] | None:
         return self._last_initiative_info
 
-    def last_skill_roll(self):
+    def last_skill_roll(self) -> Any:
         return self._last_skill_roll
 
-    def last_skill_info(self):
+    def last_skill_info(self) -> dict[str, Any] | None:
         return self._last_skill_info
 
-    def last_wound_check_roll(self):
+    def last_wound_check_roll(self) -> Any:
         return self._last_wound_check_roll
 
-    def last_wound_check_info(self):
+    def last_wound_check_info(self) -> dict[str, Any] | None:
         return self._last_wound_check_info
 
-    def set_die_provider(self, die_provider):
-        if not isinstance(die_provider, DieProvider):  # noqa: F821 - TODO: missing import
+    def set_die_provider(self, die_provider: DieProvider) -> None:
+        if not isinstance(die_provider, DieProvider):
             raise ValueError("set_die_provider requires DieProvider")
         self._die_provider = die_provider
 
@@ -167,44 +129,42 @@ DEFAULT_ROLL_PROVIDER = DefaultRollProvider()
 class CalvinistRollProvider(RollProvider):
     """
     Roll provider whose results are predestined, not random.
-
-    In Calvinist theology, all events are predetermined by God before
-    they occur. Similarly, this provider has its roll outcomes predestined
-    before they are requested, making it useful for testing where we
-    need to know exactly what each roll will produce.
     """
 
-    def __init__(self):
-        self._queues = {"damage": [], "initiative": [], "wound_check": []}
-        self._observed_params = {"damage": [], "initiative": [], "wound_check": []}
-        self._last_skill_info = None
-        self._last_wound_check_info = None
-        self._last_damage_info = None
+    def __init__(self) -> None:
+        self._queues: dict[str, list[Any]] = {"damage": [], "initiative": [], "wound_check": []}
+        self._observed_params: dict[str, list[tuple[int, int]]] = {"damage": [], "initiative": [], "wound_check": []}
+        self._last_skill_info: dict[str, Any] | None = None
+        self._last_wound_check_info: dict[str, Any] | None = None
+        self._last_damage_info: dict[str, Any] | None = None
 
-    def die_provider(self):
+    def die_provider(self) -> Any:
         return None
 
-    def get_damage_reduction_roll(self, rolled, kept, reduction):
+    def get_damage_reduction_roll(self, rolled: int, kept: int, reduction: int) -> int:
         if len(self._queues["damage"]) == 0:
             raise IndexError("No roll queued for damage")
         self._observed_params["damage"].append((rolled, kept))
         entry = self._queues["damage"].pop(0)
-        return self._pop_entry(entry, "damage", rolled, kept)
+        result: int = self._pop_entry(entry, "damage", rolled, kept)
+        return result
 
-    def get_damage_roll(self, rolled, kept):
+    def get_damage_roll(self, rolled: int, kept: int) -> int:
         if len(self._queues["damage"]) == 0:
             raise IndexError("No roll queued for damage")
         self._observed_params["damage"].append((rolled, kept))
         entry = self._queues["damage"].pop(0)
-        return self._pop_entry(entry, "damage", rolled, kept)
+        result: int = self._pop_entry(entry, "damage", rolled, kept)
+        return result
 
-    def get_initiative_roll(self, rolled, kept):
+    def get_initiative_roll(self, rolled: int, kept: int) -> list[int]:
         if len(self._queues["initiative"]) == 0:
             raise IndexError("No roll queued for initiative")
         self._observed_params["initiative"].append((rolled, kept))
-        return self._queues["initiative"].pop(0)
+        result: list[int] = self._queues["initiative"].pop(0)
+        return result
 
-    def get_skill_roll(self, skill, rolled, kept, explode=True):
+    def get_skill_roll(self, skill: str, rolled: int, kept: int, explode: bool = True) -> int:
         if skill not in self._queues.keys():
             raise KeyError("No roll queued for " + skill)
         elif len(self._queues[skill]) == 0:
@@ -213,76 +173,64 @@ class CalvinistRollProvider(RollProvider):
             self._observed_params[skill] = []
         self._observed_params[skill].append((rolled, kept))
         entry = self._queues[skill].pop(0)
-        return self._pop_entry(entry, "skill", rolled, kept)
+        result: int = self._pop_entry(entry, "skill", rolled, kept)
+        return result
 
-    def get_wound_check_roll(self, rolled, kept, explode=True):
+    def get_wound_check_roll(self, rolled: int, kept: int, explode: bool = True) -> int:
         if len(self._queues["wound_check"]) == 0:
             raise IndexError("No roll queued for wound_check")
         self._observed_params["wound_check"].append((rolled, kept))
         entry = self._queues["wound_check"].pop(0)
-        return self._pop_entry(entry, "wound_check", rolled, kept)
+        result: int = self._pop_entry(entry, "wound_check", rolled, kept)
+        return result
 
-    def last_damage_info(self):
+    def last_damage_info(self) -> dict[str, Any] | None:
         return self._last_damage_info
 
-    def last_skill_info(self):
+    def last_skill_info(self) -> dict[str, Any] | None:
         return self._last_skill_info
 
-    def last_wound_check_info(self):
+    def last_wound_check_info(self) -> dict[str, Any] | None:
         return self._last_wound_check_info
 
-    def pop_observed_params(self, roll_type):
-        """
-        pop_observed_params(roll_type) -> tuple of ints
-          roll_type (str): the type of roll of interest
-            (either damage, initiative, wound_check,
-            or a skill name)
-
-        Pops and returns the oldest observed parameters for
-        the given roll type.
-        """
+    def pop_observed_params(self, roll_type: str) -> tuple[int, int]:
         return self._observed_params[roll_type].pop(0)
 
-    def put_damage_roll(self, result):
+    def put_damage_roll(self, result: int) -> None:
         self._queues["damage"].append(result)
 
-    def put_damage_roll_with_dice(self, result, dice):
+    def put_damage_roll_with_dice(self, result: int, dice: list[int]) -> None:
         self._queues["damage"].append((result, list(dice)))
 
-    def put_initiative_roll(self, result):
+    def put_initiative_roll(self, result: list[int]) -> None:
         if isinstance(result, list):
             self._queues["initiative"].append(result)
         else:
             raise ValueError("Initiative rolls should be sequences of ints")
 
-    def put_skill_roll(self, skill, result):
+    def put_skill_roll(self, skill: str, result: int) -> None:
         if skill in self._queues.keys():
             self._queues[skill].append(result)
         else:
             self._queues[skill] = [result]
 
-    def put_skill_roll_with_dice(self, skill, result, dice):
+    def put_skill_roll_with_dice(self, skill: str, result: int, dice: list[int]) -> None:
         entry = (result, list(dice))
         if skill in self._queues.keys():
             self._queues[skill].append(entry)
         else:
             self._queues[skill] = [entry]
 
-    def put_wound_check_roll(self, result):
+    def put_wound_check_roll(self, result: int) -> None:
         self._queues["wound_check"].append(result)
 
-    def put_wound_check_roll_with_dice(self, result, dice):
+    def put_wound_check_roll_with_dice(self, result: int, dice: list[int]) -> None:
         self._queues["wound_check"].append((result, list(dice)))
 
-    def set_die_provider(self, die_provider):
+    def set_die_provider(self, die_provider: DieProvider) -> None:
         raise NotImplementedError()
 
-    def _pop_entry(self, entry, roll_type, rolled, kept):
-        """Extract total and optional dice from a queue entry.
-
-        Entries may be plain ints (backward compatible) or
-        (total, dice_list) tuples for dice-level testing.
-        """
+    def _pop_entry(self, entry: Any, roll_type: str, rolled: int, kept: int) -> Any:
         if isinstance(entry, tuple):
             total, dice = entry
         else:

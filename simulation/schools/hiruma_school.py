@@ -18,6 +18,9 @@
 #          expires after 2 damage rolls
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation import events
 from simulation.listeners import Listener
 from simulation.mechanics.floating_bonuses import AnyAttackFloatingBonus
@@ -27,38 +30,38 @@ from simulation.schools.base import BaseSchool
 
 
 class HirumaScoutSchool(BaseSchool):
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return None
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         # TODO: adjacency-based TN bonus for allies
         pass
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         character.set_listener("parry_succeeded", HirumaParryListener())
         character.set_listener("parry_failed", HirumaParryListener())
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         character.set_listener("new_round", HirumaNewRoundListener())
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         character.set_listener("parry_succeeded", HirumaFifthDanParryListener())
         character.set_listener("parry_failed", HirumaFifthDanParryListener())
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["initiative", "parry", "wound check"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["parry"]
 
-    def name(self):
+    def name(self) -> str:
         return "Hiruma Scout School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["double attack", "feint", "iaijutsu"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "air"
 
 
@@ -68,7 +71,7 @@ class HirumaParryListener(Listener):
     After parry (success or fail), gain AnyAttackFloatingBonus(2 * attack_skill).
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, (events.ParrySucceededEvent, events.ParryFailedEvent)):
             if event.action.subject() == character:
                 bonus = 2 * character.skill("attack")
@@ -82,7 +85,7 @@ class HirumaNewRoundListener(Listener):
     After rolling initiative, subtract 2 from all action dice (min 1).
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.NewRoundEvent):
             character.roll_initiative()
             new_actions = [max(1, die - 2) for die in character.actions()]
@@ -98,7 +101,7 @@ class HirumaFifthDanParryListener(Listener):
     -10 damage, expires after 2 damage rolls.
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, (events.ParrySucceededEvent, events.ParryFailedEvent)):
             if event.action.subject() == character:
                 attacker = event.action.target()

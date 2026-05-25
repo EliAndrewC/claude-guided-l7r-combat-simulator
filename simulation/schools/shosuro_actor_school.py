@@ -16,6 +16,8 @@
 # 5th Dan: After TN/contested roll, add lowest 3 dice to result.
 #
 
+from typing import Any
+
 from simulation.mechanics.roll_params import DefaultRollParameterProvider, normalize_roll_params
 from simulation.mechanics.roll_provider import RollProvider
 from simulation.mechanics.skills import ATTACK_SKILLS
@@ -23,42 +25,42 @@ from simulation.schools.base import BaseSchool
 
 
 class ShosuroActorSchool(BaseSchool):
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return "sincerity"
 
-    def ap_skills(self):
+    def ap_skills(self) -> list[str]:
         return ["acting", "heraldry", "sincerity", "sneaking", "attack", "wound check"]
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         # Extra rolled dice equal to acting skill on attack, parry, and wound check.
         # Applied dynamically via a custom RollParameterProvider since acting
         # skill may increase during character building.
         character.set_roll_parameter_provider(ShosuroRollParameterProvider())
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         self.apply_ap(character)
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         # Rank 5.0 higher for stipend — no-op in combat
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         # After any TN or contested roll, add lowest 3 dice to result.
         character.set_roll_provider(ShosuroActorRollProvider(character.roll_provider()))
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["attack", "sincerity", "wound check"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["sincerity"]
 
-    def name(self):
+    def name(self) -> str:
         return "Shosuro Actor School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["athletics", "discern honor", "pontificate"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "air"
 
 
@@ -73,45 +75,49 @@ class ShosuroActorRollProvider(RollProvider):
     Damage rolls and initiative rolls are NOT modified.
     """
 
-    def __init__(self, inner):
+    def __init__(self, inner: Any) -> None:
         self._inner = inner
 
-    def die_provider(self):
-        return self._inner.die_provider()
+    def die_provider(self) -> Any:
+        result: Any = self._inner.die_provider()
+        return result
 
-    def get_damage_reduction_roll(self, rolled, kept, reduction):
-        return self._inner.get_damage_reduction_roll(rolled, kept, reduction)
+    def get_damage_reduction_roll(self, rolled: int, kept: int, reduction: int) -> int:
+        result: int = self._inner.get_damage_reduction_roll(rolled, kept, reduction)
+        return result
 
-    def get_damage_roll(self, rolled, kept):
-        return self._inner.get_damage_roll(rolled, kept)
+    def get_damage_roll(self, rolled: int, kept: int) -> int:
+        result: int = self._inner.get_damage_roll(rolled, kept)
+        return result
 
-    def get_initiative_roll(self, rolled, kept):
-        return self._inner.get_initiative_roll(rolled, kept)
+    def get_initiative_roll(self, rolled: int, kept: int) -> list[int]:
+        result: list[int] = self._inner.get_initiative_roll(rolled, kept)
+        return result
 
-    def get_skill_roll(self, skill, rolled, kept, explode=True):
-        result = self._inner.get_skill_roll(skill, rolled, kept, explode)
+    def get_skill_roll(self, skill: str, rolled: int, kept: int, explode: bool = True) -> int:
+        result: int = self._inner.get_skill_roll(skill, rolled, kept, explode)
         bonus = self._lowest_three_bonus(self._inner.last_skill_info())
         return result + bonus
 
-    def get_wound_check_roll(self, rolled, kept, explode=True):
-        result = self._inner.get_wound_check_roll(rolled, kept, explode=explode)
+    def get_wound_check_roll(self, rolled: int, kept: int, explode: bool = True) -> int:
+        result: int = self._inner.get_wound_check_roll(rolled, kept, explode=explode)
         bonus = self._lowest_three_bonus(self._inner.last_wound_check_info())
         return result + bonus
 
-    def last_damage_info(self):
+    def last_damage_info(self) -> Any:
         return self._inner.last_damage_info()
 
-    def last_skill_info(self):
+    def last_skill_info(self) -> Any:
         return self._inner.last_skill_info()
 
-    def last_wound_check_info(self):
+    def last_wound_check_info(self) -> Any:
         return self._inner.last_wound_check_info()
 
-    def set_die_provider(self, die_provider):
+    def set_die_provider(self, die_provider: Any) -> None:
         self._inner.set_die_provider(die_provider)
 
     @staticmethod
-    def _lowest_three_bonus(info):
+    def _lowest_three_bonus(info: Any) -> int:
         """Return the sum of the lowest 3 dice from roll info, or 0 if unavailable."""
         if info is None:
             return 0
@@ -125,13 +131,13 @@ class ShosuroActorRollProvider(RollProvider):
 class ShosuroRollParameterProvider(DefaultRollParameterProvider):
     """Add acting skill rank as extra rolled dice on attack, parry, and wound check."""
 
-    def get_skill_roll_params(self, character, target, skill, contested_skill=None, ring=None, vp=0):
+    def get_skill_roll_params(self, character: Any, target: Any, skill: str, contested_skill: str | None = None, ring: str | None = None, vp: int = 0) -> tuple[int, int, int]:
         rolled, kept, modifier = super().get_skill_roll_params(character, target, skill, contested_skill, ring, vp)
         if skill in ATTACK_SKILLS or skill == "parry":
             rolled += character.skill("acting")
         return normalize_roll_params(rolled, kept, modifier)
 
-    def get_wound_check_roll_params(self, character, vp=0):
+    def get_wound_check_roll_params(self, character: Any, vp: int = 0) -> tuple[int, int, int]:
         rolled, kept, modifier = super().get_wound_check_roll_params(character, vp)
         rolled += character.skill("acting")
         return normalize_roll_params(rolled, kept, modifier)

@@ -7,6 +7,8 @@
 #
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from typing import Any
 
 from simulation import events, modifier_listeners
 from simulation.log import logger
@@ -23,7 +25,7 @@ class Listener(ABC):
     """
 
     @abstractmethod
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         """
         handle(character, event, context) -> yield one or more Event, or None
           character (Character): the Character that is responding to the Event
@@ -42,21 +44,21 @@ class Listener(ABC):
 
 
 class NewRoundListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.NewRoundEvent):
             character.roll_initiative()
             yield from ()
 
 
 class YourMoveListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.YourMoveEvent):
             if character == event.subject:
                 yield from character.action_strategy().recommend(character, event, context)
 
 
 class AddModifierListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.AddModifierEvent):
             if character == event.subject:
                 character.add_modifier(event.modifier)
@@ -66,7 +68,7 @@ class AddModifierListener(Listener):
 
 
 class RemoveModifierListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.AddModifierEvent):
             if character == event.subject:
                 character.remove_modifier(event.modifier)
@@ -76,7 +78,7 @@ class RemoveModifierListener(Listener):
 
 
 class AttackDeclaredListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.AttackDeclaredEvent):
             if character != event.action.subject():
                 # Counterattack interrupt opportunity (before attack rolls)
@@ -85,17 +87,17 @@ class AttackDeclaredListener(Listener):
                 if event.action.skill() == "lunge":
                     if event.action.subject() not in character.group():
                         # gain expiring modifier for lunge
-                        modifier = modifiers.AnyAttackModifier(character, event.subject(), 5)
-                        attack_listener = modifier_listeners.ExpireAfterNextAttackByCharacterListener(modifier, event.action.subject())
-                        end_of_round_listener = modifier_listeners.ExpireAtEndOfRoundListener(modifier)
+                        modifier = modifiers.AnyAttackModifier(character, event.action.subject(), 5)
+                        attack_listener = modifier_listeners.ExpireAfterNextAttackByCharacterListener(event.action.subject())
+                        end_of_round_listener = modifier_listeners.ExpireAtEndOfRoundListener()
                         modifier.register_listener("attack_failed", attack_listener)
                         modifier.register_listener("attack_succeeded", attack_listener)
                         modifier.register_listener("end_of_round", end_of_round_listener)
-                        yield events.AddModifierEvent(modifier)
+                        yield events.AddModifierEvent(character, modifier)
 
 
 class AttackRolledListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.AttackRolledEvent):
             if character != event.action.subject():
                 character.knowledge().observe_attack_roll(event.action.subject(), event.roll)
@@ -103,7 +105,7 @@ class AttackRolledListener(Listener):
 
 
 class FeintSucceededListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.AttackSucceededEvent):
             if event.action.subject() == character:
                 if event.action.skill() == "feint":
@@ -116,7 +118,7 @@ class FeintSucceededListener(Listener):
 
 
 class LightWoundsDamageListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.LightWoundsDamageEvent):
             if event.subject != character:
                 # observe another character's damage roll
@@ -129,7 +131,7 @@ class LightWoundsDamageListener(Listener):
 
 
 class SeriousWoundsDamageListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.SeriousWoundsDamageEvent):
             if event.target == character:
                 character.take_sw(event.damage)
@@ -144,15 +146,15 @@ class SeriousWoundsDamageListener(Listener):
 
 
 class TakeActionListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.TakeActionEvent):
-            if character != event.subject:
-                character.knowledge().observe_action(event.subject)
+            if character != event.action.subject():
+                character.knowledge().observe_action(event.action.subject())
                 yield from ()
 
 
 class TakeSeriousWoundListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.TakeSeriousWoundEvent):
             if event.subject == character:
                 character.reset_lw()
@@ -160,7 +162,7 @@ class TakeSeriousWoundListener(Listener):
 
 
 class GainTemporaryVoidPointsListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.GainTemporaryVoidPointsEvent):
             if event.subject == character:
                 character.gain_tvp(event.amount)
@@ -168,7 +170,7 @@ class GainTemporaryVoidPointsListener(Listener):
 
 
 class SpendActionListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.SpendActionEvent):
             if event.subject == character:
                 character.spend_action(event.initiative_action)
@@ -176,7 +178,7 @@ class SpendActionListener(Listener):
 
 
 class SpendAdventurePointsListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.SpendAdventurePointsEvent):
             if event.subject == character:
                 character.spend_ap(event.skill, event.amount)
@@ -184,7 +186,7 @@ class SpendAdventurePointsListener(Listener):
 
 
 class SpendConvictionListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.SpendConvictionEvent):
             if event.subject == character:
                 character.spend_conviction(event.amount)
@@ -192,7 +194,7 @@ class SpendConvictionListener(Listener):
 
 
 class SpendFloatingBonusListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.SpendFloatingBonusEvent):
             if event.subject == character:
                 character.spend_floating_bonus(event.bonus)
@@ -200,7 +202,7 @@ class SpendFloatingBonusListener(Listener):
 
 
 class SpendVoidPointsListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.SpendVoidPointsEvent):
             if event.subject == character:
                 character.spend_vp(event.amount)
@@ -208,7 +210,7 @@ class SpendVoidPointsListener(Listener):
 
 
 class WoundCheckDeclaredListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.WoundCheckDeclaredEvent):
             if event.subject == character:
                 explode = not getattr(event, 'duel', False)
@@ -220,7 +222,7 @@ class WoundCheckDeclaredListener(Listener):
 
 
 class WoundCheckFailedListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.WoundCheckFailedEvent):
             if event.subject == character:
                 sw = character.wound_check(event.roll)
@@ -229,7 +231,7 @@ class WoundCheckFailedListener(Listener):
 
 
 class WoundCheckRolledListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.WoundCheckRolledEvent):
             if event.subject == character:
                 logger.debug(f"{character.name()} rolled wound check {event.roll} against tn {event.tn}")
@@ -241,7 +243,7 @@ class WoundCheckRolledListener(Listener):
 
 
 class WoundCheckSucceededListener(Listener):
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.WoundCheckSucceededEvent):
             if event.subject == character:
                 # if the character may keep LW, consult the character's light wounds strategy

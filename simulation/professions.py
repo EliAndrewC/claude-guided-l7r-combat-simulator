@@ -7,6 +7,8 @@
 #
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
+from typing import Any
 
 from simulation.actions import AttackAction
 from simulation.events import AddModifierEvent, AttackSucceededEvent, LightWoundsDamageEvent, NewRoundEvent, TakeAttackActionEvent
@@ -65,10 +67,10 @@ class Profession:
     profession.
     """
 
-    def __init__(self):
-        self._abilityd = {}
+    def __init__(self) -> None:
+        self._abilityd: dict[str, int] = {}
 
-    def ability(self, name):
+    def ability(self, name: str) -> int:
         """
         ability(name) -> int
           name (str): the name of the ability of interest
@@ -82,7 +84,7 @@ class Profession:
             raise ValueError(f"{name} is not a valid profession ability")
         return self._abilityd.get(name, 0)
 
-    def take_ability(self, name):
+    def take_ability(self, name: str) -> None:
         """
         take_ability(name)
           name (str): the name of the ability to take
@@ -98,7 +100,7 @@ class Profession:
             raise RuntimeError(f"Profession ability {name} may not be raised above 2")
         self._abilityd[name] = cur_rank + 1
 
-    def __len__(self):
+    def __len__(self) -> int:
         """
         __len__() -> int
 
@@ -116,7 +118,7 @@ class ProfessionAbility(ABC):
     """
 
     @abstractmethod
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         """
         apply(character, profession)
           character (Character): character who took the ability
@@ -127,7 +129,7 @@ class ProfessionAbility(ABC):
         pass
 
 
-def get_profession_ability(name):
+def get_profession_ability(name: str) -> "ProfessionAbility":
     """
     get_profession_ability(name) -> ProfessionAbility
       name (str): name of the desired ability
@@ -189,7 +191,7 @@ class CrippledBonusAbility(ProfessionAbility):
     "You may reroll 10s on a single die when crippled."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         character.set_roll_provider(WaveManRollProvider(profession))
 
 
@@ -200,7 +202,7 @@ class DamagePenaltyAbility(ProfessionAbility):
     exceeding their attack roll TN, subtract 5 from the damage."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         character.set_listener("attack_succeeded", WAVE_MAN_ATTACK_SUCCEEDED_LISTENER)
 
 
@@ -213,7 +215,7 @@ class FailedParryDamageBonusAbility(ProfessionAbility):
     had they not attempted to parry."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         character.set_action_factory(WaveManActionFactory(profession))
 
 
@@ -223,7 +225,7 @@ class InitiativeBonusAbility(ProfessionAbility):
     "Roll one extra unkept die on initiative."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         character.set_extra_rolled("initiative", 1)
 
 
@@ -235,7 +237,7 @@ class MissedAttackBonusAbility(ProfessionAbility):
     manner automatically succeeds."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         # implemented in WaveManAttackAction
         character.set_action_factory(WaveManActionFactory(profession))
 
@@ -246,7 +248,7 @@ class ParryPenaltyAbility(ProfessionAbility):
     "Raise the TN of someone trying to parry one of your attacks by 5."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         # implemented in WaveManAttackAction
         character.set_action_factory(WaveManActionFactory(profession))
 
@@ -258,7 +260,7 @@ class RolledDamageBonusAbility(ProfessionAbility):
     roll is already a multiple of 5, then raise it by 3."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         # implemented in WaveManAttackAction
         character.set_action_factory(WaveManActionFactory(profession))
 
@@ -272,11 +274,11 @@ class WeaponDamageBonusAbility(ProfessionAbility):
     penalty."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         # The weapon damage bonus is implemented in WaveManRollParameterProvider.
         # The armor damage reduction part of this ability is not implemented;
         # armor and damage reduction are planned for a later project phase.
-        character.set_roll_parameter_provider(WaveManRollParameterProvider(profession))
+        character.set_roll_parameter_provider(WaveManRollParameterProvider())
 
 
 class WoundCheckBonusAbility(ProfessionAbility):
@@ -285,7 +287,7 @@ class WoundCheckBonusAbility(ProfessionAbility):
     "Roll two extra unkept dice on wound checks."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         character.set_extra_rolled("wound check", 2)
 
 
@@ -297,7 +299,7 @@ class WoundCheckPenaltyAbility(ProfessionAbility):
     the TN had not been raised."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         character.set_take_action_event_factory(WAVE_MAN_TAKE_ACTION_EVENT_FACTORY)
 
 
@@ -306,14 +308,15 @@ class WaveManActionFactory(DefaultActionFactory):
     ActionFactory that can return a WaveManAttackAction.
     """
 
-    def __init__(self, abilities):
+    def __init__(self, abilities: "Profession") -> None:
         self._abilities = abilities
 
-    def get_attack_action(self, subject, target, skill, initiative_action, context, vp=0):
+    def get_attack_action(self, subject: Any, target: Any, skill: str, initiative_action: Any, context: Any, vp: int = 0) -> AttackAction:
         if skill == "attack":
             return WaveManAttackAction(subject, target, skill, initiative_action, context, vp=vp)
         else:
-            return super().get_attack_action(subject, target, skill, initiative_action, context, vp=vp)
+            result: AttackAction = super().get_attack_action(subject, target, skill, initiative_action, context, vp=vp)
+            return result
 
 
 class WaveManAttackAction(AttackAction):
@@ -337,18 +340,19 @@ class WaveManAttackAction(AttackAction):
     had they not attempted to parry."
     """
 
-    def __init__(self, subject, target, skill, initiative_action, context, vp=0):
+    def __init__(self, subject: Any, target: Any, skill: str, initiative_action: Any, context: Any, vp: int = 0) -> None:
         super().__init__(subject, target, skill, initiative_action, context, vp=vp)
         self._used_missed_attack_bonus = False
 
-    def ability(self, name):
-        return self.subject().profession().ability(name)
+    def ability(self, name: str) -> int:
+        return self.subject().profession().ability(name)  # type: ignore[no-any-return]
 
-    def calculate_extra_damage_dice(self, skill_roll=None, tn=None):
+    def calculate_extra_damage_dice(self, skill_roll: int | None = None, tn: int | None = None) -> int:
         if skill_roll is None:
             skill_roll = self.skill_roll()
         if tn is None:
             tn = self.tn()
+        assert skill_roll is not None
         # calculate normal extra rolled damage dice
         extra_rolled = (skill_roll - self.tn()) // 5
         if self.parry_attempted():
@@ -359,7 +363,7 @@ class WaveManAttackAction(AttackAction):
         else:
             return extra_rolled
 
-    def parry_tn(self):
+    def parry_tn(self) -> int:
         if self.used_missed_attack_bonus():
             # parry automatically succeeds if the missed_attack_bonus
             # ability was used
@@ -367,9 +371,11 @@ class WaveManAttackAction(AttackAction):
         else:
             # apply the parry penalty ability
             penalty = self.ability(PARRY_PENALTY) * 5
-            return self.skill_roll() + penalty
+            roll = self.skill_roll()
+            assert roll is not None
+            return roll + penalty
 
-    def roll_skill(self):
+    def roll_skill(self) -> int:
         roll = self.subject().roll_skill(self.target(), self.skill(), vp=self.vp())
         # apply missed_attack_bonus ability
         if roll < self.tn():
@@ -378,9 +384,11 @@ class WaveManAttackAction(AttackAction):
                     roll += 5
                     self.set_used_missed_attack_bonus()
         self.set_skill_roll(roll)
-        return self.skill_roll()
+        result = self.skill_roll()
+        assert result is not None
+        return result
 
-    def roll_damage(self):
+    def roll_damage(self) -> int:
         extra_rolled = self.calculate_extra_damage_dice()
         roll = self.subject().roll_damage(self.target(), self.skill(), extra_rolled, self.vp())
         # apply damage_bonus ability
@@ -392,7 +400,7 @@ class WaveManAttackAction(AttackAction):
         self._damage_roll = roll
         return self._damage_roll
 
-    def set_used_missed_attack_bonus(self):
+    def set_used_missed_attack_bonus(self) -> None:
         """
         set_used_missed_attack_bonus()
 
@@ -401,7 +409,7 @@ class WaveManAttackAction(AttackAction):
         """
         self._used_missed_attack_bonus = True
 
-    def used_missed_attack_bonus(self):
+    def used_missed_attack_bonus(self) -> bool:
         """
         used_missed_attack_bonus() -> bool
 
@@ -419,7 +427,7 @@ class WaveManAttackSucceededListener(Listener):
     exceeding their attack roll TN, subtract 5 from the damage."
     """
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, AttackSucceededEvent):
             if character == event.action.target():
                 ability_level = character.profession().ability(DAMAGE_PENALTY)
@@ -443,19 +451,19 @@ class WaveManRoll(BaseRoll):
     "You may reroll 10s on a single die when crippled."
     """
 
-    def __init__(self, rolled, kept, faces=10, explode=True, die_provider=None, always_explode=0):
+    def __init__(self, rolled: int, kept: int, faces: int = 10, explode: bool = True, die_provider: Any = None, always_explode: int = 0) -> None:
         super().__init__(rolled, kept, faces, explode, die_provider)
         if not isinstance(always_explode, int):
             raise ValueError("WaveManRoll always_explode parameter must be int")
         if always_explode > 2:
             raise ValueError("WaveManRoll may not reroll more than two tens when crippled")
         self.always_explode = always_explode
-        self._dice = []
+        self._dice: list[int] = []
 
-    def dice(self):
+    def dice(self) -> list[int]:
         return self._dice
 
-    def roll(self):
+    def roll(self) -> int:
         dice = [self.roll_die(faces=self.faces(), explode=self.explode()) for n in range(self._rolled)]
         if not self.explode():
             for i in range(self.always_explode):
@@ -478,7 +486,7 @@ class WaveManRollParameterProvider(DefaultRollParameterProvider):
     penalty."
     """
 
-    def get_damage_roll_params(self, character, target, skill, attack_extra_rolled, vp=0):
+    def get_damage_roll_params(self, character: Any, target: Any, skill: str, attack_extra_rolled: int, vp: int = 0) -> tuple[int, int, int]:
         # calculate weapon dice
         weapon_rolled = character.weapon().rolled()
         ability_level = character.profession().ability(WEAPON_DAMAGE_BONUS)
@@ -502,16 +510,16 @@ class WaveManRollProvider(DefaultRollProvider):
     "crippled bonus" to reroll some 10s when crippled.
     """
 
-    def __init__(self, profession, die_provider=None):
+    def __init__(self, profession: "Profession", die_provider: Any = None) -> None:
         super().__init__(die_provider)
         if not isinstance(profession, Profession):
             raise ValueError("WaveManRollProvider __init__ requires Profession")
         self._profession = profession
 
-    def ability(self, ability):
+    def ability(self, ability: str) -> int:
         return self._profession.ability(ability)
 
-    def get_skill_roll(self, skill, rolled, kept, explode=True):
+    def get_skill_roll(self, skill: str, rolled: int, kept: int, explode: bool = True) -> int:
         """
         get_skill_roll(skill, rolled, kept) -> int
           skill (str): name of skill being used
@@ -538,7 +546,7 @@ class WaveManTakeAttackActionEvent(TakeAttackActionEvent):
     the TN had not been raised."
     """
 
-    def _roll_damage(self):
+    def _roll_damage(self) -> LightWoundsDamageEvent:
         damage_roll = self.action.roll_damage()
         wound_check_tn_penalty = 5 * self.action.subject().profession().ability(WOUND_CHECK_PENALTY)
         wound_check_tn = damage_roll + wound_check_tn_penalty
@@ -554,7 +562,7 @@ class WaveManTakeActionEventFactory(DefaultTakeActionEventFactory):
     the TN had not been raised."
     """
 
-    def get_take_attack_action_event(self, action):
+    def get_take_attack_action_event(self, action: Any) -> "WaveManTakeAttackActionEvent":
         """
         get_take_attack_action_event(action)
           -> WaveManTakeAttackActionEvent
@@ -579,7 +587,7 @@ class NinjaAttackBonusAbility(ProfessionAbility):
     Ninja ability: "Add Fire ring value to attack rolls."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         modifier = NinjaFireAttackModifier(character, profession)
         character.add_modifier(modifier)
 
@@ -590,7 +598,7 @@ class NinjaAttackPenaltyAbility(ProfessionAbility):
     Sets the target's attack_rolled_penalty.
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         character.set_attack_rolled_penalty(profession.ability(ATTACK_PENALTY))
 
 
@@ -599,7 +607,7 @@ class NinjaDamageKeepingBonusAbility(ProfessionAbility):
     Ninja ability: "Keep 2 extra lowest unkept dice on damage rolls."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         character.set_roll_provider(NinjaRollProvider(profession))
 
 
@@ -608,7 +616,7 @@ class NinjaDamageReductionAbility(ProfessionAbility):
     Ninja ability: "Attacker rerolls 1 fewer 10 on damage (min 1 rerolled)."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         character.set_damage_reroll_reduction(profession.ability(DAMAGE_REDUCTION))
 
 
@@ -618,7 +626,7 @@ class NinjaDefenseBonusAbility(ProfessionAbility):
     attacker gets +1 rolled damage die."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         modifier = NinjaTNModifier(character, profession)
         character.add_modifier(modifier)
         character.set_listener("attack_succeeded", NinjaDefenseBonusDamageListener(profession))
@@ -629,7 +637,7 @@ class NinjaInitiativeReductionAbility(ProfessionAbility):
     Ninja ability: "Lower all action dice by 2 after rolling."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         character.set_listener("new_round", NinjaNewRoundListener(profession))
 
 
@@ -638,7 +646,7 @@ class NinjaSincerityBonusAbility(ProfessionAbility):
     Ninja ability: "4 free raises on sincerity."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         for _ in range(4):
             character.add_modifier(FreeRaise(character, "sincerity"))
 
@@ -648,7 +656,7 @@ class NinjaStealthInvisibilityAbility(ProfessionAbility):
     Ninja ability: "4 free raises on sneaking (not seen)."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         for _ in range(4):
             character.add_modifier(FreeRaise(character, "sneaking"))
 
@@ -658,7 +666,7 @@ class NinjaStealthMemorabilityAbility(ProfessionAbility):
     Ninja ability: "4 free raises on sneaking (not memorable)."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         for _ in range(4):
             character.add_modifier(FreeRaise(character, "sneaking"))
 
@@ -668,7 +676,7 @@ class NinjaWoundCheckBonusAbility(ProfessionAbility):
     Ninja ability: "Dice < 5 on wound checks get bonus of (5-X)."
     """
 
-    def apply(self, character, profession):
+    def apply(self, character: Any, profession: "Profession") -> None:
         character.set_roll_provider(NinjaRollProvider(profession))
 
 
@@ -681,11 +689,11 @@ class NinjaTNModifier(Modifier):
     Uses profession object for dynamic level lookup.
     """
 
-    def __init__(self, subject, profession):
+    def __init__(self, subject: Any, profession: "Profession") -> None:
         super().__init__(subject, None, "tn to hit", 0)
         self._profession = profession
 
-    def apply(self, target, skill):
+    def apply(self, target: Any, skill: str) -> int:
         if skill in self.skills():
             return 5 * self._profession.ability(DEFENSE_BONUS)
         return 0
@@ -696,13 +704,14 @@ class NinjaFireAttackModifier(Modifier):
     Dynamic modifier returning character.ring("fire") * level for attack skills.
     """
 
-    def __init__(self, subject, profession):
+    def __init__(self, subject: Any, profession: "Profession") -> None:
         super().__init__(subject, None, ATTACK_SKILLS, 0)
         self._profession = profession
 
-    def apply(self, target, skill):
+    def apply(self, target: Any, skill: str) -> int:
         if skill in self.skills():
-            return self._subject.ring("fire") * self._profession.ability(ATTACK_BONUS)
+            result: int = self._subject.ring("fire") * self._profession.ability(ATTACK_BONUS)
+            return result
         return 0
 
 
@@ -713,10 +722,10 @@ class NinjaDefenseBonusDamageListener(Listener):
     attacker's extra_rolled("damage") by level.
     """
 
-    def __init__(self, profession):
+    def __init__(self, profession: "Profession") -> None:
         self._profession = profession
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, AttackSucceededEvent):
             if character == event.action.target():
                 level = self._profession.ability(DEFENSE_BONUS)
@@ -734,11 +743,11 @@ class NinjaDefenseBonusModifier(Modifier):
     when the modifier expires after the damage roll.
     """
 
-    def __init__(self, subject, target, level):
+    def __init__(self, subject: Any, target: Any, level: int) -> None:
         super().__init__(subject, target, "damage", 0)
         self._level = level
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if event.name in self._listeners.keys():
             # Restore extra_rolled before yielding the remove event
             self._subject.set_extra_rolled("damage", -self._level)
@@ -751,10 +760,10 @@ class NinjaNewRoundListener(Listener):
     2 * level from each action die (minimum 1).
     """
 
-    def __init__(self, profession):
+    def __init__(self, profession: "Profession") -> None:
         self._profession = profession
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, NewRoundEvent):
             character.roll_initiative()
             level = self._profession.ability(INITIATIVE_REDUCTION)
@@ -770,13 +779,13 @@ class NinjaRollProvider(DefaultRollProvider):
     Overrides damage and wound check rolls.
     """
 
-    def __init__(self, profession, die_provider=None):
+    def __init__(self, profession: "Profession", die_provider: Any = None) -> None:
         super().__init__(die_provider)
         if not isinstance(profession, Profession):
             raise ValueError("NinjaRollProvider __init__ requires Profession")
         self._profession = profession
 
-    def get_damage_roll(self, rolled, kept):
+    def get_damage_roll(self, rolled: int, kept: int) -> int:
         level = self._profession.ability(DAMAGE_KEEPING_BONUS)
         if level > 0:
             extra_lowest = 2 * level
@@ -787,7 +796,7 @@ class NinjaRollProvider(DefaultRollProvider):
             return result
         return super().get_damage_roll(rolled, kept)
 
-    def get_wound_check_roll(self, rolled, kept, explode=True):
+    def get_wound_check_roll(self, rolled: int, kept: int, explode: bool = True) -> int:
         level = self._profession.ability(WOUND_CHECK_NINJA_BONUS)
         if level > 0:
             roll = NinjaWoundCheckRoll(rolled, kept, ability_level=level, die_provider=self.die_provider())

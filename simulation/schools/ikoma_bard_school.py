@@ -18,6 +18,9 @@
 #          may cancel opponent's attack and use their roll as parry.
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation.actions import AttackAction, ParryAction
 from simulation.events import (
     AttackRolledEvent,
@@ -35,13 +38,13 @@ from simulation.strategies.take_action_event_factory import DefaultTakeActionEve
 
 
 class IkomaBardSchool(BaseSchool):
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return "bragging"
 
-    def ap_skills(self):
+    def ap_skills(self) -> list[str]:
         return ["bragging", "culture", "heraldry", "intimidation", "attack", "wound check"]
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         # Create the shared tracker (1 use per round by default)
         tracker = IkomaSpecialTracker()
         # Install the custom TakeActionEventFactory that forces parries
@@ -51,14 +54,14 @@ class IkomaBardSchool(BaseSchool):
         # Store the tracker on the character for 5th Dan to access
         character._ikoma_tracker = tracker
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         self.apply_ap(character)
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         character.set_roll_parameter_provider(IkomaFourthDanRollParameterProvider())
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         # Extra use of special ability per round
         tracker = getattr(character, '_ikoma_tracker', None)
         if tracker is not None:
@@ -69,19 +72,19 @@ class IkomaBardSchool(BaseSchool):
             IkomaFifthDanAttackRolledListener(character, tracker),
         )
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["attack", "bragging", "wound check"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["attack"]
 
-    def name(self):
+    def name(self) -> str:
         return "Ikoma Bard School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["discern honor", "oppose knowledge", "oppose social"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "water"
 
 
@@ -93,28 +96,28 @@ class IkomaSpecialTracker:
     """Tracks the number of remaining uses of the Ikoma Bard special ability
     per combat round. Defaults to 1 use per round; 5th Dan raises it to 2."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._max_uses = 1
         self._uses_remaining = 1
 
-    def has_uses(self):
+    def has_uses(self) -> bool:
         return self._uses_remaining > 0
 
-    def reset(self):
+    def reset(self) -> None:
         """Reset uses to the max for a new round."""
         self._uses_remaining = self._max_uses
 
-    def set_max_uses(self, n):
+    def set_max_uses(self, n: int) -> None:
         """Set the maximum uses per round (e.g. 2 at 5th Dan)."""
         self._max_uses = n
         self._uses_remaining = n
 
-    def use(self):
+    def use(self) -> None:
         """Consume one use of the special ability."""
         if self._uses_remaining > 0:
             self._uses_remaining -= 1
 
-    def uses_remaining(self):
+    def uses_remaining(self) -> int:
         return self._uses_remaining
 
 
@@ -126,10 +129,10 @@ class IkomaNewRoundListener(NewRoundListener):
     """New round listener that resets the IkomaSpecialTracker and
     rolls initiative (standard new round behavior)."""
 
-    def __init__(self, tracker):
+    def __init__(self, tracker: Any) -> None:
         self._tracker = tracker
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, NewRoundEvent):
             self._tracker.reset()
             character.roll_initiative()
@@ -148,11 +151,11 @@ class IkomaTakeAttackActionEvent(TakeAttackActionEvent):
     a parry. The forced parry does NOT get a free raise for pre-declaring.
     """
 
-    def __init__(self, action, tracker):
+    def __init__(self, action: Any, tracker: Any) -> None:
         super().__init__(action)
         self._tracker = tracker
 
-    def play(self, context):
+    def play(self, context: Any) -> Iterator[Any]:
         yield self._declare_attack()
         # Counterattack may have killed/incapacitated the attacker
         if not self.action.subject().is_fighting():
@@ -182,7 +185,7 @@ class IkomaTakeAttackActionEvent(TakeAttackActionEvent):
         else:
             yield self._failed()
 
-    def _force_parry(self, context):
+    def _force_parry(self, context: Any) -> Iterator[Any]:
         """Force the target to parry using their next available action die."""
         target = self.action.target()
         # Check if target has action dice
@@ -218,10 +221,10 @@ class IkomaTakeActionEventFactory(DefaultTakeActionEventFactory):
     """Custom TakeActionEventFactory that returns IkomaTakeAttackActionEvent
     for attacks."""
 
-    def __init__(self, tracker):
+    def __init__(self, tracker: Any) -> None:
         self._tracker = tracker
 
-    def get_take_attack_action_event(self, action):
+    def get_take_attack_action_event(self, action: Any) -> Any:
         if isinstance(action, AttackAction):
             return IkomaTakeAttackActionEvent(action, self._tracker)
         else:
@@ -242,12 +245,12 @@ class IkomaFifthDanAttackRolledListener(Listener):
     while adding the 5th Dan cancel ability.
     """
 
-    def __init__(self, ikoma, tracker):
+    def __init__(self, ikoma: Any, tracker: Any) -> None:
         self._ikoma = ikoma
         self._tracker = tracker
         self._default_listener = AttackRolledListener()
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, AttackRolledEvent):
             # 5th Dan cancel: when an opponent attacks the Ikoma
             if (
@@ -279,7 +282,7 @@ class IkomaFifthDanAttackRolledListener(Listener):
 class IkomaFourthDanRollParameterProvider(DefaultRollParameterProvider):
     """4th Dan: unparried attack without extra kept damage dice -> always roll 10 dice."""
 
-    def get_damage_roll_params(self, character, target, skill, attack_extra_rolled, vp=0):
+    def get_damage_roll_params(self, character: Any, target: Any, skill: str, attack_extra_rolled: int, vp: int = 0) -> tuple[int, int, int]:
         rolled, kept, modifier = super().get_damage_roll_params(character, target, skill, attack_extra_rolled, vp)
         # If no extra kept damage dice (attack_extra_rolled == 0 means no raises
         # were called on the attack), roll 10 dice

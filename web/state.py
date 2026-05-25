@@ -11,6 +11,7 @@ import time
 import uuid
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 
 import streamlit as st
 
@@ -30,8 +31,11 @@ def _get_session_id() -> str:
     2. Browser cookie     – survives page refreshes and navigation
     3. Generate new UUID  – first visit
     """
+    sid: str | None
     if "_session_id" in st.session_state:
-        return st.session_state["_session_id"]
+        sid = st.session_state["_session_id"]
+        assert sid is not None
+        return sid
 
     try:
         sid = st.context.cookies.get(_COOKIE_NAME)
@@ -83,7 +87,7 @@ def _cleanup_stale_sessions() -> None:
             pass
 
 
-def _validate_groups(characters: dict) -> None:
+def _validate_groups(characters: dict[str, Any]) -> None:
     """Clear groups that reference characters which no longer exist."""
     for key in ("control_group", "test_group"):
         group = st.session_state.get(key)
@@ -95,7 +99,7 @@ def _validate_groups(characters: dict) -> None:
 
 def save_state() -> None:
     """Persist groups from session_state to the per-session disk file."""
-    data: dict = {}
+    data: dict[str, Any] = {}
     for key in ("control_group", "test_group"):
         group = st.session_state.get(key)
         if isinstance(group, GroupConfig):

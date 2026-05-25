@@ -6,6 +6,8 @@
 # Classes to select targets for abilities and attack actions.
 #
 
+from typing import Any
+
 from simulation.mechanics.knowledge import TheoreticalCharacter
 
 
@@ -14,7 +16,7 @@ class TargetFinder:
     Utility class to identify targets to attack.
     """
 
-    def find_enemies(self, subject, context):
+    def find_enemies(self, subject: Any, context: Any) -> list[Any]:
         """
         find_enemies(subject, context) -> list of Character
           subject (Character): character who is making a list of enemies
@@ -31,7 +33,7 @@ class TargetFinder:
                         enemies.append(other_character)
         return enemies
 
-    def find_easiest_target(self, subject, skill, initiative_action, context):
+    def find_easiest_target(self, subject: Any, skill: str, initiative_action: Any, context: Any) -> Any:
         """
         find_easiest_target(subject, skill, initiative_action, context) -> Character
           subject (Character): character who would be attacking
@@ -59,7 +61,7 @@ class TargetFinder:
         else:
             return None
 
-    def find_most_dangerous_target(self, subject, skill, initiative_action, context):
+    def find_most_dangerous_target(self, subject: Any, skill: str, initiative_action: Any, context: Any) -> Any:
         """
         find_most_dangerous_target(subject, skill, initiative_action, context) -> Character
           subject (Character): character who would be attacking
@@ -70,13 +72,13 @@ class TargetFinder:
         Returns the enemy who has inflicted the most damage.
         """
         targets = [c for c in self.find_enemies(subject, context)]
-        targets.sort(key=lambda x: self.subject.knowledge().average_damage_roll(x), reverse=True)
+        targets.sort(key=lambda x: subject.knowledge().average_damage_roll(x), reverse=True)
         if len(targets) > 0:
             return targets[0]
         else:
             return None
 
-    def find_most_wounded_target(self, subject, skill, initiative_action, context):
+    def find_most_wounded_target(self, subject: Any, skill: str, initiative_action: Any, context: Any) -> Any:
         """
         find_most_wounded_target(subject, skill, context) -> Character
           subject (Character): character who would be attacking
@@ -96,15 +98,15 @@ class TargetFinder:
 
 
 class EasiestTargetFinder(TargetFinder):
-    def find_target(self, subject, skill, initiative_action, context):
+    def find_target(self, subject: Any, skill: str, initiative_action: Any, context: Any) -> Any:
         return self.find_easiest_target(subject, skill, initiative_action, context)
 
 
 class FinishHimTargetFinder(TargetFinder):
-    def find_target(self, subject, skill, initiative_action, context):
+    def find_target(self, subject: Any, skill: str, initiative_action: Any, context: Any) -> Any:
         return self.find_most_wounded_target(subject, skill, initiative_action, context)
 
 
 class MostDangerousTargetFinder(TargetFinder):
-    def find_target(self, subject, skill, initiative_action, context):
+    def find_target(self, subject: Any, skill: str, initiative_action: Any, context: Any) -> Any:
         return self.find_most_dangerous_target(subject, skill, initiative_action, context)

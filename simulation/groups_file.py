@@ -7,13 +7,15 @@
 # A single YAML file gives the groups and the names of the characters in the group.
 #
 
+from typing import Any
+
 import yaml
 
 from simulation.groups import Group
 
 
 class GroupsReader:
-    def read(self, f, characterd):
+    def read(self, f: Any, characterd: dict[str, Any]) -> list[Group]:
         """
         read(path, characterd) -> list of Group
           f (file like object): file like object to access groups.yaml file

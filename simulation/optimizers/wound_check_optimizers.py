@@ -7,6 +7,7 @@
 #
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from simulation.events import WoundCheckDeclaredEvent
 from simulation.log import logger
@@ -18,12 +19,12 @@ class ProbabilityForResources:
     given an expenditure of vp and ap.
     """
 
-    def __init__(self, p, vp, ap):
+    def __init__(self, p: float, vp: int, ap: int) -> None:
         self.p = p
         self.vp = vp
         self.ap = ap
 
-    def sort_key_by_cost(self):
+    def sort_key_by_cost(self) -> int:
         """
         sort_by_cost() -> int
 
@@ -42,7 +43,7 @@ class WoundCheckOptimizer(ABC):
     """
 
     @abstractmethod
-    def declare(self, max_sw, threshold):
+    def declare(self, max_sw: int, threshold: float) -> Any:
         """'
         declare(max_sw, threshold) -> DeclareWoundCheckEvent
           max_sw (int): maximum SW the subject can tolerate
@@ -62,7 +63,7 @@ class DefaultWoundCheckOptimizer:
     amounts of VP and other available resources.
     """
 
-    def __init__(self, subject, event, context, max_vp=None, max_ap=None):
+    def __init__(self, subject: Any, event: Any, context: Any, max_vp: int | None = None, max_ap: int | None = None) -> None:
         """
         __init__(subject, max_vp=None)
           subject (Character): character who is making the wound check
@@ -80,11 +81,11 @@ class DefaultWoundCheckOptimizer:
         self.max_ap = max_ap
         self.original_max_vp = max_vp
         self.original_max_ap = max_ap
-        self.sw_to_roll = {}
-        self.p_for_resources = []
+        self.sw_to_roll: dict[int, int] = {}
+        self.p_for_resources: list[ProbabilityForResources] = []
         self.initialize()
 
-    def initialize(self):
+    def initialize(self) -> None:
         # reset state
         self.sw_to_roll.clear()
         self.p_for_resources.clear()
@@ -111,7 +112,7 @@ class DefaultWoundCheckOptimizer:
                 break
             roll += 1
 
-    def declare(self, max_sw, threshold):
+    def declare(self, max_sw: int, threshold: float) -> Any:
         """
         declare(character, event, max_sw, theshold, context) -> WoundCheckDeclaredEvent
           character (Character): character who is making the wound check
@@ -127,6 +128,8 @@ class DefaultWoundCheckOptimizer:
             # then there is no risk of taking max_sw and no resources should be used
             return WoundCheckDeclaredEvent(self.subject, self.event.subject, self.event.damage, vp=0, tn=self.event.wound_check_tn)
         tn = self.sw_to_roll[max_sw] - bonus
+        assert self.max_vp is not None
+        assert self.max_ap is not None
         # calculate probability of reaching this tn for various resource expenditures
         for vp in range(self.max_vp + 1):
             (rolled, kept, mod) = self.subject.get_wound_check_roll_params(vp)
@@ -156,7 +159,7 @@ class KeepLightWoundsOptimizer(ABC):
     """
 
     @abstractmethod
-    def should_keep(self, max_sw, threshold, max_vp=None):
+    def should_keep(self, max_sw: int, threshold: float, max_vp: int | None = None) -> tuple[bool, int]:
         """
         keep(max_sw, threshold) -> tuple
           max_sw (int): maximum number of Serious Wounds this character
@@ -189,11 +192,11 @@ class DefaultKeepLightWoundsOptimizer(KeepLightWoundsOptimizer):
     future.
     """
 
-    def __init__(self, subject, context):
+    def __init__(self, subject: Any, context: Any) -> None:
         self.subject = subject
         self.context = context
 
-    def should_keep(self, max_sw, threshold, max_vp=None):
+    def should_keep(self, max_sw: int, threshold: float, max_vp: int | None = None) -> tuple[bool, int]:
         # how much damage do we expect to take in the future?
         # TODO: revisit whether this is a good prediction of
         # future damage
@@ -226,9 +229,10 @@ class DefaultKeepLightWoundsOptimizer(KeepLightWoundsOptimizer):
         tn -= bonus
         # determine how many VP are available
         vp_available = self.subject.void_point_manager().vp("wound check")
-        vp_available = min(max_vp, self.subject.max_vp_per_roll())
+        if max_vp is not None:
+            vp_available = min(max_vp, self.subject.max_vp_per_roll())
         # find probability of making the TN with different VP spends
-        p_tn_d = {}
+        p_tn_d: dict[int, float] = {}
         for vp in range(vp_available + 1):
             (rolled, kept, modifier) = self.subject.get_wound_check_roll_params(vp=vp)
             p_tn = self.context.p(tn - modifier, rolled, kept)
@@ -236,6 +240,7 @@ class DefaultKeepLightWoundsOptimizer(KeepLightWoundsOptimizer):
             if p_tn >= threshold:
                 break
         # find the cheapest roll that meets the threshold
+        assert max_vp is not None
         for vp in range(max_vp + 1):
             if p_tn_d[vp] >= threshold:
                 return (True, vp)
@@ -257,11 +262,11 @@ class RiskyKeepLightWoundsOptimizer(KeepLightWoundsOptimizer):
     that many SW or worse?"
     """
 
-    def __init__(self, subject, context):
+    def __init__(self, subject: Any, context: Any) -> None:
         self.subject = subject
         self.context = context
 
-    def should_keep(self, max_sw, threshold, max_vp=None):
+    def should_keep(self, max_sw: int, threshold: float, max_vp: int | None = None) -> tuple[bool, int]:
         expected_damage = 0
         if len(self.subject.lw_history()) == 0:
             expected_damage = self.context.mean_roll(7, 2)

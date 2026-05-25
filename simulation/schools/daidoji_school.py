@@ -14,6 +14,9 @@
 # characters at no penalty.
 #
 
+from collections.abc import Iterator
+from typing import Any
+
 from simulation.actions import CounterattackAction
 from simulation.events import (
     AddModifierEvent,
@@ -38,43 +41,43 @@ from simulation.strategies.take_action_event_factory import DefaultTakeActionEve
 
 
 class DaidojiYojimboSchool(BaseSchool):
-    def ap_base_skill(self):
+    def ap_base_skill(self) -> str | None:
         return None
 
-    def apply_special_ability(self, character):
+    def apply_special_ability(self, character: Any) -> None:
         character.set_interrupt_cost("counterattack", 1)
         character.set_action_factory(DAIDOJI_ACTION_FACTORY)
         character.set_take_action_event_factory(DAIDOJI_TAKE_ACTION_EVENT_FACTORY)
         character.set_strategy("interrupt", CounterattackInterruptStrategy())
 
-    def apply_rank_three_ability(self, character):
+    def apply_rank_three_ability(self, character: Any) -> None:
         # After a successful counterattack, grant X free raises on wound check
         # to the target of the original attack, where X = Daidoji's attack skill.
         character._daidoji_third_dan = True
 
-    def apply_rank_four_ability(self, character):
+    def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         # Redirect damage from allies to the Daidoji
         character.set_listener("lw_damage", DaidojiFourthDanListener(character))
 
-    def apply_rank_five_ability(self, character):
+    def apply_rank_five_ability(self, character: Any) -> None:
         # After a wound check succeeds, lower the attacker's TN to hit
         # by the excess amount.
         character.set_listener("wound_check_succeeded", DaidojiFifthDanWoundCheckListener(character))
 
-    def extra_rolled(self):
+    def extra_rolled(self) -> list[str]:
         return ["attack", "counterattack", "wound check"]
 
-    def free_raise_skills(self):
+    def free_raise_skills(self) -> list[str]:
         return ["counterattack"]
 
-    def name(self):
+    def name(self) -> str:
         return "Daidoji Yojimbo School"
 
-    def school_knacks(self):
+    def school_knacks(self) -> list[str]:
         return ["counterattack", "double attack", "iaijutsu"]
 
-    def school_ring(self):
+    def school_ring(self) -> str:
         return "water"
 
 
@@ -82,14 +85,15 @@ class DaidojiCounterattackAction(CounterattackAction):
     """Daidoji counterattacks have no TN penalty for counterattacking
     on behalf of other characters."""
 
-    def tn(self):
-        return self.target().tn_to_hit()
+    def tn(self) -> int:
+        result: int = self.target().tn_to_hit()
+        return result
 
 
 class DaidojiActionFactory(DefaultActionFactory):
     """ActionFactory that returns DaidojiCounterattackAction for counterattacks."""
 
-    def get_counterattack_action(self, subject, target, attack, skill, initiative_action, context, vp=0):
+    def get_counterattack_action(self, subject: Any, target: Any, attack: Any, skill: str, initiative_action: Any, context: Any, vp: int = 0) -> Any:
         return DaidojiCounterattackAction(subject, target, skill, initiative_action, context, attack, vp=vp)
 
 
@@ -104,7 +108,7 @@ class DaidojiTakeCounterattackActionEvent(TakeCounterattackActionEvent):
     implemented as -5 on the wound check TN).
     """
 
-    def play(self, context):
+    def play(self, context: Any) -> Iterator[Any]:
         yield CounterattackDeclaredEvent(self.action)
         self.action.roll_skill()
         if self.action.vp() > 0:
@@ -138,7 +142,7 @@ class DaidojiTakeCounterattackActionEvent(TakeCounterattackActionEvent):
 class DaidojiTakeActionEventFactory(DefaultTakeActionEventFactory):
     """Custom TakeActionEventFactory that returns Daidoji-specific counterattack events."""
 
-    def get_take_counterattack_action_event(self, action):
+    def get_take_counterattack_action_event(self, action: Any) -> Any:
         return DaidojiTakeCounterattackActionEvent(action)
 
 
@@ -154,11 +158,11 @@ class DaidojiFourthDanListener(Listener):
     Also observes other characters' damage rolls (same as default).
     """
 
-    def __init__(self, daidoji):
+    def __init__(self, daidoji: Any) -> None:
         self._daidoji = daidoji
         self._default_listener = LightWoundsDamageListener()
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, LightWoundsDamageEvent):
             if character != self._daidoji:
                 # Not the Daidoji character: use default behavior
@@ -197,11 +201,11 @@ class DaidojiFifthDanWoundCheckListener(Listener):
     against the attacker or at end of round.
     """
 
-    def __init__(self, daidoji):
+    def __init__(self, daidoji: Any) -> None:
         self._daidoji = daidoji
         self._default_listener = None
 
-    def handle(self, character, event, context):
+    def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, WoundCheckSucceededEvent):
             if character != self._daidoji:
                 # Non-Daidoji characters: use default behavior

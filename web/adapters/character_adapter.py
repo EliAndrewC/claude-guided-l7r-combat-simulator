@@ -1,16 +1,18 @@
 import os
+from typing import Any
 
 import yaml
 
+from simulation.character import Character
 from simulation.character_builder import CharacterBuilder
 from simulation.schools.factory import get_school
 from simulation.strategies.factory import get_strategy
 from web.models import CharacterConfig
 
 
-def config_to_character(config: CharacterConfig):
+def config_to_character(config: CharacterConfig) -> Character:
     """Build a Character from a CharacterConfig, replicating CharacterReader.read() sequence."""
-    builder = CharacterBuilder().with_xp(config.xp)
+    builder: Any = CharacterBuilder().with_xp(config.xp)
     builder.with_name(config.name)
 
     # choose type
@@ -54,7 +56,8 @@ def config_to_character(config: CharacterConfig):
         for _ in range(level):
             builder.take_ability(name)
 
-    return builder.build()
+    character: Character = builder.build()
+    return character
 
 
 def yaml_to_config(yaml_str: str) -> CharacterConfig:
