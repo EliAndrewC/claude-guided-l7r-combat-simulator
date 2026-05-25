@@ -16,12 +16,6 @@ podman run --interactive --tty --rm \
   bash
 ```
 
-or on Docker:
-
-```
-docker run -it --rm --name claude-guided -v "$(pwd):/workspace" -p 8502:8501 claude-code-sandbox:latest bash
-```
-
 ## Fly.io Deployment
 
 The app is deployed to https://l7r-combat-sim.fly.dev/ via Fly.io.
