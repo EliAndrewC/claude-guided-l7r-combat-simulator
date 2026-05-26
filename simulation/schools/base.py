@@ -76,6 +76,41 @@ class BaseSchool(School):
         self._ap_skills: list[str] = []
         self._free_raises_skills: list[str] = []
         self._skills: dict[str, int] = dict([(skill, 1) for skill in self.school_knacks()])
+        # Per-character build-time choices populated by the adapter before any
+        # apply_*_ability runs.  See specs/003-school-choices/spec.md FR-002.
+        self._choices: dict[str, Any] = {}
+
+    def set_choice(self, key: str, value: Any) -> None:
+        """Store a per-character build-time choice for a school ability.
+
+        Called by the web adapter BEFORE ``apply_*_ability`` methods run so
+        subclass overrides can consult ``self.choice(key, default)`` from
+        ``extra_rolled``, ``school_ring``, ``free_raise_skills``, etc.
+
+        Subclasses that have no player choices ignore this transparently
+        because they never read the key.
+
+        See specs/003-school-choices/spec.md FR-002.
+        """
+        if not hasattr(self, "_choices"):
+            # Defensive: a subclass that overrides ``__init__`` without
+            # calling ``super().__init__()`` would skip the field init above.
+            self._choices = {}
+        self._choices[key] = value
+
+    def choice(self, key: str, default: Any = None) -> Any:
+        """Read a per-character build-time choice; return ``default`` if unset.
+
+        See specs/003-school-choices/spec.md FR-002.
+        """
+        return getattr(self, "_choices", {}).get(key, default)
+
+    def has_choice(self, key: str) -> bool:
+        """Return True iff a choice has been set for ``key`` on this instance.
+
+        See specs/003-school-choices/spec.md FR-002.
+        """
+        return key in getattr(self, "_choices", {})
 
     def _set_school_listener(self, character: Any, slot: str, listener: Any) -> None:
         """Install a school-owned listener on the given character.

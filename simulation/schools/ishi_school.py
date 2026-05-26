@@ -38,6 +38,7 @@ from simulation.listeners import (
     WoundCheckRolledListener,
     YourMoveListener,
 )
+from simulation.log import logger
 from simulation.schools.base import BaseSchool
 from simulation.strategies.base import PlainAttackStrategy
 from simulation.strategies.ishi_dan_abilities import (
@@ -67,6 +68,18 @@ class IshiMaxVPProvider:
 
 
 class IsawaIshiSchool(BaseSchool):
+    """Isawa Ishi School.
+
+    Accepted school_choices (overrideable via YAML):
+      - first_dan_extra_rolled: list[str] (length 2) of skill names the 1st Dan
+        +1-die applies to, alongside the mandatory "precepts". Default:
+        ["wound check", "initiative"]. Rules: "precepts and any two types of
+        rolls of your choice."
+      - second_dan_free_raise: str skill name for the 2nd Dan free raise.
+        Default: "precepts". Rules: "free raise on all rolls for any skill of
+        your choice."
+    """
+
     def __init__(self) -> None:
         self._vp_provider = IshiMaxVPProvider()
         super().__init__()
@@ -152,13 +165,43 @@ class IsawaIshiSchool(BaseSchool):
         self._vp_provider.set_school_rank(5)
 
     def extra_rolled(self) -> list[str]:
-        return ["precepts", "wound check", "initiative"]
+        # rules/04-schools.md "Isawa Ishi School: 1st Dan": "precepts and any
+        # two types of rolls of your choice."  Precepts is mandatory (see
+        # specs/003-school-choices/OPEN_QUESTIONS.md Q4) and is always
+        # prepended; the two choice-skills come from the
+        # ``first_dan_extra_rolled`` choice, defaulting to
+        # ["wound check", "initiative"] (specs/002 OPEN_QUESTIONS Q1).
+        default: list[str] = ["wound check", "initiative"]
+        chosen = self.choice("first_dan_extra_rolled", default)
+        # FR-007: validate shape (list[str] of length 2); warn + fallback.
+        if not (
+            isinstance(chosen, list)
+            and len(chosen) == 2
+            and all(isinstance(s, str) for s in chosen)
+        ):
+            logger.warning(
+                f"Isawa Ishi: invalid 'first_dan_extra_rolled' choice "
+                f"(expected list of 2 skill names; got {chosen!r}). Using default.",
+            )
+            chosen = default
+        return ["precepts"] + list(chosen)
 
     def free_raise_skills(self) -> list[str]:
-        # rules/04-schools.md "Isawa Ishi School: 2nd Dan" — free raise on
-        # precepts (the school's signature skill; see specs/002
-        # OPEN_QUESTIONS.md Q2 for the rationale).
-        return ["precepts"]
+        # rules/04-schools.md "Isawa Ishi School: 2nd Dan": "free raise on all
+        # rolls for any skill of your choice."  Default is ``precepts`` (the
+        # school's signature skill; see specs/002 OPEN_QUESTIONS.md Q2).  The
+        # ``second_dan_free_raise`` choice overrides per
+        # specs/003-school-choices/spec.md FR-005.
+        default = "precepts"
+        chosen = self.choice("second_dan_free_raise", default)
+        # FR-007: validate shape (str); warn + fallback.
+        if not isinstance(chosen, str):
+            logger.warning(
+                f"Isawa Ishi: invalid 'second_dan_free_raise' choice "
+                f"(expected string skill name; got {chosen!r}). Using default.",
+            )
+            chosen = default
+        return [chosen]
 
     def name(self) -> str:
         return "Isawa Ishi School"

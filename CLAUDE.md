@@ -62,6 +62,32 @@ If `.env` is missing in a fresh container, the user has the canonical copy and w
 
 To use the secrets in a shell session: `set -a && source .env && set +a` (the `set -a` makes sourced assignments exported). Values containing whitespace (the Fly token does) MUST be quoted in `.env`.
 
+## School player choices (build-time, via YAML)
+
+Schools whose rules text gives players a build-time choice (e.g., Ishi 1st Dan "any two skills of your choice", Ide Diplomat "Any non-Void Ring") expose those as `school_choices` in the character YAML:
+
+```yaml
+school: Isawa Ishi School
+school_choices:
+  first_dan_extra_rolled: [parry, wound check]   # list of 2 skill names; precepts auto-prepended
+  second_dan_free_raise: parry                    # single skill name
+```
+
+```yaml
+school: Ide Diplomat School
+school_choices:
+  first_dan_extra_rolled: [feint, parry]
+  second_dan_free_raise: feint
+  school_ring: fire                               # any non-Void (air, earth, fire, water)
+```
+
+How to add a new school's choices:
+1. The school's relevant methods (`extra_rolled`, `free_raise_skills`, `school_ring`, etc.) read `self.choice(key, default)` and validate the shape.
+2. Document the accepted keys in the school class's docstring.
+3. Invalid choices log a warning via `simulation.log.logger` and fall back to the default — never crash the build.
+
+Implementation lives in `simulation/schools/base.py::BaseSchool.set_choice/choice/has_choice`. The adapter wiring is in `web/adapters/character_adapter.py::config_to_character` (choices are applied to the school instance BEFORE `apply_*_ability` runs).
+
 ## Manual actions not done after every code change
 5. **Deploy to Fly.io**: The app is deployed to Fly.io at https://l7r-combat-sim.fly.dev/. Do NOT deploy unless the user explicitly asks.
    - **Install flyctl** (if not present at `~/.fly/bin/flyctl`): `curl -L https://fly.io/install.sh | sh`. Installs to the canonical path `~/.fly/bin/flyctl`.

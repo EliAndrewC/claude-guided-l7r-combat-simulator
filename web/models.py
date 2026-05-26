@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -14,6 +15,10 @@ class CharacterConfig:
     disadvantages: list[str] = field(default_factory=list)
     strategies: dict[str, str] = field(default_factory=dict)
     abilities: dict[str, int] = field(default_factory=dict)
+    # Per-character build-time school choices (e.g., 1st Dan "any two skills",
+    # Ide "any non-Void ring"). Keys are school-defined; defaults preserved
+    # when absent. See specs/003-school-choices/spec.md FR-001.
+    school_choices: dict[str, Any] = field(default_factory=dict)
     # Optional template metadata
     template_tier: str = ""
     template_earned_xp: int = 0

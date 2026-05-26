@@ -32,7 +32,10 @@ class TestIdeDiplomatSchoolBasics(unittest.TestCase):
 
     def test_extra_rolled(self):
         school = ide_school.IdeDiplomatSchool()
-        self.assertEqual(["wound check", "initiative", "precepts"], school.extra_rolled())
+        # Per specs/003-school-choices: precepts is mandatory per rules text
+        # ("extra rolled die on precepts and any two rolls of your choice"),
+        # and is prepended. Defaults preserve original behavior.
+        self.assertEqual(["precepts", "wound check", "initiative"], school.extra_rolled())
 
     def test_school_ring(self):
         school = ide_school.IdeDiplomatSchool()
@@ -190,3 +193,313 @@ class TestIdeFourthDan(unittest.TestCase):
         school = ide_school.IdeDiplomatSchool()
         school.apply_rank_four_ability(ide)
         self.assertEqual(4, ide.ring("water"))
+
+
+class TestIdeDiplomatSchoolChoices(unittest.TestCase):
+    """Phase 3 of the school-choices feature (specs/003-school-choices).
+
+    The Ide Diplomat School honors three per-character build-time choices:
+      - ``first_dan_extra_rolled``: list[str] (length 2) -- alongside the
+        mandatory ``precepts`` per rules text ("Roll one extra die on
+        precepts and any two rolls of your choice").
+      - ``second_dan_free_raise``: str -- skill name for the 2nd Dan free
+        raise ("You get a free raise on any type of roll of your choice").
+      - ``school_ring``: str -- any non-Void ring (rules text "School Ring:
+        Any non-Void"). The 4th Dan ring raise targets the chosen ring.
+
+    Invalid choices warn and fall back to the school's hardcoded default
+    (FR-007). Defaults preserve existing behavior when no choice is set
+    (FR-006, FR-008).
+    """
+
+    # ------------------------------------------------------------------
+    # first_dan_extra_rolled
+    # ------------------------------------------------------------------
+
+    def test_first_dan_extra_rolled_uses_default_when_no_choice(self):
+        """FR-006 / FR-008: with no choice set, ``extra_rolled()`` returns
+        the hardcoded default ``["precepts", "wound check", "initiative"]``.
+
+        rules/04-schools.md "Ide Diplomat School: 1st Dan".
+        """
+        school = ide_school.IdeDiplomatSchool()
+        self.assertEqual(
+            ["precepts", "wound check", "initiative"], school.extra_rolled(),
+        )
+
+    def test_first_dan_extra_rolled_honors_choice(self):
+        """FR-006: setting ``first_dan_extra_rolled`` overrides the two
+        choice-skills; ``"precepts"`` is always prepended.
+        """
+        school = ide_school.IdeDiplomatSchool()
+        school.set_choice("first_dan_extra_rolled", ["parry", "attack"])
+        self.assertEqual(["precepts", "parry", "attack"], school.extra_rolled())
+
+    def test_first_dan_extra_rolled_falls_back_on_wrong_length(self):
+        """FR-007: a list of length != 2 logs a warning and uses the default."""
+        school = ide_school.IdeDiplomatSchool()
+        # Length 1
+        school.set_choice("first_dan_extra_rolled", ["parry"])
+        with self.assertLogs(logger, level="WARNING") as cm:
+            result = school.extra_rolled()
+        self.assertEqual(["precepts", "wound check", "initiative"], result)
+        self.assertTrue(
+            any("first_dan_extra_rolled" in m for m in cm.output),
+            f"Expected warning about first_dan_extra_rolled, got {cm.output}",
+        )
+        # Length 3
+        school.set_choice("first_dan_extra_rolled", ["parry", "attack", "kenjutsu"])
+        with self.assertLogs(logger, level="WARNING") as cm:
+            result = school.extra_rolled()
+        self.assertEqual(["precepts", "wound check", "initiative"], result)
+        self.assertTrue(
+            any("first_dan_extra_rolled" in m for m in cm.output),
+            f"Expected warning about first_dan_extra_rolled, got {cm.output}",
+        )
+
+    def test_first_dan_extra_rolled_falls_back_on_wrong_shape(self):
+        """FR-007: non-list (string, dict) or list-with-non-strings logs a
+        warning and uses default.
+        """
+        # String
+        school = ide_school.IdeDiplomatSchool()
+        school.set_choice("first_dan_extra_rolled", "parry")
+        with self.assertLogs(logger, level="WARNING") as cm:
+            result = school.extra_rolled()
+        self.assertEqual(["precepts", "wound check", "initiative"], result)
+        self.assertTrue(
+            any("first_dan_extra_rolled" in m for m in cm.output),
+            f"Expected warning about first_dan_extra_rolled, got {cm.output}",
+        )
+        # Dict
+        school = ide_school.IdeDiplomatSchool()
+        school.set_choice("first_dan_extra_rolled", {"a": "b"})
+        with self.assertLogs(logger, level="WARNING") as cm:
+            result = school.extra_rolled()
+        self.assertEqual(["precepts", "wound check", "initiative"], result)
+        self.assertTrue(
+            any("first_dan_extra_rolled" in m for m in cm.output),
+            f"Expected warning about first_dan_extra_rolled, got {cm.output}",
+        )
+        # List containing non-strings
+        school = ide_school.IdeDiplomatSchool()
+        school.set_choice("first_dan_extra_rolled", ["parry", 7])
+        with self.assertLogs(logger, level="WARNING") as cm:
+            result = school.extra_rolled()
+        self.assertEqual(["precepts", "wound check", "initiative"], result)
+
+    # ------------------------------------------------------------------
+    # second_dan_free_raise
+    # ------------------------------------------------------------------
+
+    def test_second_dan_free_raise_uses_default_when_no_choice(self):
+        """FR-006 / FR-008: with no choice set, ``free_raise_skills()`` returns
+        the Ide-specific default ``["attack"]`` (NOT precepts -- distinct from
+        Ishi's default).
+
+        rules/04-schools.md "Ide Diplomat School: 2nd Dan".
+        """
+        school = ide_school.IdeDiplomatSchool()
+        self.assertEqual(["attack"], school.free_raise_skills())
+
+    def test_second_dan_free_raise_honors_choice(self):
+        """FR-006: setting ``second_dan_free_raise`` overrides the default skill."""
+        school = ide_school.IdeDiplomatSchool()
+        school.set_choice("second_dan_free_raise", "parry")
+        self.assertEqual(["parry"], school.free_raise_skills())
+
+    def test_second_dan_free_raise_falls_back_on_wrong_shape(self):
+        """FR-007: a non-string value (list, int) logs a warning and uses
+        the Ide default ``"attack"``.
+        """
+        # List
+        school = ide_school.IdeDiplomatSchool()
+        school.set_choice("second_dan_free_raise", ["parry"])
+        with self.assertLogs(logger, level="WARNING") as cm:
+            result = school.free_raise_skills()
+        self.assertEqual(["attack"], result)
+        self.assertTrue(
+            any("second_dan_free_raise" in m for m in cm.output),
+            f"Expected warning about second_dan_free_raise, got {cm.output}",
+        )
+        # Int
+        school = ide_school.IdeDiplomatSchool()
+        school.set_choice("second_dan_free_raise", 7)
+        with self.assertLogs(logger, level="WARNING") as cm:
+            result = school.free_raise_skills()
+        self.assertEqual(["attack"], result)
+        self.assertTrue(
+            any("second_dan_free_raise" in m for m in cm.output),
+            f"Expected warning about second_dan_free_raise, got {cm.output}",
+        )
+
+    # ------------------------------------------------------------------
+    # school_ring (Pattern B -- new for Ide)
+    # ------------------------------------------------------------------
+
+    def test_school_ring_uses_default_when_no_choice(self):
+        """FR-006 / FR-008: with no choice set, ``school_ring()`` returns the
+        Ide default ``"water"``.
+
+        rules/04-schools.md "Ide Diplomat School: School Ring: Any non-Void".
+        """
+        school = ide_school.IdeDiplomatSchool()
+        self.assertEqual("water", school.school_ring())
+
+    def test_school_ring_honors_choice(self):
+        """FR-006: setting ``school_ring`` to a valid non-Void ring overrides
+        the default. Verified for each of the four valid rings.
+        """
+        for chosen in ("air", "earth", "fire", "water"):
+            school = ide_school.IdeDiplomatSchool()
+            school.set_choice("school_ring", chosen)
+            self.assertEqual(chosen, school.school_ring())
+
+    def test_school_ring_rejects_void(self):
+        """FR-007: ``"void"`` is forbidden by rules text ("Any non-Void");
+        warn and fall back to the default ``"water"``.
+        """
+        school = ide_school.IdeDiplomatSchool()
+        school.set_choice("school_ring", "void")
+        with self.assertLogs(logger, level="WARNING") as cm:
+            result = school.school_ring()
+        self.assertEqual("water", result)
+        self.assertTrue(
+            any("school_ring" in m for m in cm.output),
+            f"Expected warning about school_ring, got {cm.output}",
+        )
+
+    def test_school_ring_rejects_unknown_ring(self):
+        """FR-007: an unknown ring name (typo, made-up element) warns and
+        falls back to ``"water"``.
+        """
+        school = ide_school.IdeDiplomatSchool()
+        school.set_choice("school_ring", "shadow")
+        with self.assertLogs(logger, level="WARNING") as cm:
+            result = school.school_ring()
+        self.assertEqual("water", result)
+        self.assertTrue(
+            any("school_ring" in m for m in cm.output),
+            f"Expected warning about school_ring, got {cm.output}",
+        )
+
+    def test_school_ring_rejects_wrong_shape(self):
+        """FR-007: non-string (list, int, dict) warns and falls back."""
+        school = ide_school.IdeDiplomatSchool()
+        school.set_choice("school_ring", ["fire"])
+        with self.assertLogs(logger, level="WARNING") as cm:
+            result = school.school_ring()
+        self.assertEqual("water", result)
+        self.assertTrue(
+            any("school_ring" in m for m in cm.output),
+            f"Expected warning about school_ring, got {cm.output}",
+        )
+
+    # ------------------------------------------------------------------
+    # 4th Dan ring raise targets the CHOSEN ring (not hardcoded water)
+    # ------------------------------------------------------------------
+
+    def test_fourth_dan_raises_chosen_ring(self):
+        """FR-006: when ``school_ring`` is overridden, ``apply_rank_four_ability``
+        (which calls ``apply_school_ring_raise_and_discount``) targets the
+        chosen ring, not the original default ``"water"``.
+
+        rules/04-schools.md "Ide Diplomat School: 4th Dan" (Ring+1 / discount).
+        """
+        ide = Character("Ide")
+        ide.set_ring("fire", 3)
+        ide.set_ring("water", 3)
+        school = ide_school.IdeDiplomatSchool()
+        school.set_choice("school_ring", "fire")
+        school.apply_rank_four_ability(ide)
+        # Fire was bumped; water was NOT touched.
+        self.assertEqual(4, ide.ring("fire"))
+        self.assertEqual(3, ide.ring("water"))
+
+    # ------------------------------------------------------------------
+    # Choices survive apply_rank_one / apply_rank_two (integration)
+    # ------------------------------------------------------------------
+
+    def test_choices_survive_apply_rank_chain(self):
+        """FR-003 / FR-006: choices set BEFORE the rank-1 / rank-2 apply
+        chain install the chosen skills (not the defaults) on the character.
+        """
+        from simulation.mechanics.modifiers import FreeRaise
+
+        ide = Character("Ide")
+        ide.set_ring("air", 3)
+        ide.set_ring("earth", 3)
+        ide.set_ring("fire", 3)
+        ide.set_ring("water", 3)
+        school = ide_school.IdeDiplomatSchool()
+        school.set_choice("first_dan_extra_rolled", ["parry", "attack"])
+        school.set_choice("second_dan_free_raise", "parry")
+        ide.set_school(school)
+        school.apply_rank_one_ability(ide)
+        school.apply_rank_two_ability(ide)
+        # 1st Dan: chosen skills + precepts each get +1 rolled.
+        self.assertEqual(1, ide.extra_rolled("precepts"))
+        self.assertEqual(1, ide.extra_rolled("parry"))
+        self.assertEqual(1, ide.extra_rolled("attack"))
+        # Defaults must NOT be installed.
+        self.assertEqual(0, ide.extra_rolled("wound check"))
+        self.assertEqual(0, ide.extra_rolled("initiative"))
+        # 2nd Dan: FreeRaise on parry, not the default ``attack``.
+        free_raise_skills_installed: list[str] = []
+        for mod in ide._modifiers:
+            if isinstance(mod, FreeRaise):
+                free_raise_skills_installed.extend(mod.skills())
+        self.assertIn("parry", free_raise_skills_installed)
+        self.assertNotIn("attack", free_raise_skills_installed)
+
+    # ------------------------------------------------------------------
+    # End-to-end via config_to_character
+    # ------------------------------------------------------------------
+
+    def test_config_to_character_applies_school_choices_end_to_end(self):
+        """FR-003 / FR-006 end-to-end: YAML choices land on the resulting
+        Character's extra_rolled, FreeRaise modifier list, AND school_ring.
+
+        Sets all three Ide-specific choices in one CharacterConfig and
+        verifies each lands correctly. ``school_ring = "air"`` is exercised
+        so the 4th Dan ring raise would land on air (verified separately
+        in ``test_fourth_dan_raises_chosen_ring``).
+        """
+        from simulation.mechanics.modifiers import FreeRaise
+        from web.adapters.character_adapter import config_to_character
+        from web.models import CharacterConfig
+
+        config = CharacterConfig(
+            name="ChoiceIde",
+            xp=500,
+            char_type="school",
+            school="Ide Diplomat School",
+            rings={"air": 2, "earth": 2, "fire": 2, "water": 2, "void": 2},
+            skills={
+                # Knacks must all reach rank 2 to trigger the 2nd Dan ability.
+                "double attack": 2,
+                "feint": 2,
+                "worldliness": 2,
+            },
+            school_choices={
+                "first_dan_extra_rolled": ["parry", "wound check"],
+                "second_dan_free_raise": "parry",
+                "school_ring": "air",
+            },
+        )
+        character = config_to_character(config)
+        # 1st Dan honored: precepts (mandatory) + parry + wound check.
+        self.assertEqual(1, character.extra_rolled("precepts"))
+        self.assertEqual(1, character.extra_rolled("parry"))
+        self.assertEqual(1, character.extra_rolled("wound check"))
+        # Default "initiative" must NOT be installed.
+        self.assertEqual(0, character.extra_rolled("initiative"))
+        # 2nd Dan: FreeRaise on parry, not the Ide default ``attack``.
+        free_raise_skills_installed: list[str] = []
+        for mod in character._modifiers:
+            if isinstance(mod, FreeRaise):
+                free_raise_skills_installed.extend(mod.skills())
+        self.assertIn("parry", free_raise_skills_installed)
+        self.assertNotIn("attack", free_raise_skills_installed)
+        # school_ring choice honored on the school instance.
+        self.assertEqual("air", character.school().school_ring())

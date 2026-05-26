@@ -1678,3 +1678,225 @@ class TestIshiTraceClarity(unittest.TestCase):
         self.assertIn("Akodo Bushi School", joined)
         self.assertIn("8", joined)
         self.assertIn("Isawa Ishi 5th Dan", joined)
+
+
+class TestIsawaIshiSchoolChoices(unittest.TestCase):
+    """Phase 2 of the school-choices feature (specs/003-school-choices).
+
+    The Isawa Ishi School honors two per-character build-time choices:
+      - ``first_dan_extra_rolled``: list[str] (length 2) — alongside the
+        mandatory ``precepts`` per rules text ("precepts and any two types
+        of rolls of your choice"; see specs/003-school-choices/OPEN_QUESTIONS.md Q4).
+      - ``second_dan_free_raise``: str — skill name for the 2nd Dan free
+        raise ("free raise on all rolls for any skill of your choice").
+
+    Invalid choices warn and fall back to the school's hardcoded default
+    (FR-007). Defaults preserve existing behavior when no choice is set
+    (FR-005, FR-008).
+    """
+
+    # ------------------------------------------------------------------
+    # first_dan_extra_rolled
+    # ------------------------------------------------------------------
+
+    def test_first_dan_extra_rolled_uses_default_when_no_choice(self):
+        """FR-005 / FR-008: with no choice set, ``extra_rolled()`` returns
+        the hardcoded default ``["precepts", "wound check", "initiative"]``.
+
+        rules/04-schools.md "Isawa Ishi School: 1st Dan".
+        """
+        school = ishi_school.IsawaIshiSchool()
+        self.assertEqual(
+            ["precepts", "wound check", "initiative"], school.extra_rolled(),
+        )
+
+    def test_first_dan_extra_rolled_honors_choice(self):
+        """FR-005: setting ``first_dan_extra_rolled`` overrides the two
+        choice-skills; ``"precepts"`` is always prepended per OPEN_QUESTIONS Q4.
+        """
+        school = ishi_school.IsawaIshiSchool()
+        school.set_choice("first_dan_extra_rolled", ["parry", "attack"])
+        self.assertEqual(["precepts", "parry", "attack"], school.extra_rolled())
+
+    def test_first_dan_extra_rolled_falls_back_on_wrong_length(self):
+        """FR-007: a list of length != 2 logs a warning and uses the default."""
+        school = ishi_school.IsawaIshiSchool()
+        # Length 1
+        school.set_choice("first_dan_extra_rolled", ["parry"])
+        with self.assertLogs(logger, level="WARNING") as cm:
+            result = school.extra_rolled()
+        self.assertEqual(["precepts", "wound check", "initiative"], result)
+        self.assertTrue(
+            any("first_dan_extra_rolled" in m for m in cm.output),
+            f"Expected warning about first_dan_extra_rolled, got {cm.output}",
+        )
+        # Length 3
+        school.set_choice("first_dan_extra_rolled", ["parry", "attack", "kenjutsu"])
+        with self.assertLogs(logger, level="WARNING") as cm:
+            result = school.extra_rolled()
+        self.assertEqual(["precepts", "wound check", "initiative"], result)
+        self.assertTrue(
+            any("first_dan_extra_rolled" in m for m in cm.output),
+            f"Expected warning about first_dan_extra_rolled, got {cm.output}",
+        )
+
+    def test_first_dan_extra_rolled_falls_back_on_wrong_shape(self):
+        """FR-007: non-list (string, dict) logs a warning and uses default."""
+        # String
+        school = ishi_school.IsawaIshiSchool()
+        school.set_choice("first_dan_extra_rolled", "parry")
+        with self.assertLogs(logger, level="WARNING") as cm:
+            result = school.extra_rolled()
+        self.assertEqual(["precepts", "wound check", "initiative"], result)
+        self.assertTrue(
+            any("first_dan_extra_rolled" in m for m in cm.output),
+            f"Expected warning about first_dan_extra_rolled, got {cm.output}",
+        )
+        # Dict
+        school = ishi_school.IsawaIshiSchool()
+        school.set_choice("first_dan_extra_rolled", {"a": "b"})
+        with self.assertLogs(logger, level="WARNING") as cm:
+            result = school.extra_rolled()
+        self.assertEqual(["precepts", "wound check", "initiative"], result)
+        self.assertTrue(
+            any("first_dan_extra_rolled" in m for m in cm.output),
+            f"Expected warning about first_dan_extra_rolled, got {cm.output}",
+        )
+        # List containing non-strings
+        school = ishi_school.IsawaIshiSchool()
+        school.set_choice("first_dan_extra_rolled", ["parry", 7])
+        with self.assertLogs(logger, level="WARNING") as cm:
+            result = school.extra_rolled()
+        self.assertEqual(["precepts", "wound check", "initiative"], result)
+
+    # ------------------------------------------------------------------
+    # second_dan_free_raise
+    # ------------------------------------------------------------------
+
+    def test_second_dan_free_raise_uses_default_when_no_choice(self):
+        """FR-005 / FR-008: with no choice set, ``free_raise_skills()`` returns
+        the hardcoded default ``["precepts"]``.
+
+        rules/04-schools.md "Isawa Ishi School: 2nd Dan".
+        """
+        school = ishi_school.IsawaIshiSchool()
+        self.assertEqual(["precepts"], school.free_raise_skills())
+
+    def test_second_dan_free_raise_honors_choice(self):
+        """FR-005: setting ``second_dan_free_raise`` overrides the default skill."""
+        school = ishi_school.IsawaIshiSchool()
+        school.set_choice("second_dan_free_raise", "parry")
+        self.assertEqual(["parry"], school.free_raise_skills())
+
+    def test_second_dan_free_raise_falls_back_on_wrong_shape(self):
+        """FR-007: a non-string value (list, int) logs a warning and uses default."""
+        # List
+        school = ishi_school.IsawaIshiSchool()
+        school.set_choice("second_dan_free_raise", ["parry"])
+        with self.assertLogs(logger, level="WARNING") as cm:
+            result = school.free_raise_skills()
+        self.assertEqual(["precepts"], result)
+        self.assertTrue(
+            any("second_dan_free_raise" in m for m in cm.output),
+            f"Expected warning about second_dan_free_raise, got {cm.output}",
+        )
+        # Int
+        school = ishi_school.IsawaIshiSchool()
+        school.set_choice("second_dan_free_raise", 7)
+        with self.assertLogs(logger, level="WARNING") as cm:
+            result = school.free_raise_skills()
+        self.assertEqual(["precepts"], result)
+        self.assertTrue(
+            any("second_dan_free_raise" in m for m in cm.output),
+            f"Expected warning about second_dan_free_raise, got {cm.output}",
+        )
+
+    # ------------------------------------------------------------------
+    # Choices survive apply_rank_one / apply_rank_two chain (integration)
+    # ------------------------------------------------------------------
+
+    def test_choices_survive_apply_rank_chain(self):
+        """FR-003 / FR-005: choices set BEFORE the rank-1 / rank-2 apply
+        chain install the chosen skills (not the defaults) on the character.
+        Verified via ``character.extra_rolled(skill)`` for 1st Dan and the
+        installed FreeRaise modifier list for 2nd Dan.
+        """
+        from simulation.mechanics.modifiers import FreeRaise
+
+        ishi = Character("Ishi")
+        ishi.set_ring("air", 3)
+        ishi.set_ring("earth", 3)
+        ishi.set_ring("fire", 3)
+        ishi.set_ring("water", 3)
+        ishi.set_ring("void", 3)
+        school = ishi_school.IsawaIshiSchool()
+        # Set choices BEFORE apply_*_ability is invoked.
+        school.set_choice("first_dan_extra_rolled", ["parry", "attack"])
+        school.set_choice("second_dan_free_raise", "parry")
+        ishi.set_school(school)
+        school.apply_rank_one_ability(ishi)
+        school.apply_rank_two_ability(ishi)
+        # 1st Dan: the chosen skills + precepts each get +1 rolled.
+        self.assertEqual(1, ishi.extra_rolled("precepts"))
+        self.assertEqual(1, ishi.extra_rolled("parry"))
+        self.assertEqual(1, ishi.extra_rolled("attack"))
+        # Defaults must NOT have been installed.
+        self.assertEqual(0, ishi.extra_rolled("wound check"))
+        self.assertEqual(0, ishi.extra_rolled("initiative"))
+        # 2nd Dan: FreeRaise installed for the chosen skill (parry), not
+        # the default (precepts).
+        free_raise_skills_installed: list[str] = []
+        for mod in ishi._modifiers:
+            if isinstance(mod, FreeRaise):
+                free_raise_skills_installed.extend(mod.skills())
+        self.assertIn("parry", free_raise_skills_installed)
+        self.assertNotIn("precepts", free_raise_skills_installed)
+
+    # ------------------------------------------------------------------
+    # End-to-end via config_to_character
+    # ------------------------------------------------------------------
+
+    def test_config_to_character_applies_school_choices_end_to_end(self):
+        """FR-003 / FR-005 end-to-end: YAML choices land on the resulting
+        Character's extra_rolled and FreeRaise modifier list.
+
+        To exercise BOTH rank-1 and rank-2 abilities the config bumps every
+        knack to rank 2 (CharacterBuilder triggers rank-2 ability when the
+        minimum knack rank reaches 2).
+        """
+        from simulation.mechanics.modifiers import FreeRaise
+        from web.adapters.character_adapter import config_to_character
+        from web.models import CharacterConfig
+
+        config = CharacterConfig(
+            name="ChoiceIshi",
+            xp=500,
+            char_type="school",
+            school="Isawa Ishi School",
+            rings={"air": 2, "earth": 2, "fire": 3, "water": 3, "void": 2},
+            skills={
+                "precepts": 1,
+                # Knacks must all reach rank 2 to trigger the 2nd Dan ability.
+                "absorb void": 2,
+                "kharmic spin": 2,
+                "otherworldliness": 2,
+            },
+            school_choices={
+                "first_dan_extra_rolled": ["parry", "wound check"],
+                "second_dan_free_raise": "parry",
+            },
+        )
+        character = config_to_character(config)
+        # 1st Dan honored: precepts (mandatory) + parry + wound check.
+        self.assertEqual(1, character.extra_rolled("precepts"))
+        self.assertEqual(1, character.extra_rolled("parry"))
+        self.assertEqual(1, character.extra_rolled("wound check"))
+        # default "initiative" must NOT be installed.
+        self.assertEqual(0, character.extra_rolled("initiative"))
+        # 2nd Dan: FreeRaise on parry, not precepts.
+        free_raise_skills_installed: list[str] = []
+        for mod in character._modifiers:
+            if isinstance(mod, FreeRaise):
+                free_raise_skills_installed.extend(mod.skills())
+        self.assertIn("parry", free_raise_skills_installed)
+        self.assertNotIn("precepts", free_raise_skills_installed)

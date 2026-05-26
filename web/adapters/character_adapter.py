@@ -20,6 +20,11 @@ def config_to_character(config: CharacterConfig) -> Character:
         builder = builder.with_profession()
     elif config.char_type == "school":
         school = get_school(config.school)
+        # Apply per-character school choices BEFORE with_school() triggers
+        # initialize_school(), which runs apply_special_ability and
+        # apply_rank_one_ability.  See specs/003-school-choices/spec.md FR-003.
+        for key, value in config.school_choices.items():
+            school.set_choice(key, value)
         builder = builder.with_school(school)
     else:
         builder = builder.generic()
@@ -81,6 +86,9 @@ def yaml_to_config(yaml_str: str) -> CharacterConfig:
     config.disadvantages = data.get("disadvantages", [])
     config.strategies = data.get("strategies", {})
     config.abilities = data.get("abilities", {})
+    # Per-character build-time school choices (see FR-001 of
+    # specs/003-school-choices/spec.md).  Absent => empty dict => all defaults.
+    config.school_choices = data.get("school_choices", {})
 
     # Optional template metadata
     config.template_tier = str(data.get("template_tier", ""))
