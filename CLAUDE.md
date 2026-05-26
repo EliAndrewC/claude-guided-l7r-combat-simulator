@@ -52,8 +52,20 @@ After every code change, run these steps in order:
    - Start: Run `env/bin/streamlit run web/app.py --server.headless true` using the Bash tool with `run_in_background: true`
    - Verify: After a few seconds, read the background task output file to confirm "You can now view your Streamlit app" appears
 
+## Secrets and credentials
+
+Secrets live in a project-root `.env` file (gitignored — never commit). Currently the only secret is:
+
+- `FLY_API_TOKEN` — auth for `flyctl` deploys
+
+If `.env` is missing in a fresh container, the user has the canonical copy and will paste it back. New secrets we adopt go into the same `.env` and should be documented here.
+
+To use the secrets in a shell session: `set -a && source .env && set +a` (the `set -a` makes sourced assignments exported). Values containing whitespace (the Fly token does) MUST be quoted in `.env`.
+
 ## Manual actions not done after every code change
-5. **Deploy to Fly.io**: The app is deployed to Fly.io at https://l7r-combat-sim.fly.dev/. Do NOT deploy unless the user explicitly asks. Deploy command: `~/.fly/bin/flyctl deploy`
+5. **Deploy to Fly.io**: The app is deployed to Fly.io at https://l7r-combat-sim.fly.dev/. Do NOT deploy unless the user explicitly asks.
+   - **Install flyctl** (if not present at `~/.fly/bin/flyctl`): `curl -L https://fly.io/install.sh | sh`. Installs to the canonical path `~/.fly/bin/flyctl`.
+   - **Deploy**: `set -a && source .env && set +a && ~/.fly/bin/flyctl deploy` from the repo root. Picks up `FLY_API_TOKEN` from `.env`.
 
 <!-- SPECKIT START -->
 Active feature plan: [specs/001-mirumoto-bushi-school/plan.md](specs/001-mirumoto-bushi-school/plan.md)
