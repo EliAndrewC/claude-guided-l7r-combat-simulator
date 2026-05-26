@@ -78,6 +78,39 @@ takes that action. When a school's mechanics and its defaults diverge
 (e.g., a parry-focused school whose default interrupt strategy
 counterattacks instead of parrying), the defaults are wrong by definition.
 
+### IX. Strategy Defaults Must Be Playable
+Identity-aligned (Principle VIII) is necessary but not sufficient. A
+school's default strategy bindings MUST also be *playable* — they must
+produce combats that terminate in winnable, non-degenerate states under
+representative matchups. Concretely:
+
+1. **Win-feasibility.** The school's defaults MUST be capable of winning
+   against a generic equivalent-XP opponent (the canonical baselines are
+   Akodo Bushi at the same XP tier and Hida Bushi at the same XP tier).
+   A school that loses 100% of generic matchups under its own defaults is
+   incomplete work.
+2. **Mirror non-degeneracy.** Two characters of the same school in a
+   mirror match MUST produce a combat that terminates within a reasonable
+   round budget. "Both parry forever waiting for the other to attack" or
+   "both counterattack forever" or any equivalent never-act pattern is a
+   defect, not a feature.
+3. **Action-disadvantage handling.** When an opponent has more actions per
+   round than the school's bearer (a common state mid-fight after action
+   spending), the defaults MUST eventually take an offensive action — a
+   pure-defense strategy that parries every incoming attack and never
+   attacks is degenerate. The exact "when to switch to offense" trigger is
+   a strategy-design choice, but having SOME trigger is required.
+
+The `school-strategy-designer` agent verifies (1)–(3) by reading the
+proposed Strategy classes and reasoning about their interaction in the
+three scenarios. The `combat-simulator` agent verifies (1)–(3) at runtime
+via scripted matchups. Defaults that pass identity review (Principle VIII)
+but fail playability review (Principle IX) are incomplete work.
+
+The verification ALSO applies to existing schools when their defaults are
+modified — changing a strategy slot on a school requires re-verifying the
+three scenarios still hold.
+
 ## Technical Constraints
 
 - **Language**: Python 3.12 or newer. Type hints are required on all new
@@ -114,6 +147,11 @@ Every change, before it is considered complete:
    school's rules text by either the `school-progression-designer` or
    `school-strategy-designer` agent, or by equivalent written rationale in
    the feature's design artifacts.
+8. If a school's strategy bindings were authored OR modified (per
+   Principle IX), the three playability scenarios — win-feasibility against
+   a generic baseline, mirror non-degeneracy, and action-disadvantage
+   handling — have been verified at runtime by `combat-simulator` or
+   equivalent scripted scenarios committed alongside the change.
 
 Operational details (exact commands, restart procedure, deploy steps) live in
 `CLAUDE.md`, which is the operational companion to this constitution.
@@ -138,4 +176,4 @@ clarification, or non-semantic edits.
 **Compliance review**: `/speckit-plan` and `/speckit-analyze` MUST surface
 constitution violations as blockers, not suggestions.
 
-**Version**: 1.1.0 | **Ratified**: 2026-05-25 | **Last Amended**: 2026-05-26
+**Version**: 1.2.0 | **Ratified**: 2026-05-25 | **Last Amended**: 2026-05-26
