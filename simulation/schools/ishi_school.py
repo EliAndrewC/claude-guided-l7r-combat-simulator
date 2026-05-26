@@ -11,11 +11,20 @@
 # Special Ability: Custom VP calculation.
 #   Max VP = highest ring + school rank (instead of min ring + worldliness)
 #   Max VP per roll = lowest ring - 1 (instead of min ring)
-# 1st Dan: Extra rolled on precepts, wound check, initiative
-# 2nd Dan: Free raise on precepts
-# 3rd Dan: Spend 1 VP to add Xk1 to ally's roll (X = precepts). Once per roll.
-# 4th Dan: Void+1/discount (+ opponents can't spend VP in contested rolls TODO)
-# 5th Dan: Negate opponent's school/profession for a fight (TODO)
+# 1st Dan: Extra rolled on precepts, wound check, initiative.
+# 2nd Dan: Free raise on precepts.
+# 3rd Dan: Spend 1 VP to add Xk1 to in-group ally's combat roll (X = precepts).
+#          Once per roll. Covers attack/parry/counterattack/wound-check events.
+#          Decision lives in EagerAllyBoostStrategy (pluggable per Principle V).
+# 4th Dan: Void+1 (current and max) and Void XP cost -5.
+#          Contested-roll-opponent-cannot-spend-VP clause is out of scope
+#          (social contests are not modeled by the combat sim).
+# 5th Dan: Spend (2 * opponent.school_rank) VP -- or floor(opponent_xp / 50)
+#          for schoolless opponents -- to negate the target's school for the
+#          remainder of the current combat. Instantaneous, no action consumed.
+#          Decision lives in EagerNegationStrategy. Negation actually blocks
+#          school-installed listeners/strategies at dispatch time via
+#          Character._school_negated_by + BaseSchool helpers (see SC-2 fix).
 #
 
 from collections.abc import Iterator
