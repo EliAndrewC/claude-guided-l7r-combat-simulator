@@ -356,9 +356,9 @@ class MerchantSchool(BaseSchool):
         # VP after initial roll: install custom optimizer and strategies
         # that never pre-allocate VP, but can spend VP post-roll.
         character.set_attack_optimizer_factory(MerchantAttackOptimizerFactory())
-        character.set_strategy("attack_rolled", MerchantAttackRolledStrategy())
-        character.set_strategy("wound_check", MerchantWoundCheckStrategy())
-        character.set_strategy("wound_check_rolled", MerchantWoundCheckRolledStrategy())
+        self._set_school_strategy(character, "attack_rolled", MerchantAttackRolledStrategy())
+        self._set_school_strategy(character, "wound_check", MerchantWoundCheckStrategy())
+        self._set_school_strategy(character, "wound_check_rolled", MerchantWoundCheckRolledStrategy())
 
     def apply_rank_three_ability(self, character: Any) -> None:
         self.apply_ap(character)

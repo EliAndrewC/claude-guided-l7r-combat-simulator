@@ -39,7 +39,7 @@ class PriestSchool(BaseSchool):
         pass
 
     def apply_rank_three_ability(self, character: Any) -> None:
-        character.set_listener("new_round", PriestNewRoundListener())
+        self._set_school_listener(character, "new_round", PriestNewRoundListener())
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)

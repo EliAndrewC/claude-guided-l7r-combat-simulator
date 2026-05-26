@@ -49,10 +49,10 @@ class IsawaDuelistSchool(BaseSchool):
         self.apply_school_ring_raise_and_discount(character)
         character.set_interrupt_cost("lunge", 1)
         character.add_interrupt_skill("lunge")
-        character.set_listener("new_round", IsawaNewRoundListener())
+        self._set_school_listener(character, "new_round", IsawaNewRoundListener())
 
     def apply_rank_five_ability(self, character: Any) -> None:
-        character.set_listener("wound_check_succeeded", IsawaWoundCheckSucceededListener())
+        self._set_school_listener(character, "wound_check_succeeded", IsawaWoundCheckSucceededListener())
 
     def extra_rolled(self) -> list[str]:
         return ["double attack", "lunge", "wound check"]

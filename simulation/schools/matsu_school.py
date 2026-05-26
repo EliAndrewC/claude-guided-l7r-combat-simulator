@@ -39,14 +39,14 @@ class MatsuBushiSchool(BaseSchool):
         character.set_roll_provider(MATSU_ROLL_PROVIDER)
 
     def apply_rank_three_ability(self, character: Any) -> None:
-        character.set_listener("spend_vp", MatsuSpendVoidPointsListener())
+        self._set_school_listener(character, "spend_vp", MatsuSpendVoidPointsListener())
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         character.set_action_factory(MATSU_ACTION_FACTORY)
 
     def apply_rank_five_ability(self, character: Any) -> None:
-        character.set_listener("wound_check_failed", MatsuWoundCheckFailedListener())
+        self._set_school_listener(character, "wound_check_failed", MatsuWoundCheckFailedListener())
 
     def extra_rolled(self) -> list[str]:
         return ["double attack", "iaijutsu", "wound check"]

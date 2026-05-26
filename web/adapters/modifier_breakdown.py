@@ -20,6 +20,16 @@ References (all from ``rules/04-schools.md``):
     clarification.
   * Mirumoto Bushi School Second Dan: "Free Raise on parry." --
     standard 2nd-Dan free-raise = +5 modifier on parry rolls.
+  * Isawa Ishi School Second Dan: "Free Raise on precepts." --
+    standard 2nd-Dan free-raise = +5 modifier on precepts rolls
+    (specs/002 OPEN_QUESTIONS Q2 — precepts is the school's signature
+    skill and synergises with the 3rd Dan ally-boost ability).
+  * Isawa Ishi School Third Dan: "Spend 1 Void Point to add Xk1 to
+    another character's roll, where X is your Precepts skill." --
+    when fired, the strategy tags the action with ``_ishi_boosted_by``
+    (the Ishi source) and ``_ishi_boost_value`` (the rolled Xk1
+    result). Attribution reads both fields off the action attached
+    to the rolled event.
 """
 
 from __future__ import annotations
@@ -61,11 +71,20 @@ def _is_mirumoto_bushi(character: Any) -> bool:
     return bool(school.name() == "Mirumoto Bushi School")
 
 
+def _is_isawa_ishi(character: Any) -> bool:
+    """True iff the character's school is the Isawa Ishi School."""
+    school = character.school() if hasattr(character, "school") else None
+    if school is None:
+        return False
+    return bool(school.name() == "Isawa Ishi School")
+
+
 def explain_modifier(
     character: Any,
     skill: str,
     modifier: int,
     vp: int = 0,
+    action: Any = None,
 ) -> list[tuple[str, int]]:
     """Return a list of ``(source_label, value)`` contributions that
     explain (some or all of) the given roll ``modifier``.
@@ -87,6 +106,18 @@ def explain_modifier(
         Triggers when the character has Mirumoto Bushi School at rank
         >= 2 and ``skill == "parry"``.
 
+    And Isawa Ishi School contributions:
+
+      * **Isawa Ishi 2nd Dan free raise** -- ``+5`` on precepts rolls.
+      * **Isawa Ishi 3rd Dan ally boost from {source_name}** --
+        ``+_ishi_boost_value`` on any combat roll whose ``action``
+        carries the ``_ishi_boosted_by`` tag (set by
+        ``EagerAllyBoostStrategy`` when it fires). The contribution is
+        attributable to ANY rolling character (not just the
+        boosted-from one) because the boost is rendered on the rolled
+        event the boosted ally produced -- the trace credit goes to
+        the Ishi source, not the rolling ally.
+
     Args:
         character: The acting character (the roll's subject).
         skill: The skill name being rolled (``"attack"``, ``"parry"``,
@@ -98,29 +129,62 @@ def explain_modifier(
             contributions reflect the mechanics' EXPECTED values.
         vp: Number of void points spent on this roll. Defaults to 0.
             Used to size the 5th Dan ``+10 * vp`` contribution.
+        action: The ``Action`` (or wound-check event) the roll
+            originated from, if available. Used to read the
+            ``_ishi_boosted_by`` / ``_ishi_boost_value`` tags that the
+            Ishi 3rd Dan ally-boost strategy writes when it fires.
+            ``None`` skips that attribution path (back-compat for
+            existing callers).
     """
     # ``modifier`` is consulted by the caller's safety check; the
     # helper itself only needs to know which school-specific
     # mechanics fired, not the actual numeric the engine produced.
     del modifier  # documented but unused by the dispatch
     contributions: list[tuple[str, int]] = []
-    if not _is_mirumoto_bushi(character):
-        return contributions
-    rank = _school_rank(character)
 
-    # Mirumoto 5th Dan: +10 per VP on combat rolls.
-    if (
-        rank >= 5
-        and vp > 0
-        and skill in _MIRUMOTO_FIFTH_DAN_COMBAT_SKILLS
-    ):
-        contributions.append(("Mirumoto 5th Dan", 10 * vp))
+    if _is_mirumoto_bushi(character):
+        rank = _school_rank(character)
 
-    # Mirumoto 2nd Dan free raise: +5 on parry rolls. The free raise
-    # is unconditional (no VP cost) so it always contributes when the
-    # character has rank >= 2 and the skill is parry.
-    if rank >= 2 and skill == "parry":
-        contributions.append(("Mirumoto 2nd Dan free raise", 5))
+        # Mirumoto 5th Dan: +10 per VP on combat rolls.
+        if (
+            rank >= 5
+            and vp > 0
+            and skill in _MIRUMOTO_FIFTH_DAN_COMBAT_SKILLS
+        ):
+            contributions.append(("Mirumoto 5th Dan", 10 * vp))
+
+        # Mirumoto 2nd Dan free raise: +5 on parry rolls. The free raise
+        # is unconditional (no VP cost) so it always contributes when the
+        # character has rank >= 2 and the skill is parry.
+        if rank >= 2 and skill == "parry":
+            contributions.append(("Mirumoto 2nd Dan free raise", 5))
+
+    elif _is_isawa_ishi(character):
+        rank = _school_rank(character)
+
+        # Isawa Ishi 2nd Dan free raise: +5 on precepts rolls
+        # (rules/04-schools.md "Isawa Ishi School: 2nd Dan"; see
+        # specs/002 OPEN_QUESTIONS Q2). Unconditional free raise: no
+        # VP cost, always contributes once the character is rank >= 2.
+        if rank >= 2 and skill == "precepts":
+            contributions.append(("Isawa Ishi 2nd Dan free raise", 5))
+
+    # Isawa Ishi 3rd Dan ally boost attribution: applies to the BOOSTED
+    # roll regardless of the rolling character's school
+    # (rules/04-schools.md "Isawa Ishi School: 3rd Dan"). The
+    # ``EagerAllyBoostStrategy`` tags the rolled action with
+    # ``_ishi_boosted_by`` (the Ishi source character) and
+    # ``_ishi_boost_value`` (the rolled Xk1 result). Attribution goes to
+    # the Ishi source, not the rolling character.
+    if action is not None:
+        ishi_source = getattr(action, "_ishi_boosted_by", None)
+        boost_value = getattr(action, "_ishi_boost_value", None)
+        if ishi_source is not None and isinstance(boost_value, int) and boost_value > 0:
+            source_name = ishi_source.name() if hasattr(ishi_source, "name") else "unknown"
+            contributions.append((
+                f"Isawa Ishi 3rd Dan ally boost from {source_name}",
+                boost_value,
+            ))
 
     # Order by descending value so the formatter renders the most
     # significant source first.

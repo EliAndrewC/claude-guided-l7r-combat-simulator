@@ -328,6 +328,10 @@ class DetailedEventFormatter:
                 lines.append(f"{self._phase_prefix(name)} 🏳️ surrenders!")
                 combat_output_since_status = True
 
+            elif isinstance(event, events.SchoolNegatedEvent):
+                lines.extend(self._format_school_negated(event))
+                combat_output_since_status = True
+
         return lines
 
     def _phase_prefix(self, char_name: str) -> str:
@@ -640,6 +644,23 @@ class DetailedEventFormatter:
         name = event.subject.name()
         squares = "⬛" * event.amount
         return [f"{self._phase_prefix(name)} {squares} spends {event.amount} VP on {event.skill}"]
+
+    def _format_school_negated(self, event: Any) -> list[str]:
+        """Render ``SchoolNegatedEvent`` with the Isawa Ishi 5th Dan
+        source attribution per Constitution Principle VII.
+
+        rules/04-schools.md "Isawa Ishi School: 5th Dan": the Ishi spends
+        VP equal to ``2 * opponent.school_rank()`` (or ``floor(xp/50)``
+        for schoolless opponents) to negate the opponent's school /
+        profession for the duration of a fight.
+        """
+        negator_name = event.negator.name()
+        target_name = event.target.name()
+        return [
+            f"{self._phase_prefix(negator_name)} ⛔ negates {target_name}'s "
+            f"{event.target_school_name} "
+            f"({event.vp_cost} VP — Isawa Ishi 5th Dan)"
+        ]
 
     def _format_keep_lw(self, event: Any) -> list[str]:
         name = event.subject.name()

@@ -290,6 +290,14 @@ def generate_template(
         rank = character.skill(skill_name)
         if rank > 0:
             skills[skill_name] = rank
+    # Always include the school's own knacks so the school_rank survives
+    # round-tripping through CharacterConfig (school_rank = min knack rank,
+    # which gates the school-ring cap; without this the school knacks default
+    # to rank 1 on rebuild and the school ring cannot reach 6).
+    for skill_name in school_knacks:
+        rank = character.skill(skill_name)
+        if rank > 0:
+            skills[skill_name] = rank
 
     # Build abilities dict for profession characters
     abilities: dict[str, int] = {}

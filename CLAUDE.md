@@ -68,7 +68,7 @@ To use the secrets in a shell session: `set -a && source .env && set +a` (the `s
    - **Deploy**: `set -a && source .env && set +a && ~/.fly/bin/flyctl deploy` from the repo root. Picks up `FLY_API_TOKEN` from `.env`.
 
 <!-- SPECKIT START -->
-Active feature plan: [specs/001-mirumoto-bushi-school/plan.md](specs/001-mirumoto-bushi-school/plan.md)
-(Branch `001-mirumoto-bushi-school`. See sibling files in the same directory
-for spec, research, data model, contracts, and quickstart.)
+Active feature plan: [specs/002-isawa-ishi-school/plan.md](specs/002-isawa-ishi-school/plan.md)
+(Branch `002-isawa-ishi-school`. See sibling files in the same directory
+for spec, research, data model, contracts, quickstart, and OPEN_QUESTIONS.)
 <!-- SPECKIT END -->

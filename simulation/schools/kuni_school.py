@@ -49,7 +49,7 @@ class KuniWitchHunterSchool(BaseSchool):
         # TODO: extra action die restricted to non-Tainted targets (useless without Taint system)
 
     def apply_rank_five_ability(self, character: Any) -> None:
-        character.set_listener("wound_check_succeeded", KuniWoundCheckSucceededListener())
+        self._set_school_listener(character, "wound_check_succeeded", KuniWoundCheckSucceededListener())
 
     def extra_rolled(self) -> list[str]:
         return ["damage", "wound check"]

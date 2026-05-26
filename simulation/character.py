@@ -108,6 +108,28 @@ class Character:
         self._roll_parameter_provider: RollParameterProvider = DEFAULT_ROLL_PARAMETER_PROVIDER
         self._roll_provider: RollProvider = DEFAULT_ROLL_PROVIDER
         self._school: School | None = None
+        # Set by the Isawa Ishi 5th Dan ability when this character's school is
+        # negated for the current fight (rules/04-schools.md "Isawa Ishi School:
+        # 5th Dan"). Cleared by reset() at combat boundaries.
+        self._school_negated_by: Character | None = None
+        # Set by the Isawa Ishi 5th Dan ability when THIS character has already
+        # fired the once-per-combat school-negation (rules/04-schools.md
+        # "Isawa Ishi School: 5th Dan").  Cleared by reset() at combat boundaries.
+        self._ishi_negation_done: bool = False
+        # Slots populated by `BaseSchool._set_school_listener` /
+        # `_set_school_strategy` at character-build time so the engine-side
+        # dispatch gate in `Character.event()` and the strategy accessors can
+        # skip school-owned slots while `_school_negated_by` is set
+        # (rules/04-schools.md "Isawa Ishi School: 5th Dan").  These sets are
+        # build-time state -- they persist for the life of the character and
+        # are NOT reset between combats.
+        self._school_owned_listener_slots: set[str] = set()
+        self._school_owned_strategy_slots: set[str] = set()
+        # Cache of engine-default strategies for slots that schools replace.
+        # When `_set_school_strategy` overwrites an engine-default slot, the
+        # previous value is captured here so the negation gate can return the
+        # engine default to callers while the character is school-negated.
+        self._pre_school_strategies: dict[str, Any] = {}
         self._skills: dict[str, int] = {"attack": 1, "parry": 1}
         self._skill_rings: dict[str, str] = {"attack": "fire", "counterattack": "fire", "damage": "fire", "double attack": "fire", "feint": "fire", "iaijutsu": "fire", "initiative": "void", "lunge": "fire", "parry": "air", "wound check": "water"}
         # default strategies (values may be a Strategy or a Listener-backed strategy)
@@ -140,8 +162,21 @@ class Character:
     def action_factory(self) -> ActionFactory:
         return self._action_factory
 
+    def _strategy_slot(self, slot: str) -> Any:
+        """Return the strategy installed at ``slot``, honoring the Isawa
+        Ishi 5th Dan school-negation gate (rules/04-schools.md "Isawa Ishi
+        School: 5th Dan").  When the character is school-negated AND the
+        slot was installed by a school via ``BaseSchool._set_school_strategy``,
+        return the cached engine default (``_pre_school_strategies[slot]``)
+        instead so the school's replacement strategy stops affecting
+        decisions.
+        """
+        if self._school_negated_by is not None and slot in self._school_owned_strategy_slots:
+            return self._pre_school_strategies.get(slot)
+        return self._strategies[slot]
+
     def action_strategy(self) -> Any:
-        return self._strategies["action"]
+        return self._strategy_slot("action")
 
     def add_discount(self, item: str, discount: int) -> None:
         if item in self._discounts:
@@ -178,10 +213,10 @@ class Character:
         return self._attack_rolled_penalty
 
     def attack_rolled_strategy(self) -> Any:
-        return self._strategies["attack_rolled"]
+        return self._strategy_slot("attack_rolled")
 
     def attack_strategy(self) -> Any:
-        return self._strategies["attack"]
+        return self._strategy_slot("attack")
 
     def can_spend_ap(self, skill: str) -> bool:
         return skill in self._ap_skills
@@ -196,10 +231,10 @@ class Character:
         return self.skill("conviction")
 
     def contested_iaijutsu_attack_declared_strategy(self) -> Any:
-        return self._strategies["contested_iaijutsu_attack_declared"]
+        return self._strategy_slot("contested_iaijutsu_attack_declared")
 
     def duel_focus_or_strike_strategy(self) -> Any:
-        return self._strategies["duel_focus_or_strike"]
+        return self._strategy_slot("duel_focus_or_strike")
 
     def damage_reroll_reduction(self) -> int:
         return self._damage_reroll_reduction
@@ -212,6 +247,15 @@ class Character:
 
     def event(self, event: events.Event, context: Any) -> Iterator[events.Event]:
         if event.name in self._listeners.keys():
+            # Isawa Ishi 5th Dan: when this character's school has been
+            # negated, school-installed listeners are skipped so the
+            # already-installed school engine (e.g., MirumotoParryTVPListener)
+            # stops firing.  Engine-default listeners (which are NOT in
+            # `_school_owned_listener_slots`) continue to fire normally.
+            # rules/04-schools.md "Isawa Ishi School: 5th Dan".
+            if self._school_negated_by is not None and event.name in self._school_owned_listener_slots:
+                logger.debug(f"{self._name} school-negated, skipping listener for {event.name}")
+                return
             logger.debug(f"{self._name} handling {event.name}")
             # play event on modifiers first
             for modifier in self._modifiers:
@@ -282,7 +326,7 @@ class Character:
         return self._interrupt_costs.get(skill, 2)
 
     def interrupt_strategy(self) -> Any:
-        return self._strategies["interrupt"]
+        return self._strategy_slot("interrupt")
 
     def initiative_priority(self, max_actions: int) -> float:
         priority = 0.0
@@ -313,7 +357,7 @@ class Character:
         return self._knowledge
 
     def light_wounds_strategy(self) -> Any:
-        return self._strategies["light_wounds"]
+        return self._strategy_slot("light_wounds")
 
     def lw(self) -> int:
         return self._lw
@@ -364,10 +408,10 @@ class Character:
         return self._xp
 
     def parry_strategy(self) -> Any:
-        return self._strategies["parry"]
+        return self._strategy_slot("parry")
 
     def parry_rolled_strategy(self) -> Any:
-        return self._strategies["parry_rolled"]
+        return self._strategy_slot("parry_rolled")
 
     def profession(self) -> Profession | None:
         return self._profession
@@ -386,6 +430,11 @@ class Character:
         for modifier in self._modifiers:
             if len(modifier._listeners) > 0:
                 self._modifiers.remove(modifier)
+        # Clear Isawa Ishi 5th Dan school-negation flags at combat boundaries.
+        # `_school_negated_by` lives on the TARGET; `_ishi_negation_done` lives
+        # on the Ishi who fired the once-per-combat negation.
+        self._school_negated_by = None
+        self._ishi_negation_done = False
         self._sw = 0
         self._tvp = 0
         self._vp_spent = 0
@@ -666,10 +715,10 @@ class Character:
         return self._wound_check_optimizer_factory
 
     def wound_check_rolled_strategy(self) -> Any:
-        return self._strategies["wound_check_rolled"]
+        return self._strategy_slot("wound_check_rolled")
 
     def wound_check_provider(self) -> WoundCheckProvider:
         return self._wound_check_provider
 
     def wound_check_strategy(self) -> Any:
-        return self._strategies["wound_check"]
+        return self._strategy_slot("wound_check")

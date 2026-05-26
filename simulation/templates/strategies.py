@@ -1140,24 +1140,32 @@ IDE_PRIORITIES: list[tuple[str, str, int]] = [
 ]
 
 # Isawa Ishi School (school_ring: void, knacks: absorb void, kharmic spin, otherworldliness)
-# precepts bought early (needed for 3rd dan ally boost)
+# Identity-driven order:
+#   - precepts is the X in the 3rd-Dan Xk1 ally boost -> max early (and it's basic, so cheap).
+#   - void is the school ring AND the natural "highest ring" -> bump aggressively; once it is
+#     the unique highest ring, every +1 also raises max_vp by +1 (Special Ability).
+#   - water powers wound check (1st-Dan extra die clause); raise next among non-school rings.
+#   - earth (HP) and air (1st-Dan extra die on initiative) tie for next; fire has no clause.
+#   - lowest_ring drives per-roll cap, so the max-rings phase fans the non-school rings
+#     up evenly rather than spiking one of them.
 ISHI_PRIORITIES: list[tuple[str, str, int]] = [
-    # precepts for 3rd dan (bought early)
     ("skill", "precepts", 2),
     ("skill", "precepts", 3),
-    # Dan 2
+    # Dan 2 -- school knacks gate dan-rank advancement
     ("skill", "absorb void", 2),
     ("skill", "kharmic spin", 2),
     ("skill", "otherworldliness", 2),
     ("skill", "attack", 2),
     ("skill", "parry", 2),
     ("skill", "precepts", 4),
-    # Dan 3
+    # Dan 3 -- bump void first (school ring + Special-Ability highest-ring driver)
     ("skill", "absorb void", 3),
     ("skill", "kharmic spin", 3),
     ("skill", "otherworldliness", 3),
     ("skill", "attack", 3),
     ("skill", "parry", 3),
+    ("ring", "void", 3),
+    ("ring", "water", 3),
     ("ring", "earth", 3),
     ("skill", "precepts", 5),
     # Dan 4
@@ -1166,26 +1174,25 @@ ISHI_PRIORITIES: list[tuple[str, str, int]] = [
     ("skill", "otherworldliness", 4),
     ("skill", "attack", 4),
     ("skill", "parry", 4),
-    ("ring", "fire", 3),
-    ("ring", "water", 3),
+    ("ring", "void", 5),
     ("ring", "air", 3),
+    ("ring", "fire", 3),
+    ("ring", "water", 4),
     ("ring", "earth", 4),
-    # Dan 5
+    # Dan 5 -- school knacks to 5 (unlocks negate-school)
     ("skill", "absorb void", 5),
     ("skill", "kharmic spin", 5),
     ("skill", "otherworldliness", 5),
     ("skill", "attack", 5),
     ("skill", "parry", 5),
-    # Max rings
-    ("ring", "void", 5),
-    ("ring", "fire", 4),
-    ("ring", "water", 4),
+    # Max rings -- cheapest first per file convention
     ("ring", "air", 4),
-    ("ring", "earth", 5),
+    ("ring", "fire", 4),
     ("ring", "void", 6),
-    ("ring", "fire", 5),
     ("ring", "water", 5),
+    ("ring", "earth", 5),
     ("ring", "air", 5),
+    ("ring", "fire", 5),
 ]
 
 # Priest School (school_ring: water, knacks: conviction, otherworldliness, pontificate)

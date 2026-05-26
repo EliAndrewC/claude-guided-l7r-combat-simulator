@@ -176,5 +176,33 @@ class TestCharacter(unittest.TestCase):
         self.assertEqual(3, akodo.wound_check(10))
 
 
+class TestCharacterSchoolNegated(unittest.TestCase):
+    """
+    Engine-surface tests for the per-character ``_school_negated_by`` attribute
+    consumed by the Isawa Ishi 5th Dan school-negation ability (rules/04-schools.md
+    "Isawa Ishi School: 5th Dan").
+    """
+
+    def test_school_negated_by_default_is_none(self):
+        """A fresh Character has no negator."""
+        c = Character("Test")
+        self.assertIsNone(c._school_negated_by)
+
+    def test_school_negated_by_can_be_set(self):
+        """The attribute is writable by schools/strategies via direct attribute write."""
+        target = Character("Target")
+        negator = Character("Negator")
+        target._school_negated_by = negator
+        self.assertIs(negator, target._school_negated_by)
+
+    def test_reset_clears_school_negated_by(self):
+        """Character.reset() clears the negator at combat boundaries."""
+        target = Character("Target")
+        negator = Character("Negator")
+        target._school_negated_by = negator
+        target.reset()
+        self.assertIsNone(target._school_negated_by)
+
+
 if __name__ == "__main__":
     unittest.main()

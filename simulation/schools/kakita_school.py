@@ -31,7 +31,7 @@ class KakitaBushiSchool(BaseSchool):
         return None
 
     def apply_rank_five_ability(self, character: Any) -> None:
-        character.set_listener("new_phase", KakitaNewPhaseListener())
+        self._set_school_listener(character, "new_phase", KakitaNewPhaseListener())
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
@@ -42,8 +42,8 @@ class KakitaBushiSchool(BaseSchool):
 
     def apply_special_ability(self, character: Any) -> None:
         character.set_roll_provider(KAKITA_ROLL_PROVIDER)
-        character.set_attack_strategy(KAKITA_ATTACK_STRATEGY)
-        character.set_parry_strategy(KAKITA_PARRY_STRATEGY)
+        self._set_school_strategy(character, "attack", KAKITA_ATTACK_STRATEGY)
+        self._set_school_strategy(character, "parry", KAKITA_PARRY_STRATEGY)
         character.add_interrupt_skill("iaijutsu")
 
     def extra_rolled(self) -> list[str]:

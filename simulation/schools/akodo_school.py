@@ -21,18 +21,18 @@ class AkodoBushiSchool(BaseSchool):
         return None
 
     def apply_rank_five_ability(self, character: Any) -> None:
-        character.set_listener("lw_damage", AkodoLightWoundsDamageListener())
+        self._set_school_listener(character, "lw_damage", AkodoLightWoundsDamageListener())
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
-        character.set_listener("wound_check_declared", AkodoWoundCheckDeclaredListener())
+        self._set_school_listener(character, "wound_check_declared", AkodoWoundCheckDeclaredListener())
 
     def apply_rank_three_ability(self, character: Any) -> None:
-        character.set_listener("wound_check_succeeded", AkodoWoundCheckSucceededListener())
+        self._set_school_listener(character, "wound_check_succeeded", AkodoWoundCheckSucceededListener())
 
     def apply_special_ability(self, character: Any) -> None:
-        character.set_listener("attack_failed", AkodoAttackFailedListener())
-        character.set_listener("attack_succeeded", AkodoAttackSucceededListener())
+        self._set_school_listener(character, "attack_failed", AkodoAttackFailedListener())
+        self._set_school_listener(character, "attack_succeeded", AkodoAttackSucceededListener())
 
     def extra_rolled(self) -> list[str]:
         return ["attack", "double attack", "wound check"]

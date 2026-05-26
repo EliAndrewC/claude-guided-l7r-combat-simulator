@@ -43,7 +43,7 @@ class BrotherhoodOfShinseMonkSchool(BaseSchool):
     def apply_rank_three_ability(self, character: Any) -> None:
         self.apply_ap(character)
         # AP may also be spent to lower action dice by 5 phases
-        character.set_listener("new_round", MonkNewRoundListener())
+        self._set_school_listener(character, "new_round", MonkNewRoundListener())
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
@@ -56,10 +56,11 @@ class BrotherhoodOfShinseMonkSchool(BaseSchool):
         # If counter-attack roll >= attacker's roll, cancel attack and
         # counter-attack damage is applied to the attacker.
         fifth_dan_listener = MonkFifthDanListener()
-        character.set_listener("attack_succeeded", fifth_dan_listener)
+        self._set_school_listener(character, "attack_succeeded", fifth_dan_listener)
         # Wrap the existing new_round listener to also reset the 5th Dan flag.
         existing_new_round_listener = character._listeners.get("new_round")
-        character.set_listener(
+        self._set_school_listener(
+            character,
             "new_round",
             MonkFifthDanNewRoundListener(existing_new_round_listener, fifth_dan_listener),
         )

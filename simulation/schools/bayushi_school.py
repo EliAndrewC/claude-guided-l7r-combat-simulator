@@ -27,8 +27,8 @@ class BayushiBushiSchool(BaseSchool):
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
-        character.set_listener("attack_failed", BayushiAttackFailedListener())
-        character.set_listener("attack_succeeded", BayushiAttackSucceededListener())
+        self._set_school_listener(character, "attack_failed", BayushiAttackFailedListener())
+        self._set_school_listener(character, "attack_succeeded", BayushiAttackSucceededListener())
 
     def apply_rank_three_ability(self, character: Any) -> None:
         character.set_action_factory(BAYUSHI_ACTION_FACTORY)

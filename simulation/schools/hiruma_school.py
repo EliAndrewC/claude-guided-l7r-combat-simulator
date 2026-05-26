@@ -38,16 +38,16 @@ class HirumaScoutSchool(BaseSchool):
         pass
 
     def apply_rank_three_ability(self, character: Any) -> None:
-        character.set_listener("parry_succeeded", HirumaParryListener())
-        character.set_listener("parry_failed", HirumaParryListener())
+        self._set_school_listener(character, "parry_succeeded", HirumaParryListener())
+        self._set_school_listener(character, "parry_failed", HirumaParryListener())
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
-        character.set_listener("new_round", HirumaNewRoundListener())
+        self._set_school_listener(character, "new_round", HirumaNewRoundListener())
 
     def apply_rank_five_ability(self, character: Any) -> None:
-        character.set_listener("parry_succeeded", HirumaFifthDanParryListener())
-        character.set_listener("parry_failed", HirumaFifthDanParryListener())
+        self._set_school_listener(character, "parry_succeeded", HirumaFifthDanParryListener())
+        self._set_school_listener(character, "parry_failed", HirumaFifthDanParryListener())
 
     def extra_rolled(self) -> list[str]:
         return ["initiative", "parry", "wound check"]

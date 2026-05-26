@@ -77,6 +77,69 @@ class BaseSchool(School):
         self._free_raises_skills: list[str] = []
         self._skills: dict[str, int] = dict([(skill, 1) for skill in self.school_knacks()])
 
+    def _set_school_listener(self, character: Any, slot: str, listener: Any) -> None:
+        """Install a school-owned listener on the given character.
+
+        Subclasses MUST use this helper (instead of calling
+        ``character.set_listener`` directly) when installing a listener as
+        part of an ``apply_*_ability`` method.  The helper tracks the slot
+        in ``character._school_owned_listener_slots`` so the engine-side
+        dispatch gate in ``Character.event()`` can skip school-installed
+        listeners while the character is school-negated
+        (rules/04-schools.md "Isawa Ishi School: 5th Dan").
+        """
+        character.set_listener(slot, listener)
+        character._school_owned_listener_slots.add(slot)
+
+    def _set_school_strategy(self, character: Any, slot: str, strategy: Any) -> None:
+        """Install a school-owned strategy on the given character.
+
+        Subclasses MUST use this helper (instead of calling
+        ``character.set_strategy`` / ``set_attack_strategy`` /
+        ``set_parry_strategy`` / ``set_action_strategy`` directly) when
+        installing a strategy as part of an ``apply_*_ability`` method.
+        The helper:
+
+          1. Caches the current strategy at ``slot`` in
+             ``character._pre_school_strategies[slot]`` so the negation
+             gate can revert to the engine default while the character
+             is school-negated.  The cache is populated on the FIRST
+             school install per slot, so chained school replacements
+             (rare) still revert to the original engine default.
+          2. Tracks the slot in
+             ``character._school_owned_strategy_slots`` so the strategy
+             accessors in ``Character`` can detect school-owned slots.
+          3. Calls ``character.set_strategy`` to install the new
+             strategy.
+
+        rules/04-schools.md "Isawa Ishi School: 5th Dan".
+        """
+        if slot not in character._school_owned_strategy_slots:
+            # Capture the engine default on first install so callers can
+            # revert to the original (not a previous school override).
+            character._pre_school_strategies[slot] = character._strategies.get(slot)
+        character.set_strategy(slot, strategy)
+        character._school_owned_strategy_slots.add(slot)
+
+    def _is_school_negated(self, character: Any) -> bool:
+        """
+        _is_school_negated(character) -> bool
+
+        Helper consumed by `apply_*_ability` methods to honor the Isawa Ishi
+        5th Dan school-negation ability (rules/04-schools.md "Isawa Ishi
+        School: 5th Dan").  When the target character has been marked as
+        negated by an Ishi (via the `_school_negated_by` attribute), every
+        rank-ability dispatch must become a no-op so the negated school's
+        abilities never land.  For the overwhelming common case of an
+        un-negated character this is a single attribute read and comparison.
+
+        Subclasses that override `apply_special_ability`,
+        `apply_rank_three_ability`, `apply_rank_four_ability`, or
+        `apply_rank_five_ability` may call this helper at the top of their
+        override to honor the same contract.
+        """
+        return getattr(character, "_school_negated_by", None) is not None
+
     def ap_base_skill(self) -> str | None:
         """
         ap_base_skill() -> str
@@ -100,7 +163,12 @@ class BaseSchool(School):
         apply_rank_one_ability(character)
 
         Apply this school's extra rolled dice (the standard 1st Dan ability).
+        Short-circuits to a no-op when the character's school has been negated
+        by an Isawa Ishi 5th Dan (rules/04-schools.md "Isawa Ishi School:
+        5th Dan").
         """
+        if self._is_school_negated(character):
+            return
         for skill in self.extra_rolled():
             character.set_extra_rolled(skill, 1)
 
@@ -109,7 +177,12 @@ class BaseSchool(School):
         apply_rank_two_ability(character)
 
         Apply this school's Free Raises (the standard 2nd Dan ability).
+        Short-circuits to a no-op when the character's school has been negated
+        by an Isawa Ishi 5th Dan (rules/04-schools.md "Isawa Ishi School:
+        5th Dan").
         """
+        if self._is_school_negated(character):
+            return
         for skill in self.free_raise_skills():
             character.add_modifier(FreeRaise(character, skill))
 

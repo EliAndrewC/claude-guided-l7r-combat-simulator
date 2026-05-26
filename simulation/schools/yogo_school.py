@@ -31,10 +31,10 @@ class YogoWardenSchool(BaseSchool):
         return None
 
     def apply_special_ability(self, character: Any) -> None:
-        character.set_listener("sw_damage", YogoSeriousWoundsDamageListener())
+        self._set_school_listener(character, "sw_damage", YogoSeriousWoundsDamageListener())
 
     def apply_rank_three_ability(self, character: Any) -> None:
-        character.set_listener("spend_vp", YogoSpendVoidPointsListener())
+        self._set_school_listener(character, "spend_vp", YogoSpendVoidPointsListener())
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)

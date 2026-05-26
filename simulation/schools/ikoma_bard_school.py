@@ -50,7 +50,7 @@ class IkomaBardSchool(BaseSchool):
         # Install the custom TakeActionEventFactory that forces parries
         character.set_take_action_event_factory(IkomaTakeActionEventFactory(tracker))
         # Install the new round listener that resets the tracker
-        character.set_listener("new_round", IkomaNewRoundListener(tracker))
+        self._set_school_listener(character, "new_round", IkomaNewRoundListener(tracker))
         # Store the tracker on the character for 5th Dan to access
         character._ikoma_tracker = tracker
 
@@ -67,7 +67,8 @@ class IkomaBardSchool(BaseSchool):
         if tracker is not None:
             tracker.set_max_uses(2)
         # Install 5th Dan listener: cancel opponent's attack after seeing roll
-        character.set_listener(
+        self._set_school_listener(
+            character,
             "attack_rolled",
             IkomaFifthDanAttackRolledListener(character, tracker),
         )

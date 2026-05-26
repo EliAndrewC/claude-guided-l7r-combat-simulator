@@ -552,3 +552,34 @@ class RemoveModifierEvent(ModifierEvent):
 
     def __init__(self, subject: Any, modifier: Any) -> None:
         super().__init__("remove_modifier", subject, modifier)
+
+
+class SchoolNegatedEvent(Event):
+    """
+    Event emitted when the Isawa Ishi 5th Dan ability negates an opposing
+    character's school for the duration of a fight (rules/04-schools.md
+    "Isawa Ishi School: 5th Dan").
+
+    The ``negator`` is the Ishi character spending VP to negate.
+    The ``target`` is the character whose school is being negated.
+    The ``vp_cost`` is the amount of VP the negator paid.
+    The ``target_school_name`` is the human-readable name of the negated
+    school, captured at emit time for the trace/UI adapters.
+    """
+
+    def __init__(
+        self,
+        negator: Any,
+        target: Any,
+        vp_cost: int,
+        target_school_name: str,
+    ) -> None:
+        super().__init__("school_negated")
+        self.negator = negator
+        self.target = target
+        if not isinstance(vp_cost, int):
+            raise ValueError("vp_cost parameter must be int")
+        self.vp_cost = vp_cost
+        if not isinstance(target_school_name, str):
+            raise ValueError("target_school_name parameter must be str")
+        self.target_school_name = target_school_name

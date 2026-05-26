@@ -39,7 +39,7 @@ class TogashiIseZumiSchool(BaseSchool):
         return ["athletics"]
 
     def apply_special_ability(self, character: Any) -> None:
-        character.set_listener("new_round", IseZumiNewRoundListener())
+        self._set_school_listener(character, "new_round", IseZumiNewRoundListener())
 
     def apply_rank_three_ability(self, character: Any) -> None:
         self.apply_ap(character)
@@ -50,7 +50,7 @@ class TogashiIseZumiSchool(BaseSchool):
         # Contested roll reroll is a social ability, not applicable in combat simulation
 
     def apply_rank_five_ability(self, character: Any) -> None:
-        character.set_listener("wound_check_failed", IseZumiWoundCheckFailedListener())
+        self._set_school_listener(character, "wound_check_failed", IseZumiWoundCheckFailedListener())
 
     def extra_rolled(self) -> list[str]:
         return ["attack", "parry", "athletics"]

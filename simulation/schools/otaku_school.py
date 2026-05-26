@@ -41,7 +41,7 @@ class OtakuBushiSchool(BaseSchool):
         character.add_interrupt_skill("lunge")
 
     def apply_rank_three_ability(self, character: Any) -> None:
-        character.set_listener("lw_damage", OtakuLightWoundsDamageListener())
+        self._set_school_listener(character, "lw_damage", OtakuLightWoundsDamageListener())
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)

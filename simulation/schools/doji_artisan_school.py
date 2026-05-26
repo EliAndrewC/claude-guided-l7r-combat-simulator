@@ -41,7 +41,7 @@ class DojiArtisanSchool(BaseSchool):
     def apply_special_ability(self, character: Any) -> None:
         # Counterattack as interrupt at cost of 1 action die
         character.set_interrupt_cost("counterattack", 1)
-        character.set_strategy("interrupt", DojiArtisanCounterattackInterruptStrategy())
+        self._set_school_strategy(character, "interrupt", DojiArtisanCounterattackInterruptStrategy())
         character.set_take_action_event_factory(DOJI_ARTISAN_TAKE_ACTION_EVENT_FACTORY)
 
     def apply_rank_three_ability(self, character: Any) -> None:
@@ -52,9 +52,9 @@ class DojiArtisanSchool(BaseSchool):
         # Phase bonus when attacking target who hasn't attacked this round
         tracker = DojiArtisanAttackTracker()
         character._doji_artisan_attack_tracker = tracker
-        character.set_listener("attack_declared", DojiArtisanAttackDeclaredListener(character, tracker))
-        character.set_listener("new_round", DojiArtisanNewRoundListener(tracker))
-        character.set_listener("attack_rolled", DojiArtisanAttackRolledListener(character, tracker))
+        self._set_school_listener(character, "attack_declared", DojiArtisanAttackDeclaredListener(character, tracker))
+        self._set_school_listener(character, "new_round", DojiArtisanNewRoundListener(tracker))
+        self._set_school_listener(character, "attack_rolled", DojiArtisanAttackRolledListener(character, tracker))
 
     def apply_rank_five_ability(self, character: Any) -> None:
         # On TN/contested rolls, bonus = (X-10)/5 where X = TN or opponent's roll.

@@ -41,7 +41,7 @@ class CourtierSchool(BaseSchool):
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
-        character.set_listener("attack_succeeded", CourtierAttackSucceededListener())
+        self._set_school_listener(character, "attack_succeeded", CourtierAttackSucceededListener())
 
     def apply_rank_five_ability(self, character: Any) -> None:
         # Upgrade provider to 5th Dan version which adds Air to ALL TN/contested rolls

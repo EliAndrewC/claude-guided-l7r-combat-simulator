@@ -258,11 +258,14 @@ class CombatObserver:
         provider = subject.roll_provider()
         info = provider.last_skill_info() if hasattr(provider, "last_skill_info") else None
         event._detail_dice = info["dice"] if info else []
-        event._detail_params = event.action.skill_roll_params()
+        event._detail_params = self._adjust_params_for_ishi_boost(
+            event.action.skill_roll_params(), event.action,
+        )
         event._detail_tn = event.action.tn()
         event._detail_base_tn = event.action.target().tn_to_hit()
         event._detail_modifier_breakdown = self._build_modifier_breakdown(
-            subject, event.action.skill(), event._detail_params, event.action.vp(),
+            subject, event.action.skill(), event._detail_params,
+            event.action.vp(), action=event.action,
         )
 
     def _annotate_counterattack_rolled(self, event: Any) -> None:
@@ -270,10 +273,13 @@ class CombatObserver:
         provider = subject.roll_provider()
         info = provider.last_skill_info() if hasattr(provider, "last_skill_info") else None
         event._detail_dice = info["dice"] if info else []
-        event._detail_params = event.action.skill_roll_params()
+        event._detail_params = self._adjust_params_for_ishi_boost(
+            event.action.skill_roll_params(), event.action,
+        )
         event._detail_tn = event.action.tn()
         event._detail_modifier_breakdown = self._build_modifier_breakdown(
-            subject, event.action.skill(), event._detail_params, event.action.vp(),
+            subject, event.action.skill(), event._detail_params,
+            event.action.vp(), action=event.action,
         )
 
     def _annotate_parry_rolled(self, event: Any) -> None:
@@ -281,15 +287,42 @@ class CombatObserver:
         provider = subject.roll_provider()
         info = provider.last_skill_info() if hasattr(provider, "last_skill_info") else None
         event._detail_dice = info["dice"] if info else []
-        event._detail_params = event.action.skill_roll_params()
+        event._detail_params = self._adjust_params_for_ishi_boost(
+            event.action.skill_roll_params(), event.action,
+        )
         event._detail_tn = event.action.tn()
         event._detail_modifier_breakdown = self._build_modifier_breakdown(
-            subject, event.action.skill(), event._detail_params, event.action.vp(),
+            subject, event.action.skill(), event._detail_params,
+            event.action.vp(), action=event.action,
         )
 
     @staticmethod
+    def _adjust_params_for_ishi_boost(params: Any, action: Any) -> Any:
+        """Augment the (rolled, kept, modifier) tuple with an Isawa Ishi
+        3rd Dan ally boost when the action has been tagged with
+        ``_ishi_boost_value``.
+
+        The boost is rolled separately by the Ishi (not part of the
+        rolling character's ``skill_roll_params``), but the trace's
+        modifier safety check requires breakdown sources to sum to the
+        rendered modifier (Constitution Principle VII). So we fold the
+        boost value into the modifier slot here; the matching breakdown
+        contribution is then attached by ``explain_modifier`` with the
+        action passed in.
+
+        rules/04-schools.md "Isawa Ishi School: 3rd Dan".
+        """
+        if not params or len(params) < 3:
+            return params
+        boost_value = getattr(action, "_ishi_boost_value", None)
+        if not isinstance(boost_value, int) or boost_value <= 0:
+            return params
+        adjusted = (params[0], params[1], params[2] + boost_value)
+        return adjusted
+
+    @staticmethod
     def _build_modifier_breakdown(
-        subject: Any, skill: str, params: Any, vp: int,
+        subject: Any, skill: str, params: Any, vp: int, action: Any = None,
     ) -> list[tuple[str, int]]:
         """Compute the source-attribution breakdown for a skill roll's modifier.
 
@@ -304,7 +337,7 @@ class CombatObserver:
         modifier = params[2]
         if modifier == 0:
             return []
-        return explain_modifier(subject, skill, modifier, vp=vp)
+        return explain_modifier(subject, skill, modifier, vp=vp, action=action)
 
     def _annotate_contested_iaijutsu_rolled(self, event: Any) -> None:
         subject = event.action.subject()
@@ -372,10 +405,19 @@ class CombatObserver:
         # rolled event; we cached it on receipt).
         subject_name = subject.name()
         vp = self._pending_wound_check_vp.pop(subject_name, 0)
+        # Per rules/04-schools.md "Isawa Ishi School: 3rd Dan": the boost
+        # for a wound-check roll is tagged on the event itself (wound
+        # check events have no action). Fold the boost value into the
+        # modifier slot so the formatter's safety check (Principle VII)
+        # accepts the matching breakdown contribution.
+        boost_value = getattr(event, "_ishi_boost_value", None)
+        if isinstance(boost_value, int) and boost_value > 0:
+            r, k, m = event._detail_params
+            event._detail_params = (r, k, m + boost_value)
         modifier = event._detail_params[2]
         if modifier != 0:
             event._detail_modifier_breakdown = explain_modifier(
-                subject, "wound check", modifier, vp=vp,
+                subject, "wound check", modifier, vp=vp, action=event,
             )
         else:
             event._detail_modifier_breakdown = []

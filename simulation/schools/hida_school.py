@@ -29,7 +29,7 @@ class HidaBushiSchool(BaseSchool):
     def apply_special_ability(self, character: Any) -> None:
         character.set_interrupt_cost("counterattack", 1)
         character.set_take_action_event_factory(HIDA_TAKE_ACTION_EVENT_FACTORY)
-        character.set_strategy("interrupt", CounterattackInterruptStrategy())
+        self._set_school_strategy(character, "interrupt", CounterattackInterruptStrategy())
 
     def apply_rank_three_ability(self, character: Any) -> None:
         # TODO: Reroll 2X dice on counterattack or X dice on other attacks

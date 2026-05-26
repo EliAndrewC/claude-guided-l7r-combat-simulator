@@ -31,7 +31,7 @@ from unittest.mock import MagicMock
 
 from simulation import events
 from simulation.character import Character
-from simulation.schools import mirumoto_school
+from simulation.schools import ishi_school, mirumoto_school
 from web.adapters.combat_observer import CombatObserver
 from web.adapters.detailed_formatter import DetailedEventFormatter
 from web.adapters.modifier_breakdown import explain_modifier
@@ -147,6 +147,67 @@ class TestExplainModifierMirumotoSecondDan(unittest.TestCase):
         self.assertEqual([], breakdown)
 
 
+def _make_second_dan_ishi(name: str = "Ishi2nd") -> Character:
+    """Construct a 2nd-dan Isawa Ishi (free raise on precepts).
+
+    Brings all school knacks to 2 so the derived school_rank (min knack)
+    equals 2, then applies the 1st and 2nd Dan abilities.
+    """
+    char = Character(name)
+    char.set_ring("void", 3)
+    char.set_skill("precepts", 2)
+    school = ishi_school.IsawaIshiSchool()
+    char.set_school(school)
+    for knack in school.school_knacks():
+        char.set_skill(knack, 2)
+    school.apply_rank_one_ability(char)
+    school.apply_rank_two_ability(char)
+    return char
+
+
+def _make_first_dan_ishi(name: str = "Ishi1st") -> Character:
+    """1st-dan Ishi (no 2nd Dan free raise yet)."""
+    char = Character(name)
+    char.set_ring("void", 3)
+    char.set_skill("precepts", 1)
+    school = ishi_school.IsawaIshiSchool()
+    char.set_school(school)
+    for knack in school.school_knacks():
+        char.set_skill(knack, 1)
+    school.apply_rank_one_ability(char)
+    return char
+
+
+class TestExplainModifierIshiSecondDan(unittest.TestCase):
+    """``explain_modifier`` recognises Isawa Ishi 2nd Dan free-raise on precepts.
+
+    rules/04-schools.md "Isawa Ishi School: 2nd Dan" — free raise on
+    precepts (specs/002 OPEN_QUESTIONS Q2). Per Constitution Principle
+    VII, the user-facing trace must attribute the +5 modifier to the
+    school ability.
+    """
+
+    def test_second_dan_precepts_free_raise_attributed(self):
+        char = _make_second_dan_ishi()
+        breakdown = explain_modifier(char, "precepts", modifier=5, vp=0)
+        self.assertIn(("Isawa Ishi 2nd Dan free raise", 5), breakdown)
+
+    def test_second_dan_attack_no_free_raise(self):
+        """The free raise applies ONLY to precepts; attack rolls get no
+        attribution from this school at 2nd Dan.
+        """
+        char = _make_second_dan_ishi()
+        breakdown = explain_modifier(char, "attack", modifier=0, vp=0)
+        self.assertEqual([], breakdown)
+
+    def test_first_dan_ishi_no_free_raise_attribution(self):
+        """A 1st-dan Ishi has not yet earned the 2nd Dan free raise."""
+        char = _make_first_dan_ishi()
+        breakdown = explain_modifier(char, "precepts", modifier=0, vp=0)
+        labels = [label for (label, _val) in breakdown]
+        self.assertNotIn("Isawa Ishi 2nd Dan free raise", labels)
+
+
 class TestExplainModifierNonMirumoto(unittest.TestCase):
     """Non-Mirumoto characters get no school-specific attribution."""
 
@@ -154,6 +215,74 @@ class TestExplainModifierNonMirumoto(unittest.TestCase):
         char = Character("Plain")
         breakdown = explain_modifier(char, "attack", modifier=5, vp=1)
         self.assertEqual([], breakdown)
+
+
+class TestExplainModifierIshiThirdDanAllyBoost(unittest.TestCase):
+    """``explain_modifier`` attributes the 3rd Dan ally boost when the
+    action carries the ``_ishi_boosted_by`` / ``_ishi_boost_value`` tags
+    written by ``EagerAllyBoostStrategy``.
+
+    rules/04-schools.md "Isawa Ishi School: 3rd Dan": "Spend 1 Void Point
+    to add Xk1 to another character's roll, where X is your Precepts
+    skill." Per Constitution Principle VII, the trace must attribute the
+    boost value to the Ishi source by name (so the playtester knows
+    which Ishi's 3rd Dan fired).
+    """
+
+    def test_boosted_action_attributes_to_ishi_source(self):
+        """An action tagged with the Ishi source produces an
+        ``"Isawa Ishi 3rd Dan ally boost from {name}"`` contribution
+        whose value matches ``_ishi_boost_value``."""
+        ishi = Character("Hoshi")  # named Ishi
+        rolling_ally = Character("Ally")  # any school; boost applies regardless
+        action = MagicMock()
+        action._ishi_boosted_by = ishi
+        action._ishi_boost_value = 8
+        breakdown = explain_modifier(
+            rolling_ally, "attack", modifier=8, vp=0, action=action,
+        )
+        self.assertIn(
+            ("Isawa Ishi 3rd Dan ally boost from Hoshi", 8),
+            breakdown,
+        )
+
+    def test_unboosted_action_yields_no_attribution(self):
+        """When the action has no Ishi tag, no 3rd Dan contribution is
+        added to the breakdown."""
+        char = Character("Plain")
+        action = MagicMock(spec=[])  # no _ishi_boosted_by, no _ishi_boost_value
+        breakdown = explain_modifier(
+            char, "attack", modifier=0, vp=0, action=action,
+        )
+        labels = [label for (label, _val) in breakdown]
+        for label in labels:
+            self.assertFalse(label.startswith("Isawa Ishi 3rd Dan"))
+
+    def test_back_compat_no_action_parameter(self):
+        """Legacy callers that don't pass ``action`` still work."""
+        char = Character("Plain")
+        # No-action path should yield empty breakdown (no school
+        # attribution applies to a plain character).
+        breakdown = explain_modifier(char, "attack", modifier=5, vp=1)
+        self.assertEqual([], breakdown)
+
+    def test_attribution_works_for_wound_check_event_too(self):
+        """Wound-check events have the tags on the event itself (not on
+        an action). ``explain_modifier`` accepts either via the
+        ``action`` parameter."""
+        ishi = Character("Phoenix")
+        wc_subject = Character("Ally")
+        # Simulate the event-as-tag-owner pattern used for wound checks.
+        wc_event = MagicMock()
+        wc_event._ishi_boosted_by = ishi
+        wc_event._ishi_boost_value = 9
+        breakdown = explain_modifier(
+            wc_subject, "wound check", modifier=9, vp=0, action=wc_event,
+        )
+        self.assertIn(
+            ("Isawa Ishi 3rd Dan ally boost from Phoenix", 9),
+            breakdown,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -419,6 +548,79 @@ class TestFormatterShowsSourceAttribution(unittest.TestCase):
         attack_line = [ln for ln in lines if "Attack:" in ln][0]
         self.assertIn("+35", attack_line)
         self.assertNotIn("Mirumoto 5th Dan", attack_line)
+
+
+class TestFormatterShowsIshiThirdDanBoostAttribution(unittest.TestCase):
+    """End-to-end: the user-visible trace shows the 3rd Dan ally boost
+    attribution when an action carries the ``_ishi_boosted_by`` /
+    ``_ishi_boost_value`` tags.
+
+    rules/04-schools.md "Isawa Ishi School: 3rd Dan" + Constitution
+    Principle VII: every applied modifier must be attributed in the
+    user-facing trace.
+    """
+
+    def test_attack_roll_attributes_ishi_third_dan(self):
+        fmt = DetailedEventFormatter()
+        ishi = Character("Sage")  # the Ishi who fired the boost
+        ally = Character("Bushi")  # the rolling ally
+        target = MagicMock()
+        target.name.return_value = "Enemy"
+        target.tn_to_hit.return_value = 5
+        # Build a MagicMock action with the boost tags set (matches what
+        # ``EagerAllyBoostStrategy.recommend`` writes in production).
+        action = _make_skill_action(
+            subject=ally, target=target, skill="attack",
+            skill_roll=11, tn=5, vp=0,
+            rolled=5, kept=3, modifier=8,
+        )
+        action._ishi_boosted_by = ishi
+        action._ishi_boost_value = 8
+        event = events.AttackRolledEvent(action, 11)
+        event._detail_dice = [3, 2, 1]
+        event._detail_params = (5, 3, 8)
+        event._detail_tn = 5
+        event._detail_base_tn = 5
+        event._detail_modifier_breakdown = [
+            ("Isawa Ishi 3rd Dan ally boost from Sage", 8),
+        ]
+        lines = fmt.format_history([event])
+        attack_line = [ln for ln in lines if "Attack:" in ln][0]
+        self.assertIn("+8", attack_line)
+        self.assertIn("Isawa Ishi 3rd Dan ally boost from Sage", attack_line)
+
+
+class TestFormatterRendersSchoolNegatedEvent(unittest.TestCase):
+    """``DetailedEventFormatter`` renders ``SchoolNegatedEvent`` with the
+    Isawa Ishi 5th Dan source attribution per Constitution Principle VII.
+
+    rules/04-schools.md "Isawa Ishi School: 5th Dan": the Ishi spends VP
+    to negate an opponent's school/profession for a fight. The trace must
+    show: negator name, target name, target school name, VP cost, and
+    the source ability ("Isawa Ishi 5th Dan").
+    """
+
+    def test_school_negated_event_rendered_in_trace(self):
+        ishi = Character("Hoshi")
+        akodo = Character("Akodo")
+        negated_event = events.SchoolNegatedEvent(
+            negator=ishi,
+            target=akodo,
+            vp_cost=8,
+            target_school_name="Akodo Bushi School",
+        )
+        # Wrap in a Phase event to set the phase context.
+        phase_event = events.NewPhaseEvent(phase=3)
+        fmt = DetailedEventFormatter()
+        lines = fmt.format_history([phase_event, negated_event])
+        # The trace must include the source attribution and the
+        # essential negation details.
+        joined = "\n".join(lines)
+        self.assertIn("Hoshi", joined)
+        self.assertIn("Akodo", joined)
+        self.assertIn("Akodo Bushi School", joined)
+        self.assertIn("8", joined)
+        self.assertIn("Isawa Ishi 5th Dan", joined)
 
 
 if __name__ == "__main__":

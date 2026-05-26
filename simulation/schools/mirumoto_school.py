@@ -70,13 +70,13 @@ class MirumotoBushiSchool(BaseSchool):
         # the ``"interrupt"`` slot, and do NOT set the counterattack
         # interrupt cost to 1 -- those are Daidoji/Hida defaults that
         # have no basis in the Mirumoto rules text.
-        character.set_listener("parry_succeeded", MirumotoParryTVPListener())
-        character.set_listener("parry_failed", MirumotoParryTVPListener())
-        character.set_parry_strategy(AlwaysParryStrategy())
+        self._set_school_listener(character, "parry_succeeded", MirumotoParryTVPListener())
+        self._set_school_listener(character, "parry_failed", MirumotoParryTVPListener())
+        self._set_school_strategy(character, "parry", AlwaysParryStrategy())
 
     def apply_rank_three_ability(self, character: Any) -> None:
         # FR-007: NewRoundListener grants the per-round 2*attack_skill pool.
-        character.set_listener("new_round", MirumotoNewRoundListener())
+        self._set_school_listener(character, "new_round", MirumotoNewRoundListener())
         # FR-008 (mode A: phase-lower) + FR-009 (mode B: +2 after roll).
         # The two spend strategies live in `simulation/strategies/mirumoto_third_dan.py`
         # so playtesters can swap them without touching the combat loop
@@ -104,12 +104,12 @@ class MirumotoBushiSchool(BaseSchool):
         #     directly without a strategy hook), a dedicated listener
         #     ``MirumotoCounterattackRolledListener`` dispatches to the
         #     same strategy slot.
-        character.set_strategy("mirumoto_phase_lower", EagerPhaseLowerStrategy())
-        character.set_strategy("mirumoto_post_roll_bonus", MarginalBonusStrategy())
-        character.set_listener("attack_declared", MirumotoAttackDeclaredListener())
-        character.set_listener("counterattack_rolled", MirumotoCounterattackRolledListener())
-        character.set_strategy("attack_rolled", MirumotoAttackRolledStrategy())
-        character.set_strategy("parry_rolled", MirumotoParryRolledStrategy())
+        self._set_school_strategy(character, "mirumoto_phase_lower", EagerPhaseLowerStrategy())
+        self._set_school_strategy(character, "mirumoto_post_roll_bonus", MarginalBonusStrategy())
+        self._set_school_listener(character, "attack_declared", MirumotoAttackDeclaredListener())
+        self._set_school_listener(character, "counterattack_rolled", MirumotoCounterattackRolledListener())
+        self._set_school_strategy(character, "attack_rolled", MirumotoAttackRolledStrategy())
+        self._set_school_strategy(character, "parry_rolled", MirumotoParryRolledStrategy())
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)

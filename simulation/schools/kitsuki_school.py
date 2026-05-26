@@ -47,7 +47,8 @@ class KitsukiMagistrateSchool(BaseSchool):
     def apply_rank_five_ability(self, character: Any) -> None:
         # Reduce Air, Fire, Water of all opponents by 1 on the first round.
         existing_listener = character._listeners.get("new_round")
-        character.set_listener(
+        self._set_school_listener(
+            character,
             "new_round",
             KitsukiFifthDanNewRoundListener(existing_listener),
         )

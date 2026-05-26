@@ -48,7 +48,7 @@ class DaidojiYojimboSchool(BaseSchool):
         character.set_interrupt_cost("counterattack", 1)
         character.set_action_factory(DAIDOJI_ACTION_FACTORY)
         character.set_take_action_event_factory(DAIDOJI_TAKE_ACTION_EVENT_FACTORY)
-        character.set_strategy("interrupt", CounterattackInterruptStrategy())
+        self._set_school_strategy(character, "interrupt", CounterattackInterruptStrategy())
 
     def apply_rank_three_ability(self, character: Any) -> None:
         # After a successful counterattack, grant X free raises on wound check
@@ -58,12 +58,12 @@ class DaidojiYojimboSchool(BaseSchool):
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
         # Redirect damage from allies to the Daidoji
-        character.set_listener("lw_damage", DaidojiFourthDanListener(character))
+        self._set_school_listener(character, "lw_damage", DaidojiFourthDanListener(character))
 
     def apply_rank_five_ability(self, character: Any) -> None:
         # After a wound check succeeds, lower the attacker's TN to hit
         # by the excess amount.
-        character.set_listener("wound_check_succeeded", DaidojiFifthDanWoundCheckListener(character))
+        self._set_school_listener(character, "wound_check_succeeded", DaidojiFifthDanWoundCheckListener(character))
 
     def extra_rolled(self) -> list[str]:
         return ["attack", "counterattack", "wound check"]

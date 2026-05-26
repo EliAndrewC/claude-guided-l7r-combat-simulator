@@ -32,19 +32,19 @@ class ShinjoBushiSchool(BaseSchool):
 
     def apply_special_ability(self, character: Any) -> None:
         # Track action die hold bonus via SpendActionListener
-        character.set_listener("spend_action", ShinjoSpendActionListener())
+        self._set_school_listener(character, "spend_action", ShinjoSpendActionListener())
 
     def apply_rank_three_ability(self, character: Any) -> None:
-        character.set_listener("parry_succeeded", ShinjoParryListener())
-        character.set_listener("parry_failed", ShinjoParryListener())
+        self._set_school_listener(character, "parry_succeeded", ShinjoParryListener())
+        self._set_school_listener(character, "parry_failed", ShinjoParryListener())
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
-        character.set_listener("new_round", ShinjoNewRoundListener())
+        self._set_school_listener(character, "new_round", ShinjoNewRoundListener())
 
     def apply_rank_five_ability(self, character: Any) -> None:
-        character.set_listener("parry_succeeded", ShinjoFifthDanParryListener())
-        character.set_listener("parry_failed", ShinjoParryListener())
+        self._set_school_listener(character, "parry_succeeded", ShinjoFifthDanParryListener())
+        self._set_school_listener(character, "parry_failed", ShinjoParryListener())
 
     def extra_rolled(self) -> list[str]:
         return ["double attack", "initiative", "parry"]

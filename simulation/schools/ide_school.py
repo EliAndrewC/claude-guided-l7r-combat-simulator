@@ -32,17 +32,17 @@ class IdeDiplomatSchool(BaseSchool):
         return None
 
     def apply_special_ability(self, character: Any) -> None:
-        character.set_listener("attack_succeeded", IdeFeintSucceededListener())
-        character.set_listener("attack_failed", IdeFeintFailedListener())
+        self._set_school_listener(character, "attack_succeeded", IdeFeintSucceededListener())
+        self._set_school_listener(character, "attack_failed", IdeFeintFailedListener())
 
     def apply_rank_three_ability(self, character: Any) -> None:
-        character.set_listener("attack_rolled", IdeTactSubtractListener())
+        self._set_school_listener(character, "attack_rolled", IdeTactSubtractListener())
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
 
     def apply_rank_five_ability(self, character: Any) -> None:
-        character.set_listener("spend_vp", IdeSpendVPListener())
+        self._set_school_listener(character, "spend_vp", IdeSpendVPListener())
 
     def extra_rolled(self) -> list[str]:
         return ["wound check", "initiative", "precepts"]

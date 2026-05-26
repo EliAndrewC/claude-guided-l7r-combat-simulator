@@ -36,7 +36,7 @@ class ShibaBushiSchool(BaseSchool):
         character.set_extra_kept("wound check", 1)
 
     def apply_rank_five_ability(self, character: Any) -> None:
-        character.set_listener("parry_succeeded", ShibaParrySucceededListener())
+        self._set_school_listener(character, "parry_succeeded", ShibaParrySucceededListener())
 
     def extra_rolled(self) -> list[str]:
         return ["double attack", "parry", "wound check"]
