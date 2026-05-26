@@ -109,7 +109,9 @@ class TestDiceIntegration(unittest.TestCase):
 
         for event in wc_events:
             self.assertTrue(hasattr(event, "_detail_dice"), "WoundCheckRolledEvent should have _detail_dice")
-            rolled, kept = event._detail_params
+            # _detail_params is a 3-tuple (rolled, kept, modifier) per
+            # Constitution Principle VII.
+            rolled, kept, _mod = event._detail_params
             self.assertGreater(
                 rolled, 0,
                 f"Wound check rolled should be > 0, got {rolled}k{kept} "
@@ -277,7 +279,9 @@ class TestDiceIntegrationWithSchools(unittest.TestCase):
         self.assertTrue(len(wc_events) > 0, "Should have at least one wound check")
         for event in wc_events:
             self.assertTrue(hasattr(event, "_detail_dice"))
-            rolled, kept = event._detail_params
+            # _detail_params is a 3-tuple (rolled, kept, modifier) per
+            # Constitution Principle VII.
+            rolled, kept, _mod = event._detail_params
             self.assertGreater(rolled, 0, f"WC 0k0: dice={event._detail_dice} roll={event.roll}")
 
 

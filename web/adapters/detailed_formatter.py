@@ -419,11 +419,13 @@ class DetailedEventFormatter:
                 dr, dk, dm = damage_params
                 extras.append(f"damage will be {dr}k{dk}")
             extra_str = f" ({', '.join(extras)})" if extras else ""
-            return [f"{self._phase_prefix(name)} {emoji} Attack: {roll_str} vs {tn_str} — {result}{extra_str}"]
+            attribution = self._format_modifier_breakdown(event, mod)
+            return [f"{self._phase_prefix(name)} {emoji} Attack: {roll_str} vs {tn_str} — {result}{extra_str}{attribution}"]
         else:
             emoji = "❌"
             result = "MISS"
-            return [f"{self._phase_prefix(name)} {emoji} Attack: {roll_str} vs {tn_str} — {result}"]
+            attribution = self._format_modifier_breakdown(event, mod)
+            return [f"{self._phase_prefix(name)} {emoji} Attack: {roll_str} vs {tn_str} — {result}{attribution}"]
 
     def _format_counterattack_rolled(self, event: Any) -> list[str]:
         """Standalone counterattack roll with hit/miss result."""
@@ -444,7 +446,8 @@ class DetailedEventFormatter:
         else:
             emoji = "❌"
             result = "MISS"
-        return [f"{self._phase_prefix(name)} {emoji} Counterattack: {roll_str} vs TN {tn} — {result}"]
+        attribution = self._format_modifier_breakdown(event, mod)
+        return [f"{self._phase_prefix(name)} {emoji} Counterattack: {roll_str} vs TN {tn} — {result}{attribution}"]
 
     def _format_contested_iaijutsu_rolled(self, event: Any) -> list[str]:
         """Format a contested iaijutsu attack rolled event."""
@@ -527,7 +530,8 @@ class DetailedEventFormatter:
 
         succeeded = event.action.is_success()
         result = "SUCCEEDED" if succeeded else "FAILED"
-        return [f"{self._phase_prefix(name)} 🛡️ Parry: {roll_str} vs TN {tn} — {result}"]
+        attribution = self._format_modifier_breakdown(event, mod)
+        return [f"{self._phase_prefix(name)} 🛡️ Parry: {roll_str} vs TN {tn} — {result}{attribution}"]
 
     def _format_lw_damage(self, event: Any) -> list[str]:
         name = event.target.name()
@@ -556,7 +560,13 @@ class DetailedEventFormatter:
         return [f"{self._phase_prefix(name)} {hearts} {name} takes {event.damage} serious {noun}{suffix}"]
 
     def _format_wound_check_rolled(self, event: Any, emoji: str | None = None, vp_infix: str = "") -> list[str]:
-        """Combine wound check roll with pass/fail."""
+        """Combine wound check roll with pass/fail.
+
+        Per Constitution Principle VII the rendered line shows BOTH
+        the kept-sum and the modifier (when non-zero), plus a source
+        attribution line when a school-specific breakdown is known
+        and sums correctly to the modifier.
+        """
         name = event.subject.name()
 
         passed = event.roll >= event.tn
@@ -568,10 +578,63 @@ class DetailedEventFormatter:
             return [f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: rolled {event.roll} vs TN {event.tn} — {result}"]
 
         dice = event._detail_dice
-        rolled, kept = event._detail_params
+        rolled, kept, mod = self._unpack_wound_check_params(event._detail_params)
         kept_sum = sum(dice[:kept]) if dice else event.roll
+        total = kept_sum + mod
 
-        return [f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: {rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum} vs TN {event.tn} — {result}"]
+        roll_str = f"{rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum}"
+        if mod > 0:
+            roll_str += f", +{mod} = {total}"
+        elif mod < 0:
+            roll_str += f", {mod} = {total}"
+
+        line = f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: {roll_str} vs TN {event.tn} — {result}"
+        line += self._format_modifier_breakdown(event, mod)
+        return [line]
+
+    @staticmethod
+    def _unpack_wound_check_params(params: Any) -> tuple[int, int, int]:
+        """Accept both new 3-tuple ``(rolled, kept, modifier)`` and the
+        legacy 2-tuple ``(rolled, kept)`` form used by older tests
+        and historical callers. Legacy callers get an implicit
+        ``modifier=0``.
+        """
+        if params is None:
+            return (0, 0, 0)
+        if len(params) >= 3:
+            return (params[0], params[1], params[2])
+        return (params[0], params[1], 0)
+
+    @staticmethod
+    def _format_modifier_breakdown(event: Any, modifier: int) -> str:
+        """Return a parenthetical ``" (Source: +N x M VP; Source2: +K)"``
+        suffix when ``event._detail_modifier_breakdown`` is set AND
+        sums to the rendered ``modifier``. Returns an empty string
+        otherwise -- the "better silent than wrong" safety clause of
+        Constitution Principle VII.
+        """
+        breakdown = getattr(event, "_detail_modifier_breakdown", None)
+        if not breakdown:
+            return ""
+        # Safety: only attribute if the breakdown sums to the modifier.
+        if sum(value for _label, value in breakdown) != modifier:
+            return ""
+        # Special-case the single-source "Mirumoto 5th Dan" rendering
+        # so it explicitly shows the "x N VP" multiplier (matching the
+        # user's expected trace format). All other single-source
+        # renderings show "Label: +N".
+        if len(breakdown) == 1:
+            label, value = breakdown[0]
+            if label == "Mirumoto 5th Dan" and value > 0 and value % 10 == 0:
+                vp_count = value // 10
+                return f" ({label}: +10 × {vp_count} VP)"
+            sign = "+" if value >= 0 else ""
+            return f" ({label}: {sign}{value})"
+        parts = []
+        for label, value in breakdown:
+            sign = "+" if value >= 0 else ""
+            parts.append(f"{label}: {sign}{value}")
+        return f" ({'; '.join(parts)})"
 
     def _format_spend_vp(self, event: Any) -> list[str]:
         name = event.subject.name()
@@ -804,10 +867,12 @@ class DetailedEventFormatter:
                 dr, dk, _dm = damage_params
                 extras.append(f"damage will be {dr}k{dk}")
             extra_str = f" ({', '.join(extras)})" if extras else ""
-            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ attacks {tgt} ({skill}) — {roll_str} vs {tn_str} — {result}{extra_str}"]
+            attribution = self._format_modifier_breakdown(rolled_event, mod)
+            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ attacks {tgt} ({skill}) — {roll_str} vs {tn_str} — {result}{extra_str}{attribution}"]
         else:
             result = "MISS"
-            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ attacks {tgt} ({skill}) — {roll_str} vs {tn_str} — {result}"]
+            attribution = self._format_modifier_breakdown(rolled_event, mod)
+            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ attacks {tgt} ({skill}) — {roll_str} vs {tn_str} — {result}{attribution}"]
 
     def _format_combined_counterattack(self, take_event: Any, rolled_event: Any, vp_infix: str = "") -> list[str]:
         """Build a combined 'counterattacks TARGET — roll vs TN — RESULT' line."""
@@ -843,10 +908,12 @@ class DetailedEventFormatter:
                 dr, dk, _dm = damage_params
                 extras.append(f"damage will be {dr}k{dk}")
             extra_str = f" ({', '.join(extras)})" if extras else ""
-            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ counterattacks {tgt} — {roll_str} vs TN {tn} — {result}{extra_str}"]
+            attribution = self._format_modifier_breakdown(rolled_event, mod)
+            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ counterattacks {tgt} — {roll_str} vs TN {tn} — {result}{extra_str}{attribution}"]
         else:
             result = "MISS"
-            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ counterattacks {tgt} — {roll_str} vs TN {tn} — {result}"]
+            attribution = self._format_modifier_breakdown(rolled_event, mod)
+            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ counterattacks {tgt} — {roll_str} vs TN {tn} — {result}{attribution}"]
 
     def _format_combined_parry(self, take_event: Any, rolled_event: Any) -> list[str]:
         """Build a combined 'parries TARGET — roll vs TN — RESULT' line."""
@@ -872,7 +939,8 @@ class DetailedEventFormatter:
 
         succeeded = action.is_success()
         result = "SUCCEEDED" if succeeded else "FAILED"
-        return [f"{self._phase_prefix(subj)} 🛡️ parries {tgt} — {roll_str} vs TN {tn} — {result}"]
+        attribution = self._format_modifier_breakdown(rolled_event, mod)
+        return [f"{self._phase_prefix(subj)} 🛡️ parries {tgt} — {roll_str} vs TN {tn} — {result}{attribution}"]
 
     def _format_combined_wound_check_lw(self, wc_event: Any, lw_event: Any, vp_infix: str = "") -> list[str]:
         """Build a combined 'Wound Check … — PASSED → keeping N light wounds' line."""
@@ -885,11 +953,18 @@ class DetailedEventFormatter:
             wc_str = f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: rolled {wc_event.roll} vs TN {wc_event.tn} — {result}"
         else:
             dice = wc_event._detail_dice
-            rolled, kept = wc_event._detail_params
+            rolled, kept, mod = self._unpack_wound_check_params(wc_event._detail_params)
             kept_sum = sum(dice[:kept]) if dice else wc_event.roll
+            total = kept_sum + mod
             passed = wc_event.roll >= wc_event.tn
             result = "PASSED" if passed else "FAILED"
-            wc_str = f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: {rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum} vs TN {wc_event.tn} — {result}"
+            roll_str = f"{rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum}"
+            if mod > 0:
+                roll_str += f", +{mod} = {total}"
+            elif mod < 0:
+                roll_str += f", {mod} = {total}"
+            wc_str = f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: {roll_str} vs TN {wc_event.tn} — {result}"
+            wc_str += self._format_modifier_breakdown(wc_event, mod)
 
         lw_total = getattr(lw_event, "_detail_lw_total", lw_event.damage)
         return [f"{wc_str} → keeping {lw_total} light wounds"]
@@ -906,11 +981,18 @@ class DetailedEventFormatter:
             wc_str = f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: rolled {wc_event.roll} vs TN {wc_event.tn} — {result}"
         else:
             dice = wc_event._detail_dice
-            rolled, kept = wc_event._detail_params
+            rolled, kept, mod = self._unpack_wound_check_params(wc_event._detail_params)
             kept_sum = sum(dice[:kept]) if dice else wc_event.roll
+            total = kept_sum + mod
             passed = wc_event.roll >= wc_event.tn
             result = "PASSED" if passed else "FAILED"
-            wc_str = f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: {rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum} vs TN {wc_event.tn} — {result}"
+            roll_str = f"{rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum}"
+            if mod > 0:
+                roll_str += f", +{mod} = {total}"
+            elif mod < 0:
+                roll_str += f", {mod} = {total}"
+            wc_str = f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: {roll_str} vs TN {wc_event.tn} — {result}"
+            wc_str += self._format_modifier_breakdown(wc_event, mod)
 
         # Build serious wound suffix
         noun = "wound" if sw_count == 1 else "wounds"

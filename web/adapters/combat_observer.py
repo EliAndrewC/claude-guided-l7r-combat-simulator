@@ -13,6 +13,7 @@ from simulation.events import CounterattackRolledEvent, TakeCounterattackActionE
 from simulation.mechanics.roll import DEFAULT_DIE_PROVIDER, DieProvider
 from simulation.mechanics.roll_provider import RollProvider
 from simulation.schools.kakita_school import ContestedIaijutsuAttackRolledEvent
+from web.adapters.modifier_breakdown import explain_modifier
 
 
 class _RecordingDieProvider(DieProvider):
@@ -166,10 +167,20 @@ class CombatObserver:
 
     def __init__(self) -> None:
         self._first_phase_of_round = True
+        # Per Constitution Principle VII: track recent wound-check
+        # declarations so the wound-check annotator can attribute the
+        # modifier to the VP spent. The engine yields a
+        # ``WoundCheckDeclaredEvent`` (carrying ``vp``) immediately
+        # before each ``WoundCheckRolledEvent``; we cache the most
+        # recent declaration per subject name to bridge that gap
+        # without modifying the engine.
+        self._pending_wound_check_vp: dict[str, int] = {}
 
     def on_event(self, event: Any, context: Any) -> None:
         if isinstance(event, events.NewRoundEvent):
             self._first_phase_of_round = True
+        elif isinstance(event, events.WoundCheckDeclaredEvent):
+            self._pending_wound_check_vp[event.subject.name()] = event.vp
         elif isinstance(event, events.NewPhaseEvent):
             self._annotate_phase(event, context)
         elif isinstance(event, TakeCounterattackActionEvent):
@@ -250,6 +261,9 @@ class CombatObserver:
         event._detail_params = event.action.skill_roll_params()
         event._detail_tn = event.action.tn()
         event._detail_base_tn = event.action.target().tn_to_hit()
+        event._detail_modifier_breakdown = self._build_modifier_breakdown(
+            subject, event.action.skill(), event._detail_params, event.action.vp(),
+        )
 
     def _annotate_counterattack_rolled(self, event: Any) -> None:
         subject = event.action.subject()
@@ -258,6 +272,9 @@ class CombatObserver:
         event._detail_dice = info["dice"] if info else []
         event._detail_params = event.action.skill_roll_params()
         event._detail_tn = event.action.tn()
+        event._detail_modifier_breakdown = self._build_modifier_breakdown(
+            subject, event.action.skill(), event._detail_params, event.action.vp(),
+        )
 
     def _annotate_parry_rolled(self, event: Any) -> None:
         subject = event.action.subject()
@@ -266,6 +283,28 @@ class CombatObserver:
         event._detail_dice = info["dice"] if info else []
         event._detail_params = event.action.skill_roll_params()
         event._detail_tn = event.action.tn()
+        event._detail_modifier_breakdown = self._build_modifier_breakdown(
+            subject, event.action.skill(), event._detail_params, event.action.vp(),
+        )
+
+    @staticmethod
+    def _build_modifier_breakdown(
+        subject: Any, skill: str, params: Any, vp: int,
+    ) -> list[tuple[str, int]]:
+        """Compute the source-attribution breakdown for a skill roll's modifier.
+
+        Returns an empty list when the modifier is zero (no need to
+        attribute zero) or when ``explain_modifier`` does not recognise
+        any school-specific source. The formatter applies a secondary
+        safety check (must sum to the modifier) before rendering, so
+        any mismatch produces silent suppression of the attribution.
+        """
+        if not params or len(params) < 3:
+            return []
+        modifier = params[2]
+        if modifier == 0:
+            return []
+        return explain_modifier(subject, skill, modifier, vp=vp)
 
     def _annotate_contested_iaijutsu_rolled(self, event: Any) -> None:
         subject = event.action.subject()
@@ -305,15 +344,41 @@ class CombatObserver:
         event._detail_lw_after = event.target.lw() + event.damage
 
     def _annotate_wound_check(self, event: Any) -> None:
+        # Per Constitution Principle VII: capture the modifier so the
+        # formatter can render it. The modifier is derived as
+        # ``event.roll - sum(dice[:kept])`` -- the wound-check roll
+        # provider returns ``kept_sum`` (no modifier), so any gap
+        # between that sum and ``event.roll`` is attributable to a
+        # modifier injected upstream (e.g., the Mirumoto 5th Dan
+        # ``+10 per VP`` -- rules/04-schools.md Mirumoto Bushi School
+        # Fifth Dan).
         subject = event.subject
         provider = subject.roll_provider()
         info = provider.last_wound_check_info() if hasattr(provider, "last_wound_check_info") else None
         if info:
             event._detail_dice = info["dice"]
-            event._detail_params = (info["rolled"], info["kept"])
+            rolled = info["rolled"]
+            kept = info["kept"]
+            dice = info["dice"]
+            kept_sum = sum(dice[:kept]) if dice else event.roll
+            modifier = event.roll - kept_sum
+            event._detail_params = (rolled, kept, modifier)
         else:
             event._detail_dice = []
-            event._detail_params = (0, 0)
+            event._detail_params = (0, 0, 0)
+        # Source attribution: pull the VP from the most recent
+        # ``WoundCheckDeclaredEvent`` for this subject (the engine
+        # always emits the declaration immediately before the
+        # rolled event; we cached it on receipt).
+        subject_name = subject.name()
+        vp = self._pending_wound_check_vp.pop(subject_name, 0)
+        modifier = event._detail_params[2]
+        if modifier != 0:
+            event._detail_modifier_breakdown = explain_modifier(
+                subject, "wound check", modifier, vp=vp,
+            )
+        else:
+            event._detail_modifier_breakdown = []
 
     def _annotate_duel_strike_rolled(self, event: Any) -> None:
         subject = event.subject

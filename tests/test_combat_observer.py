@@ -175,7 +175,12 @@ class TestCombatObserverWoundCheck(unittest.TestCase):
         observer.on_event(event, context)
 
         self.assertEqual([9, 6, 5, 2], event._detail_dice)
-        self.assertEqual((4, 3), event._detail_params)
+        # Wound-check _detail_params is now a 3-tuple (rolled, kept, modifier)
+        # per Constitution Principle VII -- the modifier is required for the
+        # formatter to render the full numeric effect of any school bonus.
+        # With dice [9,6,5,2] kept_sum (top 3) = 20 == event.roll, so the
+        # inferred modifier is 0.
+        self.assertEqual((4, 3, 0), event._detail_params)
 
 
 class TestCombatObserverInitiative(unittest.TestCase):
