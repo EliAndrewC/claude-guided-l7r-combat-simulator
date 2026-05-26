@@ -90,10 +90,17 @@ representative matchups. Concretely:
    A school that loses 100% of generic matchups under its own defaults is
    incomplete work.
 2. **Mirror non-degeneracy.** Two characters of the same school in a
-   mirror match MUST produce a combat that terminates within a reasonable
-   round budget. "Both parry forever waiting for the other to attack" or
-   "both counterattack forever" or any equivalent never-act pattern is a
-   defect, not a feature.
+   mirror match MUST satisfy TWO conditions, not one:
+   (a) the combat terminates within a reasonable round budget — "both
+   parry forever waiting for the other to attack" or "both counterattack
+   forever" or any equivalent never-act pattern is a defect; AND
+   (b) the school's identity engine actually fires during the combat —
+   if a school's Special Ability, Dan-rank abilities, or signature
+   resource economy never engages in a mirror match, the school's
+   defaults are degenerate even if the combat technically terminates via
+   default-strategy bumbling. A combat that terminates by raw wound-check
+   shootout while the school's identity machinery never activates is a
+   Principle IX failure. Both conditions are required.
 3. **Action-disadvantage handling.** When an opponent has more actions per
    round than the school's bearer (a common state mid-fight after action
    spending), the defaults MUST eventually take an offensive action — a
@@ -176,4 +183,4 @@ clarification, or non-semantic edits.
 **Compliance review**: `/speckit-plan` and `/speckit-analyze` MUST surface
 constitution violations as blockers, not suggestions.
 
-**Version**: 1.2.0 | **Ratified**: 2026-05-25 | **Last Amended**: 2026-05-26
+**Version**: 1.2.1 | **Ratified**: 2026-05-25 | **Last Amended**: 2026-05-26

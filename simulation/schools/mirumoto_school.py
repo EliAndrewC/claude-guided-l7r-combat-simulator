@@ -35,6 +35,7 @@ from simulation.mechanics.skills import ATTACK_SKILLS
 from simulation.schools.base import BaseSchool
 from simulation.strategies.action_factory import DefaultActionFactory
 from simulation.strategies.base import (
+    AlwaysParryStrategy,
     AttackRolledStrategy,
     NeverParryStrategy,
     ParryRolledStrategy,
@@ -52,17 +53,26 @@ class MirumotoBushiSchool(BaseSchool):
     def apply_special_ability(self, character: Any) -> None:
         # rules/04-schools.md Mirumoto Bushi School Special Ability:
         # "Your successful or unsuccessful parries give you a temporary
-        # void point." TVP-on-parry is the school's whole engine; the
-        # listeners below are the only behavior the Special Ability
-        # installs. Notably, we do NOT install
-        # ``CounterattackInterruptStrategy`` on the ``"interrupt"`` slot
-        # (Constitution Principle VIII -- the engine's default
-        # ``DefaultInterruptStrategy`` routes interrupts to the parry
-        # strategy, which is what Mirumoto's parry-centric economy needs).
-        # We also do NOT set ``set_interrupt_cost("counterattack", 1)``
-        # -- the Mirumoto rules text has no counterattack-discount clause.
+        # void point." TVP-on-parry is the school's whole engine.
+        #
+        # Constitution Principle VIII (school identity drives defaults)
+        # AND Principle IX (defaults must be playable) together require
+        # this school to install ``AlwaysParryStrategy``: every parry --
+        # success OR failure -- generates 1 TVP, so passing up parries
+        # via the engine's default ``ReluctantParryStrategy`` (which only
+        # parries when the hit is predicted dangerous) starves the
+        # school's identity engine entirely. In a mirror match this
+        # produces a combat that terminates by wound-check shootout while
+        # the school's signature mechanics never fire -- a Principle IX
+        # mirror-non-degeneracy failure.
+        #
+        # We also do NOT install ``CounterattackInterruptStrategy`` on
+        # the ``"interrupt"`` slot, and do NOT set the counterattack
+        # interrupt cost to 1 -- those are Daidoji/Hida defaults that
+        # have no basis in the Mirumoto rules text.
         character.set_listener("parry_succeeded", MirumotoParryTVPListener())
         character.set_listener("parry_failed", MirumotoParryTVPListener())
+        character.set_parry_strategy(AlwaysParryStrategy())
 
     def apply_rank_three_ability(self, character: Any) -> None:
         # FR-007: NewRoundListener grants the per-round 2*attack_skill pool.

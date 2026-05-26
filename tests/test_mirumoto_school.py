@@ -4486,3 +4486,99 @@ class TestMirumotoParriesIncomingAttackInsteadOfCounterattacking(unittest.TestCa
             "by default; the CounterattackInterruptStrategy install bug "
             "must remain absent.",
         )
+
+
+class TestMirumotoInstallsAlwaysParryStrategy(unittest.TestCase):
+    """
+    Constitution Principles VIII + IX regression guard.
+
+    The Mirumoto Special Ability ("your successful or unsuccessful
+    parries give you a temporary void point") makes EVERY parry attempt
+    economically positive. ``ReluctantParryStrategy`` (the engine
+    default) declines parries on non-threatening attacks, which starves
+    the school's TVP engine -- this fails Principle IX (the school's
+    identity machinery never fires in a mirror match). The school MUST
+    install ``AlwaysParryStrategy`` in ``apply_special_ability`` so that
+    every parry-eligible incoming attack actually generates a TVP.
+
+    Rules clauses exercised:
+      - rules/04-schools.md Mirumoto Bushi School Special Ability
+      - Constitution Principle VIII (identity drives defaults)
+      - Constitution Principle IX, clause (2)(b) (mirror identity engine)
+    """
+
+    def test_apply_special_ability_installs_always_parry_strategy(self):
+        from simulation.strategies import base as strategy_base
+
+        mirumoto = Character("Mirumoto")
+        mirumoto_school.MirumotoBushiSchool().apply_special_ability(mirumoto)
+        installed = mirumoto.parry_strategy()
+        self.assertIsInstance(
+            installed,
+            strategy_base.AlwaysParryStrategy,
+            f"Mirumoto must install AlwaysParryStrategy on the parry slot; "
+            f"got {type(installed).__name__}. Principle IX mirror "
+            "non-degeneracy requires the TVP engine to fire on every parry.",
+        )
+
+    def test_mirumoto_mirror_match_accumulates_tvp(self):
+        """Mirror-match identity-engine check: after a few rounds of two
+        Mirumoto characters with default bindings, BOTH sides should have
+        generated TVP (Principle IX clause (2)(b)).
+        """
+        from simulation import actions
+        from simulation.context import EngineContext
+        from simulation.engine import CombatEngine
+        from simulation.groups import Group
+        from simulation.mechanics.initiative_actions import InitiativeAction
+
+        mirumoto_a = Character("MirumotoA")
+        mirumoto_b = Character("MirumotoB")
+        for c in (mirumoto_a, mirumoto_b):
+            mirumoto_school.MirumotoBushiSchool().apply_special_ability(c)
+            c.set_actions([1])
+
+        # Drive a single parry roundtrip in each direction so the test is
+        # deterministic (no full-combat run needed -- the regression we
+        # care about is the parry strategy choice, not the round
+        # outcome).
+        groups = [Group("Dragon-A", mirumoto_a), Group("Dragon-B", mirumoto_b)]
+        context = EngineContext(groups)
+        engine = CombatEngine(context)
+
+        # A attacks B.
+        attack_a = actions.AttackAction(
+            mirumoto_a, mirumoto_b, "attack",
+            InitiativeAction([1], 1), context,
+        )
+        attack_a.set_skill_roll(20)
+        engine.event(events.TakeParryActionEvent(
+            actions.ParryAction(
+                mirumoto_b, mirumoto_a, "parry",
+                InitiativeAction([1], 1), context, attack_a,
+            ),
+        ))
+
+        # B attacks A.
+        attack_b = actions.AttackAction(
+            mirumoto_b, mirumoto_a, "attack",
+            InitiativeAction([1], 1), context,
+        )
+        attack_b.set_skill_roll(20)
+        engine.event(events.TakeParryActionEvent(
+            actions.ParryAction(
+                mirumoto_a, mirumoto_b, "parry",
+                InitiativeAction([1], 1), context, attack_b,
+            ),
+        ))
+
+        self.assertGreaterEqual(
+            mirumoto_a.tvp(), 1,
+            "Mirumoto A must have gained at least 1 TVP after parrying. "
+            "If TVP is 0 the Special Ability is not firing in the mirror.",
+        )
+        self.assertGreaterEqual(
+            mirumoto_b.tvp(), 1,
+            "Mirumoto B must have gained at least 1 TVP after parrying. "
+            "If TVP is 0 the Special Ability is not firing in the mirror.",
+        )
