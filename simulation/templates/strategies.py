@@ -562,6 +562,8 @@ MATSU_PRIORITIES: list[tuple[str, str, int]] = [
 ]
 
 # Mirumoto Bushi School (school_ring: void, knacks: counterattack, double attack, iaijutsu)
+# Mirumoto is a parry-focused school; air (the parry ring) is prioritised above
+# the other elemental rings at every rank.
 MIRUMOTO_PRIORITIES: list[tuple[str, str, int]] = [
     # Dan 2
     ("skill", "counterattack", 2),
@@ -575,33 +577,33 @@ MIRUMOTO_PRIORITIES: list[tuple[str, str, int]] = [
     ("skill", "iaijutsu", 3),
     ("skill", "attack", 3),
     ("skill", "parry", 3),
-    ("ring", "earth", 3),
+    ("ring", "air", 3),
     # Dan 4
     ("skill", "counterattack", 4),
     ("skill", "double attack", 4),
     ("skill", "iaijutsu", 4),
     ("skill", "attack", 4),
     ("skill", "parry", 4),
+    ("ring", "air", 4),
+    ("ring", "earth", 3),
     ("ring", "fire", 3),
     ("ring", "water", 3),
-    ("ring", "air", 3),
-    ("ring", "earth", 4),
     # Dan 5
     ("skill", "counterattack", 5),
     ("skill", "double attack", 5),
     ("skill", "iaijutsu", 5),
     ("skill", "attack", 5),
     ("skill", "parry", 5),
-    # Max rings
+    # Max rings (air leads among elementals at every rank)
     ("ring", "void", 5),
+    ("ring", "air", 5),
+    ("ring", "earth", 4),
     ("ring", "fire", 4),
     ("ring", "water", 4),
-    ("ring", "air", 4),
     ("ring", "earth", 5),
     ("ring", "void", 6),
     ("ring", "fire", 5),
     ("ring", "water", 5),
-    ("ring", "air", 5),
 ]
 
 # Otaku Bushi School (school_ring: fire, knacks: double attack, iaijutsu, lunge)
