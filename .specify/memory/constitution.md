@@ -51,6 +51,33 @@ Test coverage must stay above 90%. This is a floor, not a target. A change
 that drops coverage below the floor is not done. Uncovered branches in newly
 written code are a code-review blocker, not a follow-up.
 
+### VII. Combat Trace Self-Explanation
+Every applied ability, modifier, free raise, extra die, point spend, or
+rules override that changes a roll's outcome MUST appear in the user-facing
+combat trace with both its **source** and its **numeric effect**. "+30" is
+insufficient; "+30 (Mirumoto 5th Dan, +10 per void point × 3)" is correct.
+Debug logs (via `simulation/log.py`) are not sufficient — the trace a
+rules-literate user sees in the UI must be self-explaining without
+consulting the source code. When an implementer adds a school effect to the
+engine, they MUST update the user-facing formatter alongside the engine
+code; landing the engine change without the trace annotation is incomplete
+work. SC-006 in feature specs ("trace interpretable by a reviewer") is
+satisfied by user-visible annotations, not by `logger.debug` lines.
+
+### VIII. School Identity Drives Defaults
+Every school's progression priorities (ring/skill advancement order in
+`simulation/templates/strategies.py`) and default strategy bindings (the
+strategies installed by `apply_special_ability` and `apply_rank_N_ability`
+in the school file) MUST be derived from the school's identity as expressed
+in the rules text — not copied wholesale from a template school, not chosen
+arbitrarily, not left to convention. A parry-focused school MUST prioritize
+the parry ring in its advancement; a double-attack-oriented school MUST
+default its attack strategy to favor double attack; a school whose Special
+Ability rewards a specific kind of action MUST default to a strategy that
+takes that action. When a school's mechanics and its defaults diverge
+(e.g., a parry-focused school whose default interrupt strategy
+counterattacks instead of parrying), the defaults are wrong by definition.
+
 ## Technical Constraints
 
 - **Language**: Python 3.12 or newer. Type hints are required on all new
@@ -77,6 +104,16 @@ Every change, before it is considered complete:
    has been exercised in a browser. Type-checking and unit tests verify code
    correctness, not feature correctness — UI changes require manual
    verification.
+6. If engine code changed in a way that affects a roll's dice, modifiers,
+   or outcomes (per Principle VII), the user-facing combat trace surfaces
+   the change with explicit source attribution. Tests against `logger.debug`
+   markers are insufficient; the test must assert against the user-visible
+   trace string.
+7. If a new school's progression priorities or default strategy bindings
+   were authored (per Principle VIII), they have been reviewed against the
+   school's rules text by either the `school-progression-designer` or
+   `school-strategy-designer` agent, or by equivalent written rationale in
+   the feature's design artifacts.
 
 Operational details (exact commands, restart procedure, deploy steps) live in
 `CLAUDE.md`, which is the operational companion to this constitution.
@@ -101,4 +138,4 @@ clarification, or non-semantic edits.
 **Compliance review**: `/speckit-plan` and `/speckit-analyze` MUST surface
 constitution violations as blockers, not suggestions.
 
-**Version**: 1.0.0 | **Ratified**: 2026-05-25 | **Last Amended**: 2026-05-25
+**Version**: 1.1.0 | **Ratified**: 2026-05-25 | **Last Amended**: 2026-05-26
