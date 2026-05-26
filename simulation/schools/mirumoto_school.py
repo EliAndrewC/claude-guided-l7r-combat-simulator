@@ -36,7 +36,6 @@ from simulation.schools.base import BaseSchool
 from simulation.strategies.action_factory import DefaultActionFactory
 from simulation.strategies.base import (
     AttackRolledStrategy,
-    CounterattackInterruptStrategy,
     NeverParryStrategy,
     ParryRolledStrategy,
 )
@@ -51,10 +50,19 @@ class MirumotoBushiSchool(BaseSchool):
         return None
 
     def apply_special_ability(self, character: Any) -> None:
+        # rules/04-schools.md Mirumoto Bushi School Special Ability:
+        # "Your successful or unsuccessful parries give you a temporary
+        # void point." TVP-on-parry is the school's whole engine; the
+        # listeners below are the only behavior the Special Ability
+        # installs. Notably, we do NOT install
+        # ``CounterattackInterruptStrategy`` on the ``"interrupt"`` slot
+        # (Constitution Principle VIII -- the engine's default
+        # ``DefaultInterruptStrategy`` routes interrupts to the parry
+        # strategy, which is what Mirumoto's parry-centric economy needs).
+        # We also do NOT set ``set_interrupt_cost("counterattack", 1)``
+        # -- the Mirumoto rules text has no counterattack-discount clause.
         character.set_listener("parry_succeeded", MirumotoParryTVPListener())
         character.set_listener("parry_failed", MirumotoParryTVPListener())
-        character.set_interrupt_cost("counterattack", 1)
-        character.set_strategy("interrupt", CounterattackInterruptStrategy())
 
     def apply_rank_three_ability(self, character: Any) -> None:
         # FR-007: NewRoundListener grants the per-round 2*attack_skill pool.
@@ -207,9 +215,11 @@ class MirumotoAttackDeclaredListener(Listener):
     """
 
     def __init__(self) -> None:
-        # Preserve stock attack-declared behavior; the base class handles
-        # counterattack interrupts (via CounterattackInterruptStrategy on
-        # the "interrupt" slot) and lunge modifiers.
+        # Preserve stock attack-declared behavior; the base class
+        # delegates to the character's interrupt strategy (the engine
+        # default ``DefaultInterruptStrategy`` -- Mirumoto does not
+        # override the interrupt slot per Constitution Principle VIII)
+        # and handles lunge modifiers.
         self._stock = AttackDeclaredListener()
 
     def _would_parry_attack(self, character: Any, event: Any, context: Any) -> bool:

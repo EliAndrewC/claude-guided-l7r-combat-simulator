@@ -4312,3 +4312,177 @@ class TestMirumotoTraceClarity(unittest.TestCase):
             "Wound-check +10-modifier log must carry the [Mirumoto 5th Dan] marker (SC-006).")
         self.assertIn("wound check", combined.lower())
         self.assertIn("+10", combined)
+
+
+class TestMirumotoInterruptStrategyDefaults(unittest.TestCase):
+    """
+    Constitution Principle VIII ("School Identity Drives Defaults"):
+    Mirumoto's whole economy is built around parrying (Special Ability TVP
+    on every parry attempt; Second Dan free raise on parries; Third Dan
+    mode-A "in order to parry"; Fifth Dan +10/VP runs on TVP harvested
+    from parries). The school MUST NOT install
+    ``CounterattackInterruptStrategy`` on the ``"interrupt"`` slot --
+    doing so makes the Mirumoto eagerly counterattack incoming attacks
+    instead of parrying them, breaking the entire loop.
+
+    rules/04-schools.md Mirumoto Bushi School Special Ability and First
+    Dan are both parry-centric; nothing in the school's rules text grants
+    a counterattack discount or default-to-counterattack behavior.
+    """
+
+    def test_apply_special_ability_does_not_install_counterattack_interrupt_strategy(self) -> None:
+        """The buggy line
+        ``character.set_strategy("interrupt", CounterattackInterruptStrategy())``
+        in ``apply_special_ability`` caused a Mirumoto to counterattack
+        incoming attacks instead of parry. After the fix the engine's
+        default ``DefaultInterruptStrategy`` (installed by
+        ``Character.__init__``) must remain in place; that default routes
+        interrupts to the character's parry strategy on
+        ``AttackRolledEvent`` (see ``DefaultInterruptStrategy.recommend``
+        in ``simulation/strategies/base.py``).
+        """
+        from simulation.strategies.base import (
+            CounterattackInterruptStrategy,
+            DefaultInterruptStrategy,
+        )
+        mirumoto = Character("Mirumoto")
+        school = mirumoto_school.MirumotoBushiSchool()
+        mirumoto.set_school(school)
+        school.apply_special_ability(mirumoto)
+        interrupt_strategy = mirumoto._strategies.get("interrupt")
+        self.assertNotIsInstance(
+            interrupt_strategy,
+            CounterattackInterruptStrategy,
+            "apply_special_ability must NOT install "
+            "CounterattackInterruptStrategy on the 'interrupt' slot -- "
+            "doing so breaks the school's parry-centric economy "
+            "(rules/04-schools.md Mirumoto Bushi School Special Ability "
+            "and First Dan are parry-centric).",
+        )
+        self.assertIsInstance(
+            interrupt_strategy,
+            DefaultInterruptStrategy,
+            "The engine's default DefaultInterruptStrategy (installed by "
+            "Character.__init__) must remain in place so interrupts route "
+            "to the character's parry strategy.",
+        )
+
+    def test_apply_special_ability_does_not_set_counterattack_interrupt_cost(self) -> None:
+        """The Mirumoto rules text has no counterattack-discount clause.
+        The buggy line ``character.set_interrupt_cost("counterattack", 1)``
+        was a copy-paste from Daidoji/Hida and must be removed.
+        Verify the cost remains at the engine default (the character
+        has no counterattack interrupt-cost entry seeded by the school).
+        """
+        mirumoto = Character("Mirumoto")
+        school = mirumoto_school.MirumotoBushiSchool()
+        mirumoto.set_school(school)
+        # Capture the baseline counterattack interrupt cost from a fresh
+        # character that never had Mirumoto's apply_special_ability run.
+        baseline = Character("baseline")
+        baseline_cost = baseline.interrupt_cost("counterattack", None)
+        school.apply_special_ability(mirumoto)
+        mirumoto_cost = mirumoto.interrupt_cost("counterattack", None)
+        self.assertEqual(
+            baseline_cost, mirumoto_cost,
+            "apply_special_ability must NOT discount the counterattack "
+            "interrupt cost -- Mirumoto has no rules-text basis for this.",
+        )
+
+
+class TestMirumotoParriesIncomingAttackInsteadOfCounterattacking(unittest.TestCase):
+    """
+    Runtime integration regression guard: a 1st-dan Mirumoto facing an
+    incoming attack actually PARRIES it. Before the fix (the
+    school-strategy-designer's diagnosis), the
+    ``CounterattackInterruptStrategy`` installed on the ``"interrupt"``
+    slot would fire on ``AttackDeclaredEvent`` and synthesize a
+    ``TakeCounterattackActionEvent``, with no ``ParryDeclaredEvent``
+    appearing in the trace.
+
+    Rules clauses exercised:
+      - rules/04-schools.md Mirumoto Bushi School Special Ability (TVP
+        on parry attempt).
+      - rules/04-schools.md Mirumoto Bushi School First Dan (extra die
+        on parry).
+
+    Constitution Principle VIII: the school's defaults must encode its
+    parry-first identity.
+    """
+
+    def test_first_dan_mirumoto_parries_incoming_attack(self):
+        """End-to-end: a 1st-dan Mirumoto attacked by an enemy yields a
+        ``ParryDeclaredEvent`` (and NOT a ``TakeCounterattackActionEvent``)
+        in the combat trace. ``AlwaysParryStrategy`` is installed on the
+        Mirumoto for determinism so the parry decision is unconditional.
+        """
+        from simulation.strategies.base import AlwaysParryStrategy
+        # Build a 1st-dan Mirumoto via the canonical setup: special ability
+        # + rank-one ability.
+        mirumoto = Character("Mirumoto")
+        mirumoto.set_actions([1])
+        mirumoto.set_skill("attack", 4)
+        mirumoto.set_skill("parry", 4)
+        mirumoto.set_skill("counterattack", 4)  # School knack -- exercises
+        # the precondition that triggered the bug.
+        school = mirumoto_school.MirumotoBushiSchool()
+        mirumoto.set_school(school)
+        school.apply_special_ability(mirumoto)
+        school.apply_rank_one_ability(mirumoto)
+        # Force the parry decision to be unconditional (the default
+        # ``ReluctantParryStrategy`` would need to judge the attack
+        # dangerous; this test is about the interrupt routing, not the
+        # parry policy).
+        mirumoto.set_parry_strategy(AlwaysParryStrategy())
+        # Force a low TN so the enemy attack definitively hits, so the
+        # BaseParryStrategy's ``if not is_hit()`` short-circuit does not
+        # suppress the parry on the AttackRolledEvent cascade.
+        mirumoto.tn_to_hit = lambda: 5
+
+        enemy = Character("Hida")
+        enemy.set_actions([1])
+        enemy.set_skill("attack", 4)
+
+        groups = [Group("Dragon", mirumoto), Group("Crab", enemy)]
+        ctx = EngineContext(groups, round=1, phase=1)
+        ctx.initialize()
+
+        # Queue rolls: Mirumoto's parry roll is high enough to clear TN.
+        mirumoto_rp = CalvinistRollProvider()
+        mirumoto_rp.put_skill_roll("parry", 50)
+        mirumoto.set_roll_provider(mirumoto_rp)
+        enemy_rp = CalvinistRollProvider()
+        enemy_rp.put_skill_roll("attack", 30)
+        enemy_rp.put_damage_roll(5)
+        enemy.set_roll_provider(enemy_rp)
+
+        attack = actions.AttackAction(
+            enemy, mirumoto, "attack", InitiativeAction([1], 1), ctx,
+        )
+        engine = CombatEngine(ctx)
+        engine.event(events.TakeAttackActionEvent(attack))
+
+        history = engine.history()
+        # POST-FIX: the Mirumoto parried the attack -- a ParryDeclaredEvent
+        # appears in the trace.
+        parry_declared = [
+            e for e in history if isinstance(e, events.ParryDeclaredEvent)
+        ]
+        self.assertGreaterEqual(
+            len(parry_declared), 1,
+            "A 1st-dan Mirumoto facing an incoming attack must PARRY it "
+            "(rules/04-schools.md Mirumoto Bushi School Special Ability + "
+            "First Dan are parry-centric). If this fails, the engine's "
+            "default interrupt routing to the parry strategy was overridden.",
+        )
+        # And the Mirumoto did NOT counterattack -- the bug-induced
+        # TakeCounterattackActionEvent is absent.
+        counterattack_taken = [
+            e for e in history if isinstance(e, events.TakeCounterattackActionEvent)
+        ]
+        self.assertEqual(
+            0, len(counterattack_taken),
+            "A 1st-dan Mirumoto must NOT counterattack incoming attacks "
+            "by default; the CounterattackInterruptStrategy install bug "
+            "must remain absent.",
+        )

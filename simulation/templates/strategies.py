@@ -563,47 +563,53 @@ MATSU_PRIORITIES: list[tuple[str, str, int]] = [
 
 # Mirumoto Bushi School (school_ring: void, knacks: counterattack, double attack, iaijutsu)
 # Mirumoto is a parry-focused school; air (the parry ring) is prioritised above
-# the other elemental rings at every rank.
+# the other elemental rings at every rank. Water is prioritised next because it
+# powers wound checks (1st-Dan extra die on wound check + 5th-Dan +10 modifier
+# on wound check -- two explicit Mirumoto rules clauses); fire has no Mirumoto
+# rules-text basis, so it goes last among the elementals at every rank.
 MIRUMOTO_PRIORITIES: list[tuple[str, str, int]] = [
-    # Dan 2
+    # Dan 2 -- school knacks gate dan-rank advancement
     ("skill", "counterattack", 2),
     ("skill", "double attack", 2),
     ("skill", "iaijutsu", 2),
     ("skill", "attack", 2),
     ("skill", "parry", 2),
-    # Dan 3
+    # Dan 3 -- air ring (parry) first
     ("skill", "counterattack", 3),
     ("skill", "double attack", 3),
     ("skill", "iaijutsu", 3),
     ("skill", "attack", 3),
     ("skill", "parry", 3),
     ("ring", "air", 3),
-    # Dan 4
+    # Dan 4 -- Fourth Dan free-bumps void to 4 and unlocks 5-XP discount;
+    # buy void -> 5 here (cheap, fuels 5th Dan +10 economy)
     ("skill", "counterattack", 4),
     ("skill", "double attack", 4),
     ("skill", "iaijutsu", 4),
     ("skill", "attack", 4),
     ("skill", "parry", 4),
     ("ring", "air", 4),
-    ("ring", "earth", 3),
-    ("ring", "fire", 3),
     ("ring", "water", 3),
-    # Dan 5
+    ("ring", "earth", 3),
+    ("ring", "void", 5),
+    ("ring", "fire", 3),
+    # Dan 5 -- unlocks Fifth Dan +10 modifier
     ("skill", "counterattack", 5),
     ("skill", "double attack", 5),
     ("skill", "iaijutsu", 5),
     ("skill", "attack", 5),
     ("skill", "parry", 5),
-    # Max rings (air leads among elementals at every rank)
-    ("ring", "void", 5),
-    ("ring", "air", 5),
-    ("ring", "earth", 4),
-    ("ring", "fire", 4),
-    ("ring", "water", 4),
-    ("ring", "earth", 5),
-    ("ring", "void", 6),
-    ("ring", "fire", 5),
-    ("ring", "water", 5),
+    # Max rings -- cheapest first per file convention. Within each cost tier
+    # the Mirumoto identity ordering is air > water > earth > fire; void 6
+    # is the discounted school-ring cap at 25 XP.
+    ("ring", "water", 4),   # 20 XP -- wound-check synergy
+    ("ring", "earth", 4),   # 20 XP
+    ("ring", "fire", 4),    # 20 XP
+    ("ring", "air", 5),     # 25 XP -- parry ring cap
+    ("ring", "water", 5),   # 25 XP
+    ("ring", "void", 6),    # 25 XP discounted (school-ring cap)
+    ("ring", "earth", 5),   # 25 XP
+    ("ring", "fire", 5),    # 25 XP
 ]
 
 # Otaku Bushi School (school_ring: fire, knacks: double attack, iaijutsu, lunge)
