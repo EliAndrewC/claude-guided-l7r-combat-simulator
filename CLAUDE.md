@@ -56,6 +56,7 @@ After every code change, run these steps in order:
 5. **Deploy to Fly.io**: The app is deployed to Fly.io at https://l7r-combat-sim.fly.dev/. Do NOT deploy unless the user explicitly asks. Deploy command: `~/.fly/bin/flyctl deploy`
 
 <!-- SPECKIT START -->
-For additional context about technologies to be used, project structure,
-shell commands, and other important information, read the current plan
+Active feature plan: [specs/001-mirumoto-bushi-school/plan.md](specs/001-mirumoto-bushi-school/plan.md)
+(Branch `001-mirumoto-bushi-school`. See sibling files in the same directory
+for spec, research, data model, contracts, and quickstart.)
 <!-- SPECKIT END -->
