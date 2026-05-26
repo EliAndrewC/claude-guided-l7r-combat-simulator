@@ -42,7 +42,7 @@ class DojiArtisanSchool(BaseSchool):
         # Counterattack as interrupt at cost of 1 action die
         character.set_interrupt_cost("counterattack", 1)
         self._set_school_strategy(character, "interrupt", DojiArtisanCounterattackInterruptStrategy())
-        character.set_take_action_event_factory(DOJI_ARTISAN_TAKE_ACTION_EVENT_FACTORY)
+        self._set_school_take_action_event_factory(character, DOJI_ARTISAN_TAKE_ACTION_EVENT_FACTORY)
 
     def apply_rank_three_ability(self, character: Any) -> None:
         self.apply_ap(character)
@@ -59,7 +59,7 @@ class DojiArtisanSchool(BaseSchool):
     def apply_rank_five_ability(self, character: Any) -> None:
         # On TN/contested rolls, bonus = (X-10)/5 where X = TN or opponent's roll.
         # This requires knowing the TN or opponent's contested roll at roll time.
-        character.set_roll_parameter_provider(DojiFifthDanRollParameterProvider())
+        self._set_school_roll_parameter_provider(character, DojiFifthDanRollParameterProvider())
 
     def extra_rolled(self) -> list[str]:
         return ["counterattack", "manipulation", "wound check"]

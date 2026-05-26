@@ -35,7 +35,7 @@ class ShosuroActorSchool(BaseSchool):
         # Extra rolled dice equal to acting skill on attack, parry, and wound check.
         # Applied dynamically via a custom RollParameterProvider since acting
         # skill may increase during character building.
-        character.set_roll_parameter_provider(ShosuroRollParameterProvider())
+        self._set_school_roll_parameter_provider(character, ShosuroRollParameterProvider())
 
     def apply_rank_three_ability(self, character: Any) -> None:
         self.apply_ap(character)
@@ -46,7 +46,7 @@ class ShosuroActorSchool(BaseSchool):
 
     def apply_rank_five_ability(self, character: Any) -> None:
         # After any TN or contested roll, add lowest 3 dice to result.
-        character.set_roll_provider(ShosuroActorRollProvider(character.roll_provider()))
+        self._set_school_roll_provider(character, ShosuroActorRollProvider(character.roll_provider()))
 
     def extra_rolled(self) -> list[str]:
         return ["attack", "sincerity", "wound check"]

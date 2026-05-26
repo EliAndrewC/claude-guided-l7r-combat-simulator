@@ -36,14 +36,14 @@ class MatsuBushiSchool(BaseSchool):
         return None
 
     def apply_special_ability(self, character: Any) -> None:
-        character.set_roll_provider(MATSU_ROLL_PROVIDER)
+        self._set_school_roll_provider(character, MATSU_ROLL_PROVIDER)
 
     def apply_rank_three_ability(self, character: Any) -> None:
         self._set_school_listener(character, "spend_vp", MatsuSpendVoidPointsListener())
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
-        character.set_action_factory(MATSU_ACTION_FACTORY)
+        self._set_school_action_factory(character, MATSU_ACTION_FACTORY)
 
     def apply_rank_five_ability(self, character: Any) -> None:
         self._set_school_listener(character, "wound_check_failed", MatsuWoundCheckFailedListener())

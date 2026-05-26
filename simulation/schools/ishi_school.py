@@ -91,7 +91,7 @@ class IsawaIshiSchool(BaseSchool):
         # Install the school's custom VP provider (rules/04-schools.md "Isawa
         # Ishi School: Special Ability" -- max_vp = highest_ring + school_rank,
         # max_vp_per_roll = lowest_ring - 1).
-        character.set_max_vp_provider(self._vp_provider)
+        self._set_school_max_vp_provider(character, self._vp_provider)
         # Q4 (OPEN_QUESTIONS.md): the Ishi school's knacks are
         # ``absorb void``, ``kharmic spin``, ``otherworldliness`` -- no
         # double attack, no feint, no counterattack. The engine default

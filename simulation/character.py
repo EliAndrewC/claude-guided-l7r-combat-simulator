@@ -117,9 +117,9 @@ class Character:
         # "Isawa Ishi School: 5th Dan").  Cleared by reset() at combat boundaries.
         self._ishi_negation_done: bool = False
         # Slots populated by `BaseSchool._set_school_listener` /
-        # `_set_school_strategy` at character-build time so the engine-side
-        # dispatch gate in `Character.event()` and the strategy accessors can
-        # skip school-owned slots while `_school_negated_by` is set
+        # `_set_school_strategy` at character-build time so the active-revert
+        # negate_school() machinery in `Character.negate_school()` can find
+        # the school-installed listeners/strategies to remove
         # (rules/04-schools.md "Isawa Ishi School: 5th Dan").  These sets are
         # build-time state -- they persist for the life of the character and
         # are NOT reset between combats.
@@ -127,9 +127,37 @@ class Character:
         self._school_owned_strategy_slots: set[str] = set()
         # Cache of engine-default strategies for slots that schools replace.
         # When `_set_school_strategy` overwrites an engine-default slot, the
-        # previous value is captured here so the negation gate can return the
-        # engine default to callers while the character is school-negated.
+        # previous value is captured here so ``negate_school`` can restore
+        # the engine default while the character is school-negated.
         self._pre_school_strategies: dict[str, Any] = {}
+        # Build-time tracking of school-installed mutations.  Populated by
+        # the corresponding ``BaseSchool._set_school_*`` / ``_add_school_modifier``
+        # helpers so ``negate_school()`` can actively revert them.
+        # rules/04-schools.md "Isawa Ishi School: 5th Dan".
+        self._school_owned_modifiers: list[Any] = []
+        self._school_owned_extra_rolled: dict[str, int] = {}
+        self._school_owned_extra_kept: dict[str, int] = {}
+        # Override that, when set, makes ``school_rank()`` return the override
+        # instead of the derived ``min(knack)`` value.  Set to 0 by
+        # ``negate_school`` and cleared by ``reset``.
+        self._school_rank_override: int | None = None
+        # Snapshot of what ``negate_school`` removed, so ``reset`` can put it
+        # all back without re-running the school's ``apply_*_ability`` chain.
+        # ``None`` means "no negation pending restore".
+        self._negation_snapshot: dict[str, Any] | None = None
+        # Provider-cache attributes: each holds the value that was installed
+        # BEFORE a school replaced it (captured on the first school install
+        # via the ``BaseSchool._set_school_*_provider`` helpers).
+        self._pre_school_max_vp_provider: Any = None
+        self._pre_school_action_factory: ActionFactory | None = None
+        self._pre_school_roll_parameter_provider: RollParameterProvider | None = None
+        self._pre_school_take_action_event_factory: TakeActionEventFactory | None = None
+        self._pre_school_roll_provider: RollProvider | None = None
+        self._pre_school_wound_check_provider: WoundCheckProvider | None = None
+        self._pre_school_attack_optimizer_factory: AttackOptimizerFactory | None = None
+        # Tracks which provider slots a school has installed (so we know
+        # which pre_school caches are populated and which are still default).
+        self._school_owned_provider_slots: set[str] = set()
         self._skills: dict[str, int] = {"attack": 1, "parry": 1}
         self._skill_rings: dict[str, str] = {"attack": "fire", "counterattack": "fire", "damage": "fire", "double attack": "fire", "feint": "fire", "iaijutsu": "fire", "initiative": "void", "lunge": "fire", "parry": "air", "wound check": "water"}
         # default strategies (values may be a Strategy or a Listener-backed strategy)
@@ -163,16 +191,13 @@ class Character:
         return self._action_factory
 
     def _strategy_slot(self, slot: str) -> Any:
-        """Return the strategy installed at ``slot``, honoring the Isawa
-        Ishi 5th Dan school-negation gate (rules/04-schools.md "Isawa Ishi
-        School: 5th Dan").  When the character is school-negated AND the
-        slot was installed by a school via ``BaseSchool._set_school_strategy``,
-        return the cached engine default (``_pre_school_strategies[slot]``)
-        instead so the school's replacement strategy stops affecting
-        decisions.
+        """Return the strategy installed at ``slot``.
+
+        Note: school-installed strategies are actively reverted by
+        ``negate_school`` (rules/04-schools.md "Isawa Ishi School: 5th
+        Dan"); no dispatch-time gate is needed here.  After negation
+        the slot already holds the engine default.
         """
-        if self._school_negated_by is not None and slot in self._school_owned_strategy_slots:
-            return self._pre_school_strategies.get(slot)
         return self._strategies[slot]
 
     def action_strategy(self) -> Any:
@@ -246,16 +271,11 @@ class Character:
         return self._disadvantages
 
     def event(self, event: events.Event, context: Any) -> Iterator[events.Event]:
+        # Note: school-installed listeners are actively removed from
+        # ``_listeners`` by ``negate_school`` (rules/04-schools.md "Isawa
+        # Ishi School: 5th Dan"), so a dispatch-time gate here is not
+        # needed.
         if event.name in self._listeners.keys():
-            # Isawa Ishi 5th Dan: when this character's school has been
-            # negated, school-installed listeners are skipped so the
-            # already-installed school engine (e.g., MirumotoParryTVPListener)
-            # stops firing.  Engine-default listeners (which are NOT in
-            # `_school_owned_listener_slots`) continue to fire normally.
-            # rules/04-schools.md "Isawa Ishi School: 5th Dan".
-            if self._school_negated_by is not None and event.name in self._school_owned_listener_slots:
-                logger.debug(f"{self._name} school-negated, skipping listener for {event.name}")
-                return
             logger.debug(f"{self._name} handling {event.name}")
             # play event on modifiers first
             for modifier in self._modifiers:
@@ -430,10 +450,18 @@ class Character:
         for modifier in self._modifiers:
             if len(modifier._listeners) > 0:
                 self._modifiers.remove(modifier)
+        # Isawa Ishi 5th Dan: restore the school's mutations (modifiers,
+        # providers, listeners, strategies, extra_rolled bonuses) so the
+        # character re-acquires their school for the next combat
+        # (rules/04-schools.md "Isawa Ishi School: 5th Dan" -- "for the
+        # duration of a fight").  Must happen BEFORE the negation flags
+        # clear so the snapshot is still readable.
+        self._restore_school_mutations()
         # Clear Isawa Ishi 5th Dan school-negation flags at combat boundaries.
         # `_school_negated_by` lives on the TARGET; `_ishi_negation_done` lives
         # on the Ishi who fired the once-per-combat negation.
         self._school_negated_by = None
+        self._school_rank_override = None
         self._ishi_negation_done = False
         self._sw = 0
         self._tvp = 0
@@ -488,6 +516,179 @@ class Character:
 
     def school(self) -> School | None:
         return self._school
+
+    def school_rank(self) -> int:
+        """Return this character's derived school rank.
+
+        Defined as ``min(skill rank)`` across the school's knacks, mirroring
+        ``simulation/character_file.py::CharacterFile.school_rank`` and
+        ``web/adapters/modifier_breakdown.py::_school_rank_of``.
+
+        When ``_school_rank_override`` is set (rules/04-schools.md "Isawa
+        Ishi School: 5th Dan" sets it to 0 via ``negate_school``), the
+        override is returned instead.  Returns 0 when the character has
+        no school or the school exposes no knacks.
+        """
+        if self._school_rank_override is not None:
+            return self._school_rank_override
+        school = self._school
+        if school is None:
+            return 0
+        knacks = school.school_knacks()
+        if not knacks:
+            return 0
+        return min(self.skill(k) for k in knacks)
+
+    def negate_school(self, by: "Character") -> None:
+        """Actively negate this character's school for the duration of a fight
+        (rules/04-schools.md "Isawa Ishi School: 5th Dan").
+
+        Sets ``_school_negated_by`` and ``_school_rank_override = 0`` AND
+        reverts the build-time school mutations tracked on this character:
+
+          * removes every modifier appended to ``_school_owned_modifiers``
+          * subtracts every ``(skill, n)`` tracked in
+            ``_school_owned_extra_rolled`` / ``_school_owned_extra_kept``
+            from the corresponding character map
+          * deletes every slot in ``_school_owned_listener_slots`` from
+            ``_listeners``
+          * restores every slot in ``_school_owned_strategy_slots`` from
+            ``_pre_school_strategies`` (or deletes when no pre-school
+            value was cached)
+          * restores every provider slot (action factory / roll parameter
+            provider / etc.) from its ``_pre_school_*`` cache
+
+        A snapshot of what was removed is captured on
+        ``_negation_snapshot`` so ``reset`` can put it all back at the
+        next combat boundary, modelling the rules-text "for the duration
+        of a fight".
+        """
+        if self._negation_snapshot is not None:
+            # Already negated this combat; treat as a no-op so callers
+            # do not double-revert (e.g. a strategy that fires twice
+            # before the once-per-combat guard catches up).
+            return
+        snapshot: dict[str, Any] = {
+            "modifiers": [],
+            "extra_rolled": {},
+            "extra_kept": {},
+            "listeners": {},
+            "strategies": {},
+            "providers": {},
+        }
+        # 1. Modifiers
+        for modifier in list(self._school_owned_modifiers):
+            if modifier in self._modifiers:
+                self._modifiers.remove(modifier)
+                snapshot["modifiers"].append(modifier)
+        # 2. Extra rolled bonuses
+        for skill, n in self._school_owned_extra_rolled.items():
+            current = self._extra_rolled.get(skill, 0)
+            new = max(0, current - n)
+            if new == 0:
+                self._extra_rolled.pop(skill, None)
+            else:
+                self._extra_rolled[skill] = new
+            snapshot["extra_rolled"][skill] = n
+        # 3. Extra kept bonuses
+        for skill, n in self._school_owned_extra_kept.items():
+            current_k = self._extra_kept.get(skill, 0)
+            new_k = max(0, current_k - n)
+            if new_k == 0:
+                self._extra_kept.pop(skill, None)
+            else:
+                self._extra_kept[skill] = new_k
+            snapshot["extra_kept"][skill] = n
+        # 4. Listeners (drop the slot entirely; engine-default callers
+        #    use _listeners.keys() membership, so the slot disappearing
+        #    is equivalent to "no listener installed").
+        for slot in self._school_owned_listener_slots:
+            if slot in self._listeners:
+                snapshot["listeners"][slot] = self._listeners[slot]
+                del self._listeners[slot]
+        # 5. Strategies (restore pre-school value if one was cached).
+        for slot in self._school_owned_strategy_slots:
+            snapshot["strategies"][slot] = self._strategies.get(slot)
+            pre = self._pre_school_strategies.get(slot)
+            if pre is None and slot not in self._pre_school_strategies:
+                # Slot was never an engine default before the school
+                # installed it; drop entirely.
+                self._strategies.pop(slot, None)
+            else:
+                self._strategies[slot] = pre
+        # 6. Providers: each provider slot has a dedicated cache attribute.
+        # We capture the school-installed value so reset can restore it.
+        for provider_slot in self._school_owned_provider_slots:
+            if provider_slot == "max_vp":
+                snapshot["providers"]["max_vp"] = self._max_vp_provider
+                self._max_vp_provider = self._pre_school_max_vp_provider
+            elif provider_slot == "action_factory":
+                snapshot["providers"]["action_factory"] = self._action_factory
+                if self._pre_school_action_factory is not None:
+                    self._action_factory = self._pre_school_action_factory
+            elif provider_slot == "roll_parameter_provider":
+                snapshot["providers"]["roll_parameter_provider"] = self._roll_parameter_provider
+                if self._pre_school_roll_parameter_provider is not None:
+                    self._roll_parameter_provider = self._pre_school_roll_parameter_provider
+            elif provider_slot == "take_action_event_factory":
+                snapshot["providers"]["take_action_event_factory"] = self._take_action_event_factory
+                if self._pre_school_take_action_event_factory is not None:
+                    self._take_action_event_factory = self._pre_school_take_action_event_factory
+            elif provider_slot == "roll_provider":
+                snapshot["providers"]["roll_provider"] = self._roll_provider
+                if self._pre_school_roll_provider is not None:
+                    self._roll_provider = self._pre_school_roll_provider
+            elif provider_slot == "wound_check_provider":
+                snapshot["providers"]["wound_check_provider"] = self._wound_check_provider
+                if self._pre_school_wound_check_provider is not None:
+                    self._wound_check_provider = self._pre_school_wound_check_provider
+            elif provider_slot == "attack_optimizer_factory":
+                snapshot["providers"]["attack_optimizer_factory"] = self._attack_optimizer_factory
+                if self._pre_school_attack_optimizer_factory is not None:
+                    self._attack_optimizer_factory = self._pre_school_attack_optimizer_factory
+        # Set the negation flags last so callers (reset, etc.) can detect them.
+        self._school_negated_by = by
+        self._school_rank_override = 0
+        self._negation_snapshot = snapshot
+
+    def _restore_school_mutations(self) -> None:
+        """Reverse a previous ``negate_school`` by re-applying the snapshot.
+
+        Called from ``reset`` so a negated character "re-acquires" their
+        school for the next combat (rules/04-schools.md "Isawa Ishi
+        School: 5th Dan" -- "for the duration of a fight").
+        """
+        snapshot = self._negation_snapshot
+        if snapshot is None:
+            return
+        for modifier in snapshot["modifiers"]:
+            self._modifiers.append(modifier)
+        for skill, n in snapshot["extra_rolled"].items():
+            current = self._extra_rolled.get(skill, 0)
+            self._extra_rolled[skill] = current + n
+        for skill, n in snapshot["extra_kept"].items():
+            current_k = self._extra_kept.get(skill, 0)
+            self._extra_kept[skill] = current_k + n
+        for slot, listener in snapshot["listeners"].items():
+            self._listeners[slot] = listener
+        for slot, strategy in snapshot["strategies"].items():
+            self._strategies[slot] = strategy
+        providers = snapshot["providers"]
+        if "max_vp" in providers:
+            self._max_vp_provider = providers["max_vp"]
+        if "action_factory" in providers:
+            self._action_factory = providers["action_factory"]
+        if "roll_parameter_provider" in providers:
+            self._roll_parameter_provider = providers["roll_parameter_provider"]
+        if "take_action_event_factory" in providers:
+            self._take_action_event_factory = providers["take_action_event_factory"]
+        if "roll_provider" in providers:
+            self._roll_provider = providers["roll_provider"]
+        if "wound_check_provider" in providers:
+            self._wound_check_provider = providers["wound_check_provider"]
+        if "attack_optimizer_factory" in providers:
+            self._attack_optimizer_factory = providers["attack_optimizer_factory"]
+        self._negation_snapshot = None
 
     def set_action_factory(self, factory: ActionFactory) -> None:
         if not isinstance(factory, ActionFactory):

@@ -33,7 +33,7 @@ class KuniWitchHunterSchool(BaseSchool):
 
     def apply_special_ability(self, character: Any) -> None:
         # Taint=0 is always true in the simulator, so the extra 1k1 always applies.
-        character.set_extra_kept("wound check", 1)
+        self._set_school_extra_kept(character, "wound check", 1)
 
     def apply_rank_one_ability(self, character: Any) -> None:
         # Standard 1st Dan: extra rolled on damage, wound check

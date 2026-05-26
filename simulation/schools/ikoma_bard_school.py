@@ -48,7 +48,7 @@ class IkomaBardSchool(BaseSchool):
         # Create the shared tracker (1 use per round by default)
         tracker = IkomaSpecialTracker()
         # Install the custom TakeActionEventFactory that forces parries
-        character.set_take_action_event_factory(IkomaTakeActionEventFactory(tracker))
+        self._set_school_take_action_event_factory(character, IkomaTakeActionEventFactory(tracker))
         # Install the new round listener that resets the tracker
         self._set_school_listener(character, "new_round", IkomaNewRoundListener(tracker))
         # Store the tracker on the character for 5th Dan to access
@@ -59,7 +59,7 @@ class IkomaBardSchool(BaseSchool):
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
-        character.set_roll_parameter_provider(IkomaFourthDanRollParameterProvider())
+        self._set_school_roll_parameter_provider(character, IkomaFourthDanRollParameterProvider())
 
     def apply_rank_five_ability(self, character: Any) -> None:
         # Extra use of special ability per round

@@ -136,14 +136,15 @@ class BaseSchool(School):
         The helper:
 
           1. Caches the current strategy at ``slot`` in
-             ``character._pre_school_strategies[slot]`` so the negation
-             gate can revert to the engine default while the character
-             is school-negated.  The cache is populated on the FIRST
-             school install per slot, so chained school replacements
-             (rare) still revert to the original engine default.
+             ``character._pre_school_strategies[slot]`` so
+             ``Character.negate_school`` can restore the engine default
+             when the character is school-negated.  The cache is
+             populated on the FIRST school install per slot, so chained
+             school replacements (rare) still revert to the original
+             engine default.
           2. Tracks the slot in
-             ``character._school_owned_strategy_slots`` so the strategy
-             accessors in ``Character`` can detect school-owned slots.
+             ``character._school_owned_strategy_slots`` so the active
+             revert can find school-owned slots.
           3. Calls ``character.set_strategy`` to install the new
              strategy.
 
@@ -155,6 +156,102 @@ class BaseSchool(School):
             character._pre_school_strategies[slot] = character._strategies.get(slot)
         character.set_strategy(slot, strategy)
         character._school_owned_strategy_slots.add(slot)
+
+    def _set_school_max_vp_provider(self, character: Any, provider: Any) -> None:
+        """Install a school-owned ``max_vp_provider`` (rules/04-schools.md
+        "Isawa Ishi School: 5th Dan" -- the active-revert machinery needs
+        to know that the school installed this provider so it can restore
+        the engine default on negation)."""
+        if "max_vp" not in character._school_owned_provider_slots:
+            character._pre_school_max_vp_provider = character._max_vp_provider
+        character.set_max_vp_provider(provider)
+        character._school_owned_provider_slots.add("max_vp")
+
+    def _set_school_action_factory(self, character: Any, factory: Any) -> None:
+        """School-aware variant of ``character.set_action_factory``.
+
+        rules/04-schools.md "Isawa Ishi School: 5th Dan"."""
+        if "action_factory" not in character._school_owned_provider_slots:
+            character._pre_school_action_factory = character.action_factory()
+        character.set_action_factory(factory)
+        character._school_owned_provider_slots.add("action_factory")
+
+    def _set_school_roll_parameter_provider(self, character: Any, provider: Any) -> None:
+        """School-aware variant of ``character.set_roll_parameter_provider``.
+
+        rules/04-schools.md "Isawa Ishi School: 5th Dan"."""
+        if "roll_parameter_provider" not in character._school_owned_provider_slots:
+            character._pre_school_roll_parameter_provider = character.roll_parameter_provider()
+        character.set_roll_parameter_provider(provider)
+        character._school_owned_provider_slots.add("roll_parameter_provider")
+
+    def _set_school_take_action_event_factory(self, character: Any, factory: Any) -> None:
+        """School-aware variant of ``character.set_take_action_event_factory``.
+
+        rules/04-schools.md "Isawa Ishi School: 5th Dan"."""
+        if "take_action_event_factory" not in character._school_owned_provider_slots:
+            character._pre_school_take_action_event_factory = character.take_action_event_factory()
+        character.set_take_action_event_factory(factory)
+        character._school_owned_provider_slots.add("take_action_event_factory")
+
+    def _set_school_roll_provider(self, character: Any, provider: Any) -> None:
+        """School-aware variant of ``character.set_roll_provider``.
+
+        rules/04-schools.md "Isawa Ishi School: 5th Dan"."""
+        if "roll_provider" not in character._school_owned_provider_slots:
+            character._pre_school_roll_provider = character.roll_provider()
+        character.set_roll_provider(provider)
+        character._school_owned_provider_slots.add("roll_provider")
+
+    def _set_school_wound_check_provider(self, character: Any, provider: Any) -> None:
+        """School-aware variant of ``character.set_wound_check_provider``.
+
+        rules/04-schools.md "Isawa Ishi School: 5th Dan"."""
+        if "wound_check_provider" not in character._school_owned_provider_slots:
+            character._pre_school_wound_check_provider = character.wound_check_provider()
+        character.set_wound_check_provider(provider)
+        character._school_owned_provider_slots.add("wound_check_provider")
+
+    def _set_school_attack_optimizer_factory(self, character: Any, factory: Any) -> None:
+        """School-aware variant of ``character.set_attack_optimizer_factory``.
+
+        rules/04-schools.md "Isawa Ishi School: 5th Dan"."""
+        if "attack_optimizer_factory" not in character._school_owned_provider_slots:
+            character._pre_school_attack_optimizer_factory = character.attack_optimizer_factory()
+        character.set_attack_optimizer_factory(factory)
+        character._school_owned_provider_slots.add("attack_optimizer_factory")
+
+    def _add_school_modifier(self, character: Any, modifier: Any) -> None:
+        """Add a modifier to the character AND track it as school-owned so
+        ``Character.negate_school`` can remove it on negation.
+
+        rules/04-schools.md "Isawa Ishi School: 5th Dan"."""
+        character.add_modifier(modifier)
+        character._school_owned_modifiers.append(modifier)
+
+    def _set_school_extra_rolled(self, character: Any, skill: str, n: int = 1) -> None:
+        """Grant a school-owned ``+n`` extra rolled die on ``skill`` AND
+        track ``(skill, n)`` so ``Character.negate_school`` can subtract
+        the bonus on negation.
+
+        rules/04-schools.md "Isawa Ishi School: 5th Dan"."""
+        character.set_extra_rolled(skill, n)
+        current = character._school_owned_extra_rolled.get(skill, 0)
+        character._school_owned_extra_rolled[skill] = current + n
+
+    def _set_school_extra_kept(self, character: Any, skill: str, n: int = 1) -> None:
+        """Grant a school-owned ``+n`` extra kept die on ``skill`` AND track
+        ``(skill, n)`` so ``Character.negate_school`` can subtract the
+        bonus on negation.
+
+        rules/04-schools.md "Isawa Ishi School: 5th Dan"."""
+        # ``set_extra_kept`` assigns rather than increments, so we apply
+        # the same accumulation semantics here that ``set_extra_rolled``
+        # uses (current + n).
+        current_char = character._extra_kept.get(skill, 0)
+        character.set_extra_kept(skill, current_char + n)
+        current_school = character._school_owned_extra_kept.get(skill, 0)
+        character._school_owned_extra_kept[skill] = current_school + n
 
     def _is_school_negated(self, character: Any) -> bool:
         """
@@ -205,7 +302,7 @@ class BaseSchool(School):
         if self._is_school_negated(character):
             return
         for skill in self.extra_rolled():
-            character.set_extra_rolled(skill, 1)
+            self._set_school_extra_rolled(character, skill, 1)
 
     def apply_rank_two_ability(self, character: Any) -> None:
         """
@@ -219,7 +316,7 @@ class BaseSchool(School):
         if self._is_school_negated(character):
             return
         for skill in self.free_raise_skills():
-            character.add_modifier(FreeRaise(character, skill))
+            self._add_school_modifier(character, FreeRaise(character, skill))
 
     def apply_school_ability(self, character: Any, rank: int) -> None:
         """

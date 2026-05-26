@@ -121,26 +121,27 @@ class TestSchoolOwnedListenerGating(unittest.TestCase):
         self.assertEqual(1, self.school.test_listener.calls)
 
     def test_school_listener_does_not_fire_when_negated(self) -> None:
-        """When `_school_negated_by` is set, the school-installed listener
-        is skipped at dispatch time."""
+        """When ``negate_school`` runs, the school-installed listener is
+        actively removed so it cannot fire (rules/04-schools.md "Isawa
+        Ishi School: 5th Dan")."""
         negator = Character("Ishi")
-        self.character._school_negated_by = negator
+        self.character.negate_school(negator)
         event = events.SeriousWoundsDamageEvent(self.attacker, self.character, 1)
         list(self.character.event(event, self.context))
         self.assertEqual(0, self.school.test_listener.calls)
 
     def test_school_listener_fires_again_after_reset(self) -> None:
-        """`Character.reset()` clears the negation flag so the listener
-        fires again on the next combat."""
+        """``Character.reset()`` restores the school's mutations so the
+        listener fires again on the next combat."""
         negator = Character("Ishi")
-        self.character._school_negated_by = negator
+        self.character.negate_school(negator)
         # negated -- no fire
         list(self.character.event(
             events.SeriousWoundsDamageEvent(self.attacker, self.character, 1),
             self.context,
         ))
         self.assertEqual(0, self.school.test_listener.calls)
-        # reset clears negation
+        # reset clears negation and restores the school's listener
         self.character.reset()
         self.assertIsNone(self.character._school_negated_by)
         list(self.character.event(
@@ -167,8 +168,8 @@ class TestEngineDefaultListenerStillFires(unittest.TestCase):
         # this simulates an engine default and must remain un-gated.
         recorder = _RecordingListener()
         character.set_listener("sw_damage", recorder)
-        # Mark character as negated
-        character._school_negated_by = Character("Ishi")
+        # Mark character as negated (active revert path)
+        character.negate_school(Character("Ishi"))
         # Dispatch the event
         event = events.SeriousWoundsDamageEvent(attacker, character, 1)
         list(character.event(event, context))
@@ -191,9 +192,10 @@ class TestSchoolOwnedStrategyGating(unittest.TestCase):
         self.assertIs(self.school.test_strategy, self.character.attack_strategy())
 
     def test_strategy_accessor_returns_engine_default_when_negated(self) -> None:
-        """The accessor returns the cached engine default while
-        `_school_negated_by` is set (rules-text "completely negate")."""
-        self.character._school_negated_by = Character("Ishi")
+        """After ``negate_school`` actively restores the pre-school
+        strategy, the accessor returns the engine default (rules-text
+        "completely negate")."""
+        self.character.negate_school(Character("Ishi"))
         returned = self.character.attack_strategy()
         # Not the school strategy
         self.assertIsNot(self.school.test_strategy, returned)
@@ -202,8 +204,9 @@ class TestSchoolOwnedStrategyGating(unittest.TestCase):
         self.assertIsInstance(returned, UniversalAttackStrategy)
 
     def test_strategy_accessor_returns_school_strategy_after_reset(self) -> None:
-        """Reset clears negation so the school strategy is back in play."""
-        self.character._school_negated_by = Character("Ishi")
+        """Reset restores the school's mutations so the school strategy
+        is back in play."""
+        self.character.negate_school(Character("Ishi"))
         self.character.reset()
         self.assertIs(self.school.test_strategy, self.character.attack_strategy())
 
@@ -234,9 +237,9 @@ class TestMirumotoParryListenerNegatedByIshi(unittest.TestCase):
             any(isinstance(ev, events.GainTemporaryVoidPointsEvent) for ev in pre),
             "Pre-negation parry_failed should yield a GainTemporaryVoidPointsEvent",
         )
-        # Now negate the school
+        # Now negate the school (active revert removes the school listener)
         ishi = Character("Ishi")
-        mirumoto._school_negated_by = ishi
+        mirumoto.negate_school(ishi)
         # Post-negation: no TVP-gain events from the school listener
         post = list(mirumoto.event(parry_failed, context))
         self.assertFalse(
@@ -283,8 +286,8 @@ class TestAkodoSchoolNegationEndToEnd(unittest.TestCase):
         pre = list(akodo.event(event, context))
         self.assertEqual(1, len(pre))
         self.assertIsInstance(pre[0], events.GainTemporaryVoidPointsEvent)
-        # Negate
-        akodo._school_negated_by = Character("Ishi")
+        # Negate (active revert removes the school listener)
+        akodo.negate_school(Character("Ishi"))
         post = list(akodo.event(event, context))
         self.assertEqual(0, len(post),
                          "AkodoAttackFailedListener should be gated when school is negated")

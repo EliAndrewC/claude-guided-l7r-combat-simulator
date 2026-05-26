@@ -34,7 +34,7 @@ class CourtierSchool(BaseSchool):
         return ["attack", "wound check"]
 
     def apply_special_ability(self, character: Any) -> None:
-        character.set_roll_parameter_provider(CourtierRollParameterProvider())
+        self._set_school_roll_parameter_provider(character, CourtierRollParameterProvider())
 
     def apply_rank_three_ability(self, character: Any) -> None:
         self.apply_ap(character)
@@ -45,7 +45,7 @@ class CourtierSchool(BaseSchool):
 
     def apply_rank_five_ability(self, character: Any) -> None:
         # Upgrade provider to 5th Dan version which adds Air to ALL TN/contested rolls
-        character.set_roll_parameter_provider(CourtierFifthDanRollParameterProvider())
+        self._set_school_roll_parameter_provider(character, CourtierFifthDanRollParameterProvider())
 
     def extra_rolled(self) -> list[str]:
         return ["manipulation", "tact", "wound check"]

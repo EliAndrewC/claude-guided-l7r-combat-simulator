@@ -113,10 +113,10 @@ class MirumotoBushiSchool(BaseSchool):
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
-        character.set_action_factory(MIRUMOTO_ACTION_FACTORY)
+        self._set_school_action_factory(character, MIRUMOTO_ACTION_FACTORY)
 
     def apply_rank_five_ability(self, character: Any) -> None:
-        character.set_roll_parameter_provider(MIRUMOTO_ROLL_PARAMETER_PROVIDER)
+        self._set_school_roll_parameter_provider(character, MIRUMOTO_ROLL_PARAMETER_PROVIDER)
 
     def extra_rolled(self) -> list[str]:
         # rules/04-schools.md Mirumoto Bushi School First Dan:

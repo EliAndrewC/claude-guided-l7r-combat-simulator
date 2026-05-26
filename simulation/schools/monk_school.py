@@ -37,8 +37,8 @@ class BrotherhoodOfShinseMonkSchool(BaseSchool):
 
     def apply_special_ability(self, character: Any) -> None:
         # Extra 1k1 on damage (always applied -- monks fight unarmed)
-        character.set_extra_rolled("damage", 1)
-        character.set_extra_kept("damage", 1)
+        self._set_school_extra_rolled(character, "damage", 1)
+        self._set_school_extra_kept(character, "damage", 1)
 
     def apply_rank_three_ability(self, character: Any) -> None:
         self.apply_ap(character)
@@ -49,7 +49,7 @@ class BrotherhoodOfShinseMonkSchool(BaseSchool):
         self.apply_school_ring_raise_and_discount(character)
         # Failed parry attempts don't lower rolled damage dice.
         # Install MonkActionFactory so attacks use MonkAttackAction.
-        character.set_action_factory(MONK_ACTION_FACTORY)
+        self._set_school_action_factory(character, MONK_ACTION_FACTORY)
 
     def apply_rank_five_ability(self, character: Any) -> None:
         # After being attacked (before damage), spend action die to counter-attack.

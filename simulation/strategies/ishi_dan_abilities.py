@@ -316,9 +316,11 @@ class EagerNegationStrategy(IshiNegateSchoolStrategy):
     When firing:
 
       1. Yields ``SpendVoidPointsEvent(character, "ishi_negate_school", cost)``.
-      2. Sets ``target._school_negated_by = character`` (mutates the target;
-         the engine's ``BaseSchool._is_school_negated`` helper consults this
-         on subsequent ``apply_*_ability`` calls and short-circuits them).
+      2. Calls ``target.negate_school(character)`` which actively reverts
+         the target's school-installed modifiers, providers, listeners,
+         strategies, and extra_rolled bonuses (rules/04-schools.md "Isawa
+         Ishi School: 5th Dan" -- "completely negate ... for the duration
+         of a fight").
       3. Yields ``SchoolNegatedEvent(character, target, cost, school_name)``
          for trace observability (Constitution Principle VII).
       4. Sets ``character._ishi_negation_done = True`` to lock further
@@ -366,15 +368,16 @@ class EagerNegationStrategy(IshiNegateSchoolStrategy):
         cost = _negation_cost(target)
         if character.vp() < cost:
             return
-        # Fire: spend, mark, advertise.
+        # Fire: spend, actively revert the target's school, advertise.
         yield events.SpendVoidPointsEvent(
             character, "ishi_negate_school", cost,
         )
-        target._school_negated_by = character
         target_school = target.school()
         target_school_name = (
             target_school.name() if target_school is not None else "(none)"
         )
+        # Active revert (rules/04-schools.md "Isawa Ishi School: 5th Dan").
+        target.negate_school(character)
         yield events.SchoolNegatedEvent(
             character, target, cost, target_school_name,
         )

@@ -35,13 +35,13 @@ class KakitaBushiSchool(BaseSchool):
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
-        character.set_roll_parameter_provider(KAKITA_ROLL_PARAMETER_PROVIDER)
+        self._set_school_roll_parameter_provider(character, KAKITA_ROLL_PARAMETER_PROVIDER)
 
     def apply_rank_three_ability(self, character: Any) -> None:
-        character.set_action_factory(KAKITA_ACTION_FACTORY)
+        self._set_school_action_factory(character, KAKITA_ACTION_FACTORY)
 
     def apply_special_ability(self, character: Any) -> None:
-        character.set_roll_provider(KAKITA_ROLL_PROVIDER)
+        self._set_school_roll_provider(character, KAKITA_ROLL_PROVIDER)
         self._set_school_strategy(character, "attack", KAKITA_ATTACK_STRATEGY)
         self._set_school_strategy(character, "parry", KAKITA_PARRY_STRATEGY)
         character.add_interrupt_skill("iaijutsu")

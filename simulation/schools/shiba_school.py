@@ -25,15 +25,15 @@ class ShibaBushiSchool(BaseSchool):
 
     def apply_special_ability(self, character: Any) -> None:
         character.set_interrupt_cost("parry", 1)
-        character.set_action_factory(SHIBA_ACTION_FACTORY)
+        self._set_school_action_factory(character, SHIBA_ACTION_FACTORY)
 
     def apply_rank_three_ability(self, character: Any) -> None:
-        character.set_take_action_event_factory(SHIBA_TAKE_ACTION_EVENT_FACTORY)
+        self._set_school_take_action_event_factory(character, SHIBA_TAKE_ACTION_EVENT_FACTORY)
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
-        character.set_extra_rolled("wound check", 3)
-        character.set_extra_kept("wound check", 1)
+        self._set_school_extra_rolled(character, "wound check", 3)
+        self._set_school_extra_kept(character, "wound check", 1)
 
     def apply_rank_five_ability(self, character: Any) -> None:
         self._set_school_listener(character, "parry_succeeded", ShibaParrySucceededListener())

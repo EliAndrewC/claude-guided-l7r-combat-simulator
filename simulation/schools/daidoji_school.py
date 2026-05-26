@@ -46,8 +46,8 @@ class DaidojiYojimboSchool(BaseSchool):
 
     def apply_special_ability(self, character: Any) -> None:
         character.set_interrupt_cost("counterattack", 1)
-        character.set_action_factory(DAIDOJI_ACTION_FACTORY)
-        character.set_take_action_event_factory(DAIDOJI_TAKE_ACTION_EVENT_FACTORY)
+        self._set_school_action_factory(character, DAIDOJI_ACTION_FACTORY)
+        self._set_school_take_action_event_factory(character, DAIDOJI_TAKE_ACTION_EVENT_FACTORY)
         self._set_school_strategy(character, "interrupt", CounterattackInterruptStrategy())
 
     def apply_rank_three_ability(self, character: Any) -> None:

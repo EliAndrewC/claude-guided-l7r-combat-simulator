@@ -23,7 +23,7 @@ class BayushiBushiSchool(BaseSchool):
         return None
 
     def apply_rank_five_ability(self, character: Any) -> None:
-        character.set_wound_check_provider(BayushiWoundCheckProvider())
+        self._set_school_wound_check_provider(character, BayushiWoundCheckProvider())
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
@@ -31,10 +31,10 @@ class BayushiBushiSchool(BaseSchool):
         self._set_school_listener(character, "attack_succeeded", BayushiAttackSucceededListener())
 
     def apply_rank_three_ability(self, character: Any) -> None:
-        character.set_action_factory(BAYUSHI_ACTION_FACTORY)
+        self._set_school_action_factory(character, BAYUSHI_ACTION_FACTORY)
 
     def apply_special_ability(self, character: Any) -> None:
-        character.set_roll_parameter_provider(BAYUSHI_ROLL_PARAMETER_PROVIDER)
+        self._set_school_roll_parameter_provider(character, BAYUSHI_ROLL_PARAMETER_PROVIDER)
 
     def extra_rolled(self) -> list[str]:
         return ["double attack", "iaijutsu", "wound check"]

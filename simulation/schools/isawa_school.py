@@ -40,10 +40,10 @@ class IsawaDuelistSchool(BaseSchool):
     def apply_special_ability(self, character: Any) -> None:
         # Water ring for damage instead of Fire
         character._skill_rings["damage"] = "water"
-        character.set_roll_parameter_provider(ISAWA_ROLL_PARAMETER_PROVIDER)
+        self._set_school_roll_parameter_provider(character, ISAWA_ROLL_PARAMETER_PROVIDER)
 
     def apply_rank_three_ability(self, character: Any) -> None:
-        character.set_action_factory(ISAWA_ACTION_FACTORY)
+        self._set_school_action_factory(character, ISAWA_ACTION_FACTORY)
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)

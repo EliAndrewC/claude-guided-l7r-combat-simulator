@@ -35,7 +35,7 @@ class KitsukiMagistrateSchool(BaseSchool):
         return ["attack", "wound check"]
 
     def apply_special_ability(self, character: Any) -> None:
-        character.set_roll_parameter_provider(KitsukiRollParameterProvider())
+        self._set_school_roll_parameter_provider(character, KitsukiRollParameterProvider())
 
     def apply_rank_three_ability(self, character: Any) -> None:
         self.apply_ap(character)

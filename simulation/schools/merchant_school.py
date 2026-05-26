@@ -355,7 +355,7 @@ class MerchantSchool(BaseSchool):
     def apply_special_ability(self, character: Any) -> None:
         # VP after initial roll: install custom optimizer and strategies
         # that never pre-allocate VP, but can spend VP post-roll.
-        character.set_attack_optimizer_factory(MerchantAttackOptimizerFactory())
+        self._set_school_attack_optimizer_factory(character, MerchantAttackOptimizerFactory())
         self._set_school_strategy(character, "attack_rolled", MerchantAttackRolledStrategy())
         self._set_school_strategy(character, "wound_check", MerchantWoundCheckStrategy())
         self._set_school_strategy(character, "wound_check_rolled", MerchantWoundCheckRolledStrategy())
@@ -371,7 +371,7 @@ class MerchantSchool(BaseSchool):
         # After non-initiative roll, reroll dice summing to >= 5*(X-1).
         # Wrap current roll provider with MerchantRollProvider.
         inner = character.roll_provider()
-        character.set_roll_provider(MerchantRollProvider(inner))
+        self._set_school_roll_provider(character, MerchantRollProvider(inner))
 
     def extra_rolled(self) -> list[str]:
         return ["interrogation", "sincerity", "wound check"]

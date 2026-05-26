@@ -45,10 +45,10 @@ class OtakuBushiSchool(BaseSchool):
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
-        character.set_action_factory(OTAKU_ACTION_FACTORY)
+        self._set_school_action_factory(character, OTAKU_ACTION_FACTORY)
 
     def apply_rank_five_ability(self, character: Any) -> None:
-        character.set_take_action_event_factory(OTAKU_FIFTH_DAN_TAKE_ACTION_EVENT_FACTORY)
+        self._set_school_take_action_event_factory(character, OTAKU_FIFTH_DAN_TAKE_ACTION_EVENT_FACTORY)
 
     def extra_rolled(self) -> list[str]:
         return ["iaijutsu", "lunge", "wound check"]

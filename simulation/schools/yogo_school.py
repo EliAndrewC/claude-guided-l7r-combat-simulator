@@ -38,7 +38,7 @@ class YogoWardenSchool(BaseSchool):
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
-        character.set_roll_parameter_provider(YOGO_ROLL_PARAMETER_PROVIDER)
+        self._set_school_roll_parameter_provider(character, YOGO_ROLL_PARAMETER_PROVIDER)
 
     def apply_rank_five_ability(self, character: Any) -> None:
         # TBD
