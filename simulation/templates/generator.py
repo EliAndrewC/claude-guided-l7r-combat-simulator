@@ -409,7 +409,7 @@ def generate_all_templates(base_dir: str | None = None) -> list[CharacterConfig]
     return configs
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover  # UI entry point: CLI script-mode invocation; helpers are tested directly
     configs = generate_all_templates()
     print(f"Generated {len(configs)} templates")
     for config in configs:

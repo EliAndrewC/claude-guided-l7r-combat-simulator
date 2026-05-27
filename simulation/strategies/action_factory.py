@@ -26,7 +26,7 @@ class ActionFactory(ABC):
 
         Returns an attack action using the chosen skill.
         """
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     def get_counterattack_action(self, subject: Any, target: Any, attack: Any, skill: str, initiative_action: Any, context: Any, vp: int = 0) -> Any:
         """
@@ -41,7 +41,7 @@ class ActionFactory(ABC):
 
         Returns a counterattack action against the given attack action using the chosen skill.
         """
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     def get_parry_action(self, subject: Any, target: Any, attack: Any, skill: str, initiative_action: Any, context: Any, vp: int = 0) -> Any:
         """
@@ -56,7 +56,7 @@ class ActionFactory(ABC):
 
         Returns a parry action against the given attack action using the chosen skill.
         """
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
 
 class DefaultActionFactory(ActionFactory):

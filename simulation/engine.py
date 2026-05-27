@@ -52,7 +52,7 @@ class Engine:
 
     @abstractmethod
     def run(self) -> None:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
 
 class CombatEngine(Engine):
@@ -76,7 +76,7 @@ class CombatEngine(Engine):
             except CombatEnded:
                 logger.info("---------- Combat ended ----------")
                 break
-            except KeyboardInterrupt:
+            except KeyboardInterrupt:  # pragma: no cover  # defensive: KeyboardInterrupt only fires in interactive CLI use
                 break
 
     def run_duel(self) -> None:

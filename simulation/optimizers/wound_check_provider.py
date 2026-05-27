@@ -10,7 +10,7 @@ class WoundCheckProvider(ABC):
 
     @abstractmethod
     def wound_check(self, roll: int, lw: int) -> int:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
 
 class DefaultWoundCheckProvider(WoundCheckProvider):

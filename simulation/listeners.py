@@ -40,7 +40,7 @@ class Listener(ABC):
         or whether to spend resources like void points - then this
         function gets a Strategy from the Character and delegates the decision to the Strategy.
         """
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
 
 class NewRoundListener(Listener):
@@ -113,7 +113,7 @@ class FeintSucceededListener(Listener):
                     if len(character.actions()) > 0:
                         max_action = max(character.actions())
                         character.actions().remove(max_action)
-                        character.actions().insert(context.phase())
+                        character.actions().insert(0, context.phase())
                         yield events.InitiativeChangedEvent()
 
 

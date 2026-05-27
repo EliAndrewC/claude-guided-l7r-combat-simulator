@@ -53,7 +53,7 @@ class WoundCheckOptimizer(ABC):
         of VP required to take the tolerable number of SW at the
         desired threshold for probability of success.
         """
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
 
 class DefaultWoundCheckOptimizer:
@@ -177,7 +177,7 @@ class KeepLightWoundsOptimizer(ABC):
         should be reserved with the character's Void Point Manager if
         the decision is to keep.
         """
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
 
 class DefaultKeepLightWoundsOptimizer(KeepLightWoundsOptimizer):

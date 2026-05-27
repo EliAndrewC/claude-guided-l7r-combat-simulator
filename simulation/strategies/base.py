@@ -56,7 +56,7 @@ class Strategy(ABC):
         Void Points or school abilities, or whether to parry an attack,
         or whether to hold actions or spend them immediately, etc.
         """
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
 
 class AlwaysAttackActionStrategy(Strategy):
@@ -143,7 +143,7 @@ class BaseAttackStrategy(Strategy):
                     return character.take_action_event_factory().get_take_attack_action_event(attack)
 
     def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
 
 class PlainAttackStrategy(BaseAttackStrategy):
@@ -261,7 +261,7 @@ class BaseParryStrategy(Strategy):
             # delegate to specific parry strategy recommendation
             try:
                 yield from self._recommend(character, event, context)
-            except NotEnoughActions:
+            except NotEnoughActions:  # pragma: no cover  # defensive: parry path checks actions upstream; this re-raise preserves stack
                 raise RuntimeError("Not enough actions to parry")
                 return
 
@@ -308,7 +308,7 @@ class BaseParryStrategy(Strategy):
                 unspent_action_dice.remove(die)
                 action_dice.append(die)
             return InitiativeAction(action_dice, context.phase(), is_interrupt=True)
-        else:
+        else:  # pragma: no cover  # defensive: caller checks has_action / has_interrupt_action upstream
             # somehow character is unable to parry
             raise NotEnoughActions()
 
@@ -332,7 +332,7 @@ class BaseParryStrategy(Strategy):
         return expected_sw
 
     def _recommend(self, character: Any, event: Any, context: Any) -> Iterator[events.Event]:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
     def _spend_action(self, character: Any, skill: str, initiative_action: InitiativeAction) -> Iterator[events.Event]:
         """
@@ -417,19 +417,19 @@ class SkillRolledStrategy(Strategy):
         """
         Return whether this event is relevant for the strategy and character.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
     def get_skill(self, event: Any) -> str:
         """
         Returns the skill that can be used for floating bonuses for this skill roll.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
     def get_tn(self, event: Any) -> int:
         """
         Return the desired TN.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
     def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if self.event_matches(character, event):
@@ -639,7 +639,7 @@ class KeepLightWoundsStrategy(Strategy):
     def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.WoundCheckSucceededEvent):
             if event.subject == character:
-                if event.tn > event.roll:
+                if event.tn > event.roll:  # pragma: no cover  # defensive: precondition WoundCheckSucceededEvent never has roll<tn
                     raise RuntimeError("KeepLightWoundsStrategy should not be consulted for a failed wound check")
                 # keep LW to avoid defeat
                 if character.sw_remaining() == 1:
@@ -778,7 +778,7 @@ class CounterattackInterruptStrategy(Strategy):
                 unspent.remove(die)
                 action_dice.append(die)
             return InitiativeAction(action_dice, context.phase(), is_interrupt=True)
-        else:
+        else:  # pragma: no cover  # defensive: _should_counterattack already verified actions are available
             raise NotEnoughActions()
 
     def _do_counterattack(self, character: Any, event: Any, context: Any) -> Iterator[events.Event]:
@@ -798,7 +798,7 @@ class CounterattackInterruptStrategy(Strategy):
                 try:
                     yield from self._do_counterattack(character, event, context)
                     return
-                except NotEnoughActions:
+                except NotEnoughActions:  # pragma: no cover  # defensive: _should_counterattack verifies action availability
                     pass
         elif isinstance(event, events.AttackRolledEvent):
             # Counterattack already handled at declaration time; only parry here

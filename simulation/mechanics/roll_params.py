@@ -110,7 +110,7 @@ class RollParameterProvider(ABC):
     Returns the parameters for the character's damage roll using
     the specified skill against the given target.
     """
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def get_initiative_roll_params(self, character: Any) -> tuple[int, int, int]:
@@ -124,7 +124,7 @@ class RollParameterProvider(ABC):
         Modifiers do not apply to initiative rolls, so the modifier is
         always 0.
         """
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def get_skill_roll_params(self, character: Any, target: Any, skill: str, contested_skill: str | None = None, ring: str | None = None, vp: int = 0) -> tuple[int, int, int]:
@@ -145,7 +145,7 @@ class RollParameterProvider(ABC):
     specified and skill as a tuple of three ints
     (rolled, kept, modifier).
     """
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def get_wound_check_roll_params(self, character: Any, vp: int = 0) -> tuple[int, int, int]:
@@ -157,7 +157,7 @@ class RollParameterProvider(ABC):
         Returns the parameters for the character's wound check roll
         as a tuple of three ints (rolled, kept, modifier).
         """
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
 
 def _normalize_breakdown(

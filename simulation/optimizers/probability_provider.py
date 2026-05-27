@@ -23,7 +23,7 @@ class ProbabilityProvider(ABC):
 
         Initialize this probability provider by generating or loading probability data.
         """
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def mean_roll(self, rolled: int, kept: int, explode: bool = True) -> float:
@@ -35,7 +35,7 @@ class ProbabilityProvider(ABC):
 
         Returns the mean result of a roll with the given parameters.
         """
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def p(self, x: int, rolled: int, kept: int, explode: bool = True) -> float:
@@ -48,7 +48,7 @@ class ProbabilityProvider(ABC):
 
         Return the probability of rolling Target Number x with the given parameters.
         """
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
 
 class DefaultProbabilityProvider(ProbabilityProvider):

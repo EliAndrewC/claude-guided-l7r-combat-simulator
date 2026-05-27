@@ -16,31 +16,31 @@ from simulation.mechanics.roll import DieProvider, InitiativeRoll, Roll
 class RollProvider(ABC):
     @abstractmethod
     def die_provider(self) -> Any:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def get_damage_reduction_roll(self, rolled: int, kept: int, reduction: int) -> int:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def get_damage_roll(self, rolled: int, kept: int) -> int:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def get_initiative_roll(self, rolled: int, kept: int) -> list[int]:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def get_skill_roll(self, skill: str, rolled: int, kept: int, explode: bool = True) -> int:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def get_wound_check_roll(self, rolled: int, kept: int, explode: bool = True) -> int:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def set_die_provider(self, die_provider: DieProvider) -> None:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
 
 class DefaultRollProvider(RollProvider):

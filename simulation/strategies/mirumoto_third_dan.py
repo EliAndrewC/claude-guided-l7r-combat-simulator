@@ -81,7 +81,7 @@ class MirumotoPhaseLowerStrategy(Strategy):
     """
 
     def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
 
 class EagerPhaseLowerStrategy(MirumotoPhaseLowerStrategy):
@@ -165,7 +165,7 @@ class EagerPhaseLowerStrategy(MirumotoPhaseLowerStrategy):
         # actually becoming possible; a partial lowering that leaves
         # the action still unusable (phase > context.phase()) is
         # treated as a waste and refused entirely.
-        if original_phase <= combat_phase:
+        if original_phase <= combat_phase:  # pragma: no cover  # defensive: condition (2) short-circuits this; guard kept for direct-call safety
             # Already usable; no spend needed.
             # (Defensive: condition (2) above should already short-circuit
             # this case, but the guard is kept for direct-call safety.)
@@ -183,13 +183,13 @@ class EagerPhaseLowerStrategy(MirumotoPhaseLowerStrategy):
         # never go negative even if a concurrent caller drained it.
         spent = 0
         for _ in range(steps_needed):
-            if not _try_spend_pool_point(character):
+            if not _try_spend_pool_point(character):  # pragma: no cover  # defensive: race-safety in single-threaded sim; pool can't drain mid-loop
                 # Defensive: race-safety; if the pool drained between
                 # the upfront check and now, bail. (Should not happen
                 # in single-threaded combat simulation.)
                 break
             spent += 1
-        if spent == 0:
+        if spent == 0:  # pragma: no cover  # defensive: spent always > 0 since pool was checked upfront
             return
         new_phase = original_phase - spent
         actions[target_index] = new_phase
@@ -238,7 +238,7 @@ class MirumotoPostRollBonusStrategy(Strategy):
     """
 
     def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
 
 class MarginalBonusStrategy(MirumotoPostRollBonusStrategy):
@@ -325,7 +325,7 @@ class MarginalBonusStrategy(MirumotoPostRollBonusStrategy):
             return
         # Inspect the resolved roll (FR-009: after dice are resolved).
         current_roll = action.skill_roll()
-        if current_roll is None:
+        if current_roll is None:  # pragma: no cover  # defensive: post-roll event always has a resolved roll
             # Defensive: a post-roll event should always have a resolved
             # roll on the action, but if it doesn't, abstain.
             return
@@ -346,12 +346,12 @@ class MarginalBonusStrategy(MirumotoPostRollBonusStrategy):
             return
         spent = 0
         for _ in range(points_needed):
-            if not _try_spend_pool_point(character):
+            if not _try_spend_pool_point(character):  # pragma: no cover  # defensive: race-safety in single-threaded sim
                 # Race-safety: if the pool somehow drained between the
                 # initial check and now, stop.
                 break
             spent += 1
-        if spent == 0:
+        if spent == 0:  # pragma: no cover  # defensive: spent always > 0 since pool was checked upfront
             return
         bonus = 2 * spent
         new_roll = current_roll + bonus

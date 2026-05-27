@@ -1073,19 +1073,29 @@ class TestFeintSucceededListener(unittest.TestCase):
         self.ia = _make_initiative_action()
 
     def test_feint_succeeded_gains_tvp_and_reorders_actions(self):
-        """Lines 104-113: FeintSucceededListener grants TVP and tries to reorder actions.
-        Note: There is a bug in the source (list.insert called with 1 arg instead of 2).
-        This test covers lines 104-111 (the lines before the bug) and verifies the
-        TypeError is raised on line 112."""
+        """Lines 104-117: FeintSucceededListener grants TVP and reorders actions.
+
+        The previously-flagged bug at simulation/listeners.py:116
+        (list.insert called with one arg) was fixed in
+        007-coverage-to-100 to `insert(0, context.phase())` per the
+        L7R rules intent (a successful feint inserts a new action at
+        the current phase so it can fire next).
+        """
         attack = FeintAction(
             self.attacker, self.target, "feint", self.ia, self.context
         )
         event = AttackSucceededEvent(attack)
         listener = FeintSucceededListener()
-        with self.assertRaises(TypeError):
-            list(listener.handle(self.attacker, event, self.context))
-        # TVP should still be gained (line 108 executes before the bug on line 112)
+        result = list(listener.handle(self.attacker, event, self.context))
+        # TVP should be gained
         self.assertEqual(1, self.attacker.tvp())
+        # InitiativeChangedEvent should be yielded
+        from simulation.events import InitiativeChangedEvent
+        self.assertTrue(any(isinstance(e, InitiativeChangedEvent) for e in result))
+        # The action list was reordered: max action (5) removed, current
+        # phase (context.phase()) inserted at front.
+        self.assertIn(self.context.phase(), self.attacker.actions())
+        self.assertNotIn(5, self.attacker.actions())
 
     def test_feint_succeeded_no_actions(self):
         """Lines 109-113: No initiative change if character has no actions left."""

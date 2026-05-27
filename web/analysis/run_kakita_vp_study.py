@@ -37,5 +37,5 @@ def main() -> None:
     print(f"Done! {len(result.matchup_results)} matchup results collected.")
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover  # UI entry point: script-mode invocation; main() is tested directly
     main()

@@ -26,7 +26,7 @@ class ModifierListener(ABC):
         """
         Evaluate whether the modifier should expire, and remove it from the character if so.
         """
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
 
 class ExpireAfterNextAttackListener(ModifierListener):

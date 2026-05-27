@@ -32,7 +32,7 @@ from simulation.strategies.take_action_event_factory import DEFAULT_TAKE_ACTION_
 from simulation.strategies.target_finders import EasiestTargetFinder
 
 if TYPE_CHECKING:
-    from simulation.groups import Group
+    from simulation.groups import Group  # pragma: no cover  # defensive: type-checking-only import; not executed at runtime
 
 RING_NAMES = ["air", "earth", "fire", "water", "void"]
 
@@ -860,8 +860,8 @@ class Character:
             elif self.vp() > 0:
                 self._vp_spent += 1
                 still_unspent -= 1
-            else:
-                raise ValueError("Not enough Void Points")
+            else:  # pragma: no cover  # defensive: the outer ``vp()`` check (line 853) guarantees enough total VP, and the loop decrements ``still_unspent`` once per available point, so this inner else can never fire — every iteration consumes one tvp or one vp slot until still_unspent reaches 0.
+                raise ValueError("Not enough Void Points")  # pragma: no cover  # defensive: see preceding line
 
     def sw(self) -> int:
         return self._sw

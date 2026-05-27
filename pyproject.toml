@@ -17,6 +17,35 @@ docstring-code-format = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
+[tool.coverage.run]
+source = ["simulation", "web"]
+omit = [
+    "tests/*",
+    "env/*",
+    "env_old/*",
+    # Streamlit page modules and the app entry point.  These are
+    # imperative top-level scripts loaded by Streamlit's page-loader
+    # at runtime; their executable code only runs in a real Streamlit
+    # context with `st.session_state`, `st.rerun()`, etc.  Per
+    # Constitution Principle VI v1.3.0, UI entry points are an
+    # acceptable category for coverage skip.  They are verified via
+    # the manual Streamlit smoke check (Quality Gate 5), not unit tests.
+    "web/views/*.py",
+    "web/app.py",
+]
+
+[tool.coverage.report]
+# Per Constitution Principle VI v1.3.0 (commit 3c49b3c), coverage must
+# be 100% on every file under simulation/ and web/.  Pragma skips are
+# allowed with a one-line justification comment matching one of four
+# categories (UI entry point / defensive / abstract method / re-raise).
+# The pragma-audit meta-test at tests/test_coverage_pragma_audit.py
+# enforces the justification requirement.
+exclude_lines = [
+    "pragma: no cover",
+]
+show_missing = true
+
 [tool.mypy]
 python_version = "3.12"
 strict = true

@@ -31,7 +31,7 @@ class EngineContext:
                 raise ValueError("A group must contain at least one character")
             for character in group:
                 self._characters.append(character)
-        if len(self._characters) < 2:
+        if len(self._characters) < 2:  # pragma: no cover  # defensive: unreachable since each of 2+ groups must have >=1 char per line 31
             raise ValueError("Must have at least two characters")
         self._still_moving: list[Any] = []
         self._features = TrialFeatures()

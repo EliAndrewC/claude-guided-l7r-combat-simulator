@@ -124,6 +124,36 @@ class TestFormatEvent:
         event = NoActionEvent(_mock_character("Akodo"))
         assert format_event(event) is None
 
+    def test_surrender(self):
+        from simulation.events import SurrenderEvent
+        subject = _mock_character("Bayushi")
+        event = SurrenderEvent(subject)
+        assert format_event(event) == "  Bayushi surrenders!"
+
+    def test_take_parry_action(self):
+        from simulation.events import TakeParryActionEvent
+        action = _mock_action("Bayushi", "Akodo", "parry")
+        event = TakeParryActionEvent(action)
+        assert format_event(event) == "  Bayushi attempts to parry Akodo"
+
+    def test_parry_succeeded(self):
+        from simulation.events import ParrySucceededEvent
+        action = _mock_action("Bayushi", "Akodo", "parry")
+        event = ParrySucceededEvent(action)
+        assert format_event(event) == "  Parry succeeded!"
+
+    def test_parry_failed(self):
+        from simulation.events import ParryFailedEvent
+        action = _mock_action("Bayushi", "Akodo", "parry")
+        event = ParryFailedEvent(action)
+        assert format_event(event) == "  Parry failed."
+
+    def test_parry_rolled(self):
+        from simulation.events import ParryRolledEvent
+        action = _mock_action("Bayushi", "Akodo", "parry")
+        event = ParryRolledEvent(action, 18)
+        assert format_event(event) == "  Parry roll: 18"
+
 
 class TestFormatHistory:
     def test_format_history_filters_none(self):

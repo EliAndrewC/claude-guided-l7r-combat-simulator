@@ -15,59 +15,59 @@ from simulation.mechanics.modifiers import FreeRaise
 class School(ABC):
     @abstractmethod
     def ap_base_skill(self) -> str | None:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def ap_skills(self) -> list[str]:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def apply_ap(self, character: Any) -> None:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def apply_special_ability(self, character: Any) -> None:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def apply_rank_one_ability(self, character: Any) -> None:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def apply_rank_two_ability(self, character: Any) -> None:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def apply_rank_three_ability(self, character: Any) -> None:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def apply_rank_four_ability(self, character: Any) -> None:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def apply_rank_five_ability(self, character: Any) -> None:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def extra_rolled(self) -> list[str]:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def free_raise_skills(self) -> list[str]:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def name(self) -> str:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def school_knacks(self) -> list[str]:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def school_ring(self) -> str:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
 
 class BaseSchool(School):
@@ -352,7 +352,7 @@ class BaseSchool(School):
 
         Apply this school's 3rd Dan ability to the character.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
     def apply_rank_four_ability(self, character: Any) -> None:
         """
@@ -360,7 +360,7 @@ class BaseSchool(School):
 
         Implementations should apply this school's 4th Dan ability to the character.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
     def apply_rank_five_ability(self, character: Any) -> None:
         """
@@ -368,7 +368,7 @@ class BaseSchool(School):
 
         Implementations should apply the school's 5th Dan ability.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
     def apply_school_ring(self, character: Any) -> None:
         """
@@ -387,7 +387,7 @@ class BaseSchool(School):
         Apply this school's special ability to the character.
         This usually involves setting special listeners or strategies.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
     def free_raise_skills(self) -> list[str]:
         """
@@ -395,7 +395,7 @@ class BaseSchool(School):
 
         Implementations should return the list of skills that receive Free Raises from this school at 2nd Dan.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
     def extra_rolled(self) -> list[str]:
         """
@@ -403,7 +403,7 @@ class BaseSchool(School):
 
         Implementations should return the list of things where they get an extra rolled die.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
     def name(self) -> str:
         """
@@ -411,7 +411,7 @@ class BaseSchool(School):
 
         Implementations should return the name of the School.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
     def school_knacks(self) -> list[str]:
         """
@@ -419,7 +419,7 @@ class BaseSchool(School):
 
         Implementations should return their list of School Knacks.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
     def school_ring(self) -> str:
         """
@@ -427,4 +427,4 @@ class BaseSchool(School):
 
         Implementations should return the name of their School Ring.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override

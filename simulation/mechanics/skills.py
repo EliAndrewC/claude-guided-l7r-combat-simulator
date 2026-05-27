@@ -59,10 +59,10 @@ class Skill:
         self._name = name
 
     def cost(self, rank: int, original_rank: int = 0) -> int:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
     def is_advanced(self) -> bool:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
     def get(self) -> "Skill":
         if self.name() in ADVANCED_SKILLS:

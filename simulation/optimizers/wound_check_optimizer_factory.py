@@ -14,7 +14,7 @@ from simulation.optimizers.wound_check_optimizers import DefaultWoundCheckOptimi
 class WoundCheckOptimizerFactory(ABC):
     @abstractmethod
     def get_wound_check_optimizer(self, subject: Any, event: Any, context: Any, max_vp: int | None = None, max_ap: int | None = None) -> Any:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
 
 class DefaultWoundCheckOptimizerFactory(WoundCheckOptimizerFactory):

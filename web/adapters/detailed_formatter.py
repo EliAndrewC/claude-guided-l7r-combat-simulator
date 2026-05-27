@@ -197,7 +197,7 @@ class DetailedEventFormatter:
                         vp_events: list[Any] = []
                         attacker = event.action.subject()
                         for j in range(i + 1, rolled_idx):
-                            if j in consumed:
+                            if j in consumed:  # pragma: no cover  # defensive: VP events in this narrow window are never pre-consumed
                                 continue
                             if isinstance(history[j], events.SpendVoidPointsEvent):
                                 if history[j].subject == attacker:
@@ -216,7 +216,7 @@ class DetailedEventFormatter:
                 if rolled_idx is not None:
                     vp_events_ca: list[Any] = []
                     for j in range(i + 1, rolled_idx):
-                        if j in consumed:
+                        if j in consumed:  # pragma: no cover  # defensive: VP events in this narrow window are never pre-consumed
                             continue
                         if isinstance(history[j], events.SpendVoidPointsEvent):
                             vp_events_ca.append(history[j])
@@ -775,7 +775,7 @@ class DetailedEventFormatter:
         if remainder != 0:
             sign = "+" if remainder >= 0 else ""
             parts.append(f"unsourced: {sign}{remainder}")
-        if not parts:
+        if not parts:  # pragma: no cover  # defensive: unreachable when modifier != 0 (remainder forces unsourced part); modifier == 0 short-circuits earlier
             return ""
         return f" ({'; '.join(parts)})"
 

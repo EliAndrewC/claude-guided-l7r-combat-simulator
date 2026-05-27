@@ -10,6 +10,17 @@ import pytest
 _COOKIE = "l7r_session_id"
 
 
+class _CookiesRaising:
+    """A cookies stand-in that raises whenever ``.get`` is called.
+
+    Triggers the defensive ``except Exception`` branch in
+    ``_get_session_id`` (web/state.py lines 42-43).
+    """
+
+    def get(self, _key: str) -> None:
+        raise RuntimeError("simulated streamlit cookies failure")
+
+
 @pytest.fixture(autouse=True)
 def _mock_streamlit(tmp_path):
     """Mock streamlit so tests don't need a running Streamlit server."""
@@ -339,3 +350,147 @@ class TestCookieBasedPersistence:
         assert "test-sid" in html_body
         assert _COOKIE in html_body
         assert call_args[1]["unsafe_allow_javascript"] is True
+
+
+class TestDefensiveBranches:
+    """Cover the defensive error-handling branches in web/state.py."""
+
+    def test_get_session_id_cookies_raise_generates_new_id(self, _mock_streamlit):
+        """When cookies.get raises, _get_session_id falls back and generates
+        a new UUID (web/state.py lines 42-43)."""
+        mock_st, session_state, _ = _mock_streamlit
+        mock_st.context.cookies = _CookiesRaising()
+        from web.state import _get_session_id
+
+        sid = _get_session_id()
+        assert len(sid) == 32
+
+    def test_cleanup_stale_sessions_swallows_oserror(self, _mock_streamlit, tmp_path):
+        """OSError on stat/unlink is swallowed silently (lines 86-87)."""
+        import web.state as ws
+        from web.state import _cleanup_stale_sessions
+
+        ws._SESSIONS_DIR = tmp_path / "stale-osfail"
+        ws._SESSIONS_DIR.mkdir()
+        bad = ws._SESSIONS_DIR / "bad.json"
+        bad.write_text("{}")
+
+        # Patch unlink to raise OSError; cleanup should swallow.
+        # First make sure the file appears stale.
+        import os
+        old_time = time.time() - (8 * 24 * 60 * 60)
+        os.utime(bad, (old_time, old_time))
+
+        from pathlib import Path
+        with patch.object(Path, "unlink", side_effect=OSError):
+            _cleanup_stale_sessions()  # Should not raise
+
+    def test_validate_groups_handles_missing_group(self, _mock_streamlit):
+        """If a group is None, _validate_groups skips it (line 95)."""
+        _, session_state, _ = _mock_streamlit
+        from web.state import _validate_groups
+
+        # Neither group set → both skipped (the "group is None" branch)
+        session_state["control_group"] = None
+        session_state["test_group"] = None
+        _validate_groups({})  # Should not crash
+        assert session_state["control_group"] is None
+        assert session_state["test_group"] is None
+
+    def test_save_state_with_none_group_writes_null(self, _mock_streamlit, tmp_path):
+        """When a group is missing/non-GroupConfig, data[key] = None (line 108)."""
+        _, session_state, cookies = _mock_streamlit
+        from web.state import _session_file, save_state
+
+        cookies[_COOKIE] = "none-grp-test"
+        session_state["control_group"] = None
+        session_state["test_group"] = None
+        save_state()
+
+        path = _session_file("none-grp-test")
+        data = json.loads(path.read_text())
+        assert data["control_group"] is None
+        assert data["test_group"] is None
+
+    def test_save_state_swallows_oserror(self, _mock_streamlit, tmp_path):
+        """OSError on write is swallowed silently (lines 112-113)."""
+        _, session_state, cookies = _mock_streamlit
+        from pathlib import Path
+
+        from web.state import save_state
+        cookies[_COOKIE] = "save-osfail"
+        session_state["control_group"] = None
+        session_state["test_group"] = None
+
+        # Make _session_file return a path that will fail to write
+        with patch.object(Path, "write_text", side_effect=OSError):
+            save_state()  # should not raise
+
+    def test_restore_state_returns_when_both_keys_present(self, _mock_streamlit, tmp_path):
+        """When both control_group and test_group already in session_state,
+        restore_state returns early (line 123)."""
+        _, session_state, cookies = _mock_streamlit
+        from web.models import GroupConfig
+        from web.state import restore_state
+
+        cookies[_COOKIE] = "no-need-restore"
+        session_state["control_group"] = GroupConfig(
+            name="x", is_control=True, character_names=["A"],
+        )
+        session_state["test_group"] = GroupConfig(
+            name="y", is_control=False, character_names=["B"],
+        )
+        restore_state()  # early return; should not modify state
+        assert session_state["control_group"].name == "x"
+        assert session_state["test_group"].name == "y"
+
+    def test_restore_state_handles_corrupt_json(self, _mock_streamlit, tmp_path):
+        """When the session file is corrupt JSON, restore_state silently
+        returns (lines 128-129)."""
+        _, session_state, cookies = _mock_streamlit
+        import web.state as ws
+        from web.state import _session_file, restore_state
+
+        ws._SESSIONS_DIR = tmp_path / "corrupt-json"
+        ws._SESSIONS_DIR.mkdir()
+        cookies[_COOKIE] = "corrupt-sess"
+        path = _session_file("corrupt-sess")
+        path.write_text("{ this is not valid json ")
+        session_state.clear()
+        cookies[_COOKIE] = "corrupt-sess"
+
+        restore_state()
+        # Should NOT have set control_group / test_group since JSON was bad
+        assert "control_group" not in session_state
+        assert "test_group" not in session_state
+
+    def test_restore_state_sets_none_for_missing_key_in_file(self, _mock_streamlit, tmp_path):
+        """When a key is present in the file but value is None, the session
+        state key becomes None (line 136)."""
+        _, session_state, cookies = _mock_streamlit
+        import web.state as ws
+        from web.state import _session_file, restore_state
+
+        ws._SESSIONS_DIR = tmp_path / "missing-key"
+        ws._SESSIONS_DIR.mkdir()
+        cookies[_COOKIE] = "missing-key-sess"
+        path = _session_file("missing-key-sess")
+        # data has both keys, but their values are None
+        path.write_text(json.dumps({"control_group": None, "test_group": None}))
+        session_state.clear()
+        cookies[_COOKIE] = "missing-key-sess"
+
+        restore_state()
+        assert session_state["control_group"] is None
+        assert session_state["test_group"] is None
+
+    def test_clear_state_swallows_oserror_on_unlink(self, _mock_streamlit, tmp_path):
+        """OSError on unlink is swallowed silently (lines 143-144)."""
+        _, session_state, cookies = _mock_streamlit
+        from pathlib import Path
+
+        from web.state import clear_state
+        cookies[_COOKIE] = "clear-osfail"
+
+        with patch.object(Path, "unlink", side_effect=OSError):
+            clear_state()  # should not raise

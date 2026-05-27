@@ -15,7 +15,7 @@ from simulation.optimizers.attack_optimizers import AttackOptimizer, DamageOptim
 class AttackOptimizerFactory(ABC):
     @abstractmethod
     def get_optimizer(self, character: Any, target: Any, skill: str, initiative_action: Any, context: Any) -> Any:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
 
 class DefaultAttackOptimizerFactory(AttackOptimizerFactory):

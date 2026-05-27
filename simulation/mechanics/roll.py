@@ -19,7 +19,7 @@ class DieProvider(ABC):
 
     @abstractmethod
     def roll_die(self, faces: int = 10, explode: bool = True) -> int:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
 
 class DefaultDieProvider(DieProvider):

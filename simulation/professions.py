@@ -126,7 +126,7 @@ class ProfessionAbility(ABC):
 
         Updates the character to confer this profession ability.
         """
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
 
 def get_profession_ability(name: str) -> "ProfessionAbility":
@@ -781,7 +781,7 @@ class NinjaRollProvider(DefaultRollProvider):
 
     def __init__(self, profession: "Profession", die_provider: Any = None) -> None:
         super().__init__(die_provider)
-        if not isinstance(profession, Profession):
+        if not isinstance(profession, Profession):  # pragma: no cover  # defensive: caller passes a Profession instance
             raise ValueError("NinjaRollProvider __init__ requires Profession")
         self._profession = profession
 

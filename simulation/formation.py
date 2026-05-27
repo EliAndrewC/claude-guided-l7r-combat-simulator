@@ -16,7 +16,7 @@ from simulation.mechanics.modifiers import Modifier
 from simulation.mechanics.skills import ATTACK_SKILLS
 
 if TYPE_CHECKING:
-    from simulation.character import Character
+    from simulation.character import Character  # pragma: no cover  # defensive: type-checking-only import; not executed at runtime
 
 
 class Formation:
@@ -88,7 +88,7 @@ class Formation:
 
         Subclasses must override this.
         """
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
 
 class NullFormation(Formation):

@@ -164,8 +164,12 @@ class DamageOptimizer(AttackOptimizer):
         if recommendation is not None:
             assert recommendation_expected_roll is not None
             p = recommendation_expected_roll.p
-            if p < threshold:
-                recommendation = None
+            # defensive: the loop only sets `recommendation` when r.p >=
+            # threshold (the continue on line 148 filters out rolls below
+            # threshold), so this re-check is provably never True; kept
+            # as a belt-and-braces guard against future refactors.
+            if p < threshold:  # pragma: no cover  # defensive: unreachable per the loop invariant above
+                recommendation = None  # pragma: no cover  # defensive: see preceding line
         # return recommendation or None
         if recommendation is not None:
             return self.get_action(recommendation[0])

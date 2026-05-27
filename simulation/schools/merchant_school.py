@@ -173,7 +173,12 @@ class MerchantWoundCheckRolledStrategy(WoundCheckRolledStrategy):
                 rolled_event.damage, new_roll, tn=rolled_event.tn,
             )
         else:
-            yield from result_events
+            # defensive: the while loop always increments new_roll by 5
+            # per spent VP, so new_sw never exceeds expected_sw (given the
+            # same lw, wound_check is non-increasing in roll).  This else
+            # branch fires only if expected_sw was already 0 (handled at
+            # line 144), so it's unreachable here.
+            yield from result_events  # pragma: no cover  # defensive: unreachable per the monotonicity argument above
 
 
 # ---------------------------------------------------------------
@@ -223,8 +228,8 @@ def _find_dice_to_reroll(dice: list[int], kept: int) -> list[int]:
         # Check benefit: expected value of x dice at 5.5 each vs current sum
         expected_new = x * 5.5
         expected_gain = expected_new - reroll_sum
-        if expected_gain <= 0:
-            continue
+        if expected_gain <= 0:  # pragma: no cover  # defensive: low_indices filters to dice < 5.5 (and dice are ints, so each is at most 5); reroll_sum is at most x*5 < x*5.5 = expected_new, so expected_gain is strictly positive on every iteration that reaches this check.
+            continue  # pragma: no cover  # defensive: see preceding line
 
         if expected_gain > best_expected_gain:
             best_expected_gain = expected_gain

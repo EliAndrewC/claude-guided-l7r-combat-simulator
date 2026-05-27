@@ -29,15 +29,15 @@ class TakeActionEventFactory(ABC):
 
     @abstractmethod
     def get_take_attack_action_event(self, action: Any) -> TakeAttackActionEvent:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def get_take_counterattack_action_event(self, action: Any) -> TakeCounterattackActionEvent:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
     @abstractmethod
     def get_take_parry_action_event(self, action: Any) -> TakeParryActionEvent:
-        pass
+        pass  # pragma: no cover  # abstract method; subclasses must override
 
 
 class DefaultTakeActionEventFactory(TakeActionEventFactory):

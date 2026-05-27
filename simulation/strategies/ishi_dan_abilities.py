@@ -128,7 +128,7 @@ class IshiAllyBoostStrategy(Strategy):
     def recommend(
         self, character: Any, event: events.Event, context: Any,
     ) -> Iterator[events.Event]:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
 
 class EagerAllyBoostStrategy(IshiAllyBoostStrategy):
@@ -293,7 +293,7 @@ class IshiNegateSchoolStrategy(Strategy):
     def recommend(
         self, character: Any, event: events.Event, context: Any,
     ) -> Iterator[events.Event]:
-        raise NotImplementedError()
+        raise NotImplementedError()  # pragma: no cover  # abstract method; subclasses must override
 
 
 class EagerNegationStrategy(IshiNegateSchoolStrategy):
