@@ -28,6 +28,63 @@ from simulation.schools.kakita_school import (
 )
 
 
+def _compute_damage_breakdown(
+    subject: Any, target: Any, action: Any, attack_extra_rolled: int,
+) -> list[tuple[str, int, int]]:
+    """Compute the predictive damage breakdown for the attack-line
+    "damage will be XkY" projection (FR-007).
+
+    Calls the subject's roll-parameter provider's ``get_breakdown`` with
+    the same ``attack_extra_rolled`` and ``vp`` the engine will use for
+    the damage roll. Returns an empty list when the provider doesn't
+    implement ``get_breakdown`` (legacy providers) — the formatter then
+    omits the breakdown.
+    """
+    provider = subject.roll_parameter_provider()
+    if not hasattr(provider, "get_breakdown"):
+        return []
+    try:
+        result: list[tuple[str, int, int]] = provider.get_breakdown(
+            subject, target, action.skill(),
+            kind="damage",
+            attack_extra_rolled=attack_extra_rolled,
+            vp=action.vp(),
+        )
+    except Exception:
+        return []
+    if not isinstance(result, list):
+        return []
+    return result
+
+
+def _render_components(components: list[tuple[str, int, int]] | None) -> str:
+    """Render a ``_detail_components`` annotation as an inline breakdown.
+
+    Format: ``"N1k(M1) source-1 + N2k(M2) source-2 + ..."``. Per FR-006:
+
+    - Returns an empty string when there are no components, when fewer
+      than 2 entries have nonzero contributions, or when the annotation
+      is missing entirely. A trivial single-source case is the same as
+      the aggregate and is omitted (Edge Cases: "Aggregate with only
+      ONE source").
+    - Filters zero-contribution entries (both ``rolled == 0`` AND
+      ``kept == 0``) — OPEN_QUESTIONS Q6 (Zero-contribution component
+      omission). Entries with nonzero rolled OR kept are retained
+      (e.g., a kept-only contribution like ``+0k2`` is meaningful).
+    """
+    if not components:
+        return ""
+    filtered = [
+        (label, r, k) for label, r, k in components
+        if r != 0 or k != 0
+    ]
+    if len(filtered) < 2:
+        return ""
+    return " + ".join(
+        f"{r}k{k} {label}" for label, r, k in filtered
+    )
+
+
 def _format_dice(dice: list[int], kept: int) -> str:
     """Format a dice list with kept dice **bold** and dropped dice ~~strikethrough~~."""
     if not dice:
@@ -423,14 +480,29 @@ class DetailedEventFormatter:
         rolled, kept, mod = event._detail_params
         tn = event._detail_tn
         base_tn = getattr(event, "_detail_base_tn", tn)
-        tn_str = self._format_tn(tn, base_tn)
+        # Per FR-011: pass the action's skill to _format_tn so the
+        # raise clause carries the action name (e.g., "double attack",
+        # "feint") rather than a generic placeholder.
+        tn_str = self._format_tn(tn, base_tn, event.action.skill())
         name = event.action.subject().name()
 
         kept_sum = sum(dice[:kept]) if dice else event.roll
         total = kept_sum + mod
 
+        # Per FR-006: render the inline attack-XkY source breakdown
+        # when the observer attached ``_detail_components`` with more
+        # than one nonzero entry. The breakdown precedes the dice list,
+        # matching the damage-line convention (``XkY = <breakdown>
+        # [dice]``).
+        attack_breakdown = _render_components(
+            getattr(event, "_detail_components", None),
+        )
+        xky = f"{rolled}k{kept}"
+        if attack_breakdown:
+            xky = f"{rolled}k{kept} = {attack_breakdown}"
+
         # Build roll description
-        roll_str = f"{rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum}"
+        roll_str = f"{xky} {_format_dice(dice, kept)} → {kept_sum}"
         if mod > 0:
             roll_str += f", +{mod} = {total}"
         elif mod < 0:
@@ -456,8 +528,14 @@ class DetailedEventFormatter:
             if extra_dice > 0:
                 extras.append(f"{extra_dice} extra damage {'die' if extra_dice == 1 else 'dice'}")
             if damage_params:
-                dr, dk, dm = damage_params
-                extras.append(f"damage will be {dr}k{dk}")
+                dr, dk, _dm = damage_params
+                damage_breakdown = _render_components(
+                    _compute_damage_breakdown(subject, target, event.action, extra_dice),
+                )
+                if damage_breakdown:
+                    extras.append(f"damage will be {dr}k{dk} = {damage_breakdown}")
+                else:
+                    extras.append(f"damage will be {dr}k{dk}")
             extra_str = f" ({', '.join(extras)})" if extras else ""
             attribution = self._format_modifier_breakdown(event, mod)
             return [f"{self._phase_prefix(name)} {emoji} Attack: {roll_str} vs {tn_str} — {result}{extra_str}{attribution}"]
@@ -587,8 +665,17 @@ class DetailedEventFormatter:
         lw_after = getattr(event, "_detail_lw_after", None)
         total_str = f" (total: {lw_after})" if lw_after is not None else ""
 
+        # Per FR-009: render the inline source breakdown when the
+        # observer attached ``_detail_components`` and the breakdown has
+        # more than one nonzero entry. Zero-contribution entries are
+        # filtered out (Edge Cases: "Zero-contribution sources").
+        breakdown_str = _render_components(getattr(event, "_detail_components", None))
+        xky = f"{rolled}k{kept}"
+        if breakdown_str:
+            xky = f"{rolled}k{kept} = {breakdown_str}"
+
         return [
-            f"{self._phase_prefix(attacker)} 💥 Damage: {rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum}"
+            f"{self._phase_prefix(attacker)} 💥 Damage: {xky} {_format_dice(dice, kept)} → {kept_sum}"
             f" → {name} takes {event.damage} light wounds{total_str}",
         ]
 
@@ -648,32 +735,48 @@ class DetailedEventFormatter:
     @staticmethod
     def _format_modifier_breakdown(event: Any, modifier: int) -> str:
         """Return a parenthetical ``" (Source: +N x M VP; Source2: +K)"``
-        suffix when ``event._detail_modifier_breakdown`` is set AND
-        sums to the rendered ``modifier``. Returns an empty string
-        otherwise -- the "better silent than wrong" safety clause of
-        Constitution Principle VII.
+        suffix attributing the rendered ``modifier`` to its source(s).
+
+        Per spec.md FR-010 / FR-014 (Combat Trace Observability Audit):
+        a non-zero modifier MUST always carry an attribution. When the
+        ``event._detail_modifier_breakdown`` accounts for only part
+        (or none) of the modifier, the remainder is rendered as
+        ``(unsourced: +K)`` -- a visible Principle VII violation rather
+        than silently suppressing the attribution. This makes the gap
+        flag-able by tests (``test_unaccounted_modifier_renders_unsourced_placeholder``)
+        instead of hidden behind a "better silent than wrong" guard.
+
+        Returns an empty string only when ``modifier == 0`` (nothing to
+        attribute).
         """
-        breakdown = getattr(event, "_detail_modifier_breakdown", None)
-        if not breakdown:
+        if modifier == 0:
             return ""
-        # Safety: only attribute if the breakdown sums to the modifier.
-        if sum(value for _label, value in breakdown) != modifier:
-            return ""
+        breakdown = getattr(event, "_detail_modifier_breakdown", None) or []
+        # Filter out zero-value contributions per the audit's edge-case
+        # rule ("Zero-contribution sources").
+        breakdown = [(label, value) for label, value in breakdown if value != 0]
+        known_total = sum(value for _label, value in breakdown)
+        remainder = modifier - known_total
         # Special-case the single-source "Mirumoto 5th Dan" rendering
         # so it explicitly shows the "x N VP" multiplier (matching the
         # user's expected trace format). All other single-source
         # renderings show "Label: +N".
-        if len(breakdown) == 1:
+        if breakdown and remainder == 0 and len(breakdown) == 1:
             label, value = breakdown[0]
             if label == "Mirumoto 5th Dan" and value > 0 and value % 10 == 0:
                 vp_count = value // 10
                 return f" ({label}: +10 × {vp_count} VP)"
             sign = "+" if value >= 0 else ""
             return f" ({label}: {sign}{value})"
-        parts = []
+        parts: list[str] = []
         for label, value in breakdown:
             sign = "+" if value >= 0 else ""
             parts.append(f"{label}: {sign}{value}")
+        if remainder != 0:
+            sign = "+" if remainder >= 0 else ""
+            parts.append(f"unsourced: {sign}{remainder}")
+        if not parts:
+            return ""
         return f" ({'; '.join(parts)})"
 
     def _format_spend_vp(self, event: Any) -> list[str]:
@@ -996,15 +1099,29 @@ class DetailedEventFormatter:
     # ── Combined-line formatters ───────────────────────────────────────
 
     @staticmethod
-    def _build_roll_str(dice: list[int], rolled: int, kept: int, mod: int, fallback_total: int = 0) -> tuple[str, int]:
+    def _build_roll_str(
+        dice: list[int], rolled: int, kept: int, mod: int,
+        fallback_total: int = 0,
+        components: list[tuple[str, int, int]] | None = None,
+    ) -> tuple[str, int]:
         """Build a roll description string and compute the total.
 
         Returns (roll_str, total) where *roll_str* looks like
         ``'10k6 [...] → 24'`` or ``'10k6 [...] → 24, +5 = 29'``.
+
+        When ``components`` carries a multi-source breakdown (per
+        FR-006), the leading XkY is augmented with
+        ``= <component-list>`` (e.g.,
+        ``'10k10 = 5k5 Fire ring + 5k0 double attack skill + ...
+        [...] → 24'``).
         """
         kept_sum = sum(dice[:kept]) if dice else fallback_total
         total = kept_sum + mod
-        roll_str = f"{rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum}"
+        breakdown = _render_components(components)
+        xky = f"{rolled}k{kept}"
+        if breakdown:
+            xky = f"{rolled}k{kept} = {breakdown}"
+        roll_str = f"{xky} {_format_dice(dice, kept)} → {kept_sum}"
         if mod > 0:
             roll_str += f", +{mod} = {total}"
         elif mod < 0:
@@ -1012,11 +1129,36 @@ class DetailedEventFormatter:
         return roll_str, total
 
     @staticmethod
-    def _format_tn(tn: int, base_tn: int | None = None) -> str:
-        """Format TN for display, showing base TN when it differs (e.g. double attack)."""
-        if base_tn is not None and base_tn != tn:
-            return f"TN {tn} (base TN {base_tn})"
-        return f"TN {tn}"
+    def _format_tn(
+        tn: int,
+        base_tn: int | None = None,
+        action_skill: str | None = None,
+    ) -> str:
+        """Format TN for display with full raise-attribution breakdown.
+
+        Per the formatter-rendering contract (§ "TN rendering") for
+        Combat Trace Observability Audit FR-011:
+        - Always show ``(base TN M)`` when ``base_tn`` is provided.
+        - When ``tn > base_tn`` (raises were taken), append
+          ``+X from K raises for {action_skill}`` where K = (tn - base_tn) / 5
+          and X = K * 5. This is the L7R raise rule (each raise = +5 TN).
+
+        The raise count is derived from ``(tn - base_tn) // 5`` since
+        ``Action`` does not expose an ``Action.raises()`` accessor in
+        the rules engine; this matches the in-rules invariant that
+        only raises inflate the TN above its base.
+        """
+        if base_tn is None:
+            return f"TN {tn}"
+        if tn > base_tn:
+            diff = tn - base_tn
+            raises = diff // 5
+            skill = action_skill or "raises"
+            return (
+                f"TN {tn} (base TN {base_tn}, "
+                f"+{diff} from {raises} raises for {skill})"
+            )
+        return f"TN {tn} (base TN {base_tn})"
 
     @staticmethod
     def _build_vp_infix(vp_events: list[Any], wc_event: Any | None = None) -> str:
@@ -1066,9 +1208,18 @@ class DetailedEventFormatter:
         rolled, kept, mod = rolled_event._detail_params
         tn = rolled_event._detail_tn
         base_tn = getattr(rolled_event, "_detail_base_tn", tn)
-        tn_str = self._format_tn(tn, base_tn)
+        # Per FR-011: thread the action skill into _format_tn so the
+        # raise clause carries the action name.
+        tn_str = self._format_tn(tn, base_tn, skill)
 
-        roll_str, total = self._build_roll_str(dice, rolled, kept, mod, rolled_event.roll)
+        # Per FR-006 / FR-008: pass the attack-roll breakdown into
+        # ``_build_roll_str`` so the combined attack-line renders the
+        # multi-source XkY decomposition inline.
+        attack_components = getattr(rolled_event, "_detail_components", None)
+        roll_str, total = self._build_roll_str(
+            dice, rolled, kept, mod, rolled_event.roll,
+            components=attack_components,
+        )
 
         hit = action.is_hit() and not action.parried()
         if hit:
@@ -1087,7 +1238,13 @@ class DetailedEventFormatter:
                 extras.append(f"{extra_dice} extra damage {'die' if extra_dice == 1 else 'dice'}")
             if damage_params:
                 dr, dk, _dm = damage_params
-                extras.append(f"damage will be {dr}k{dk}")
+                damage_breakdown = _render_components(
+                    _compute_damage_breakdown(subject, target, action, extra_dice),
+                )
+                if damage_breakdown:
+                    extras.append(f"damage will be {dr}k{dk} = {damage_breakdown}")
+                else:
+                    extras.append(f"damage will be {dr}k{dk}")
             extra_str = f" ({', '.join(extras)})" if extras else ""
             attribution = self._format_modifier_breakdown(rolled_event, mod)
             return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ attacks {tgt} ({skill}) — {roll_str} vs {tn_str} — {result}{extra_str}{attribution}"]
@@ -1128,7 +1285,13 @@ class DetailedEventFormatter:
                 extras.append(f"{extra_dice} extra damage {'die' if extra_dice == 1 else 'dice'}")
             if damage_params:
                 dr, dk, _dm = damage_params
-                extras.append(f"damage will be {dr}k{dk}")
+                damage_breakdown = _render_components(
+                    _compute_damage_breakdown(subject, target, action, extra_dice),
+                )
+                if damage_breakdown:
+                    extras.append(f"damage will be {dr}k{dk} = {damage_breakdown}")
+                else:
+                    extras.append(f"damage will be {dr}k{dk}")
             extra_str = f" ({', '.join(extras)})" if extras else ""
             attribution = self._format_modifier_breakdown(rolled_event, mod)
             return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ counterattacks {tgt} — {roll_str} vs TN {tn} — {result}{extra_str}{attribution}"]

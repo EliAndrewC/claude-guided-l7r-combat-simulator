@@ -11,9 +11,24 @@ from simulation.duel import (
 from simulation.engine import CombatEngine
 from simulation.events import CounterattackRolledEvent, TakeCounterattackActionEvent
 from simulation.mechanics.roll import DEFAULT_DIE_PROVIDER, DieProvider
+from simulation.mechanics.roll_params import _normalize_breakdown
 from simulation.mechanics.roll_provider import RollProvider
 from simulation.schools.kakita_school import ContestedIaijutsuAttackRolledEvent
 from web.adapters.modifier_breakdown import explain_modifier
+
+
+def _reconcile_breakdown(
+    components: list[tuple[str, int, int]], aggregate: tuple[int, int],
+) -> list[tuple[str, int, int]]:
+    """Adjust ``components`` so its summed ``(rolled, kept)`` equals the
+    displayed ``aggregate``. When the components already sum correctly
+    (the common case), the list is returned unchanged. Otherwise a
+    synthetic ``"normalization"`` entry is appended (or the existing
+    one updated) to absorb the delta — preserving the data-model.md
+    invariant ``sum(components) == aggregate_*`` so the trace renders
+    a per-line self-explaining breakdown (FR-017).
+    """
+    return _normalize_breakdown(components, aggregate[0], aggregate[1])
 
 
 class _RecordingDieProvider(DieProvider):
@@ -175,6 +190,15 @@ class CombatObserver:
         # recent declaration per subject name to bridge that gap
         # without modifying the engine.
         self._pending_wound_check_vp: dict[str, int] = {}
+        # Per spec FR-002 / FR-007: the ``LightWoundsDamageEvent`` does
+        # NOT carry the attack action that produced it, but the damage
+        # breakdown needs the attack's ``attack_extra_rolled`` (margin
+        # extras) and ``vp`` (VP-on-attack inflation, e.g. Bayushi).
+        # ``AttackRolledEvent`` carries the action; we cache the most
+        # recent attack per attacker name so the matching
+        # ``LightWoundsDamageEvent`` annotation can recover the inputs
+        # without re-walking history.
+        self._pending_damage_context: dict[str, tuple[int, int]] = {}
 
     def on_event(self, event: Any, context: Any) -> None:
         if isinstance(event, events.NewRoundEvent):
@@ -267,6 +291,15 @@ class CombatObserver:
             subject, event.action.skill(), event._detail_params,
             event.action.vp(), action=event.action,
         )
+        # Per FR-001 / FR-006: attach the per-source ``_detail_components``
+        # breakdown for the attack roll's XkY so the formatter can render
+        # the multi-source decomposition (e.g.,
+        # ``10k10 = 5k5 Fire ring + 5k0 double attack skill +
+        # 1k0 Bayushi 1st Dan + 2k2 VP on double attack + -3k3 normalization``).
+        event._detail_components = self._skill_breakdown(
+            subject, event.action.target(), event.action.skill(),
+            event._detail_params, event.action.vp(),
+        )
 
     def _annotate_counterattack_rolled(self, event: Any) -> None:
         subject = event.action.subject()
@@ -281,6 +314,10 @@ class CombatObserver:
             subject, event.action.skill(), event._detail_params,
             event.action.vp(), action=event.action,
         )
+        event._detail_components = self._skill_breakdown(
+            subject, event.action.target(), event.action.skill(),
+            event._detail_params, event.action.vp(),
+        )
 
     def _annotate_parry_rolled(self, event: Any) -> None:
         subject = event.action.subject()
@@ -294,6 +331,10 @@ class CombatObserver:
         event._detail_modifier_breakdown = self._build_modifier_breakdown(
             subject, event.action.skill(), event._detail_params,
             event.action.vp(), action=event.action,
+        )
+        event._detail_components = self._skill_breakdown(
+            subject, event.action.target(), event.action.skill(),
+            event._detail_params, event.action.vp(),
         )
 
     @staticmethod
@@ -352,6 +393,16 @@ class CombatObserver:
         event._detail_damage_params = action.damage_roll_params()
         event._detail_skill_roll = action.skill_roll()
         event._detail_tn = action.tn()
+        # Stash the actually-applied ``attack_extra_rolled`` and ``vp``
+        # for the matching ``LightWoundsDamageEvent`` so its breakdown
+        # mirrors the engine's damage-roll inputs (FR-002 / FR-009).
+        # ``AttackSucceededEvent`` runs after parry resolution but
+        # before the damage roll, so ``calculate_extra_damage_dice()``
+        # returns the post-parry value the engine will pass to
+        # ``get_damage_roll_params``.
+        self._pending_damage_context[action.subject().name()] = (
+            action.calculate_extra_damage_dice(), action.vp(),
+        )
 
     def _annotate_attack_failed(self, event: Any) -> None:
         action = event.action
@@ -375,6 +426,108 @@ class CombatObserver:
             event._detail_dice = []
             event._detail_params = (0, 0)
         event._detail_lw_after = event.target.lw() + event.damage
+        # Per FR-002 / FR-009: attach the per-source ``_detail_components``
+        # breakdown so the formatter can render the multi-source damage
+        # XkY decomposition (e.g.,
+        # ``10k7 = 4k2 katana + 5k0 Fire ring + 2k0 margin + 2k2 VP on attack``).
+        # The inputs (``attack_extra_rolled``, ``vp``) come from the
+        # matching attack action stashed by ``_annotate_attack_succeeded``
+        # (which runs AFTER parry resolution but BEFORE the damage roll —
+        # the correct vantage to capture the values the engine will use).
+        # If missing (e.g., cross-school direct-damage paths), fall back
+        # to zero.
+        extra_dice, vp = self._pending_damage_context.pop(attacker.name(), (0, 0))
+        components = self._damage_breakdown(
+            attacker, event.target, "damage", extra_dice, vp,
+        )
+        # Reconcile the breakdown against the actually-rolled aggregate.
+        # ``last_damage_info`` may carry stale state when the damage
+        # path is a feint or other non-rolling action (the engine still
+        # emits a ``LightWoundsDamageEvent`` with ``damage=0`` even
+        # though no new roll happened). In that case the breakdown
+        # would not sum to the displayed XkY; reconciling against the
+        # captured ``(rolled, kept)`` preserves the
+        # ``sum(components) == aggregate`` invariant from data-model.md.
+        components = _reconcile_breakdown(components, event._detail_params)
+        event._detail_components = components
+
+    @staticmethod
+    def _damage_breakdown(
+        character: Any, target: Any, skill: str,
+        attack_extra_rolled: int, vp: int,
+    ) -> list[tuple[str, int, int]]:
+        """Query the character's roll-parameter provider for the damage
+        breakdown. Falls back to an empty list when the provider does
+        not implement ``get_breakdown`` (legacy providers) — the
+        formatter then renders the aggregate without the inline
+        breakdown, preserving backward compatibility.
+
+        Per FR-003 / data-model.md "Per-school breakdown contribution":
+        per-school overrides (e.g. ``BayushiRollParameterProvider``)
+        contribute their own breakdown via ``get_breakdown``.
+        """
+        provider = character.roll_parameter_provider()
+        if not hasattr(provider, "get_breakdown"):
+            return []
+        try:
+            result = provider.get_breakdown(
+                character, target, skill,
+                kind="damage",
+                attack_extra_rolled=attack_extra_rolled,
+                vp=vp,
+            )
+        except Exception:
+            return []
+        # Defensive: ensure shape.
+        if not isinstance(result, list):
+            return []
+        return result
+
+    @staticmethod
+    def _skill_breakdown(
+        character: Any, target: Any, skill: str,
+        params: Any, vp: int,
+    ) -> list[tuple[str, int, int]]:
+        """Query the character's roll-parameter provider for the
+        attack-skill breakdown. Returns an empty list when the provider
+        does not implement ``get_breakdown(..., kind="attack")``
+        (legacy providers) — the formatter then renders the aggregate
+        without the inline breakdown, preserving backward compatibility.
+
+        The returned breakdown is reconciled against the actual
+        (rolled, kept) tuple captured on the event so it always sums
+        to the aggregate displayed in the trace, per data-model.md
+        invariants I1 / I2 / FR-001.
+
+        Per FR-003: per-school overrides (e.g.
+        ``MirumotoRollParameterProvider``) contribute their own
+        breakdown via ``get_breakdown``.
+        """
+        provider = character.roll_parameter_provider()
+        if not hasattr(provider, "get_breakdown"):
+            return []
+        try:
+            raw = provider.get_breakdown(
+                character, target, skill,
+                kind="attack",
+                vp=vp,
+            )
+        except Exception:
+            return []
+        if not isinstance(raw, list):
+            return []
+        result: list[tuple[str, int, int]] = list(raw)
+        # Reconcile against the event's actual ``(rolled, kept)`` tuple.
+        # The provider's ``get_breakdown`` already calls
+        # ``_normalize_breakdown`` against ``get_skill_roll_params``;
+        # however the event's ``_detail_params`` may have been adjusted
+        # (e.g., Ishi 3rd Dan boost folded into the modifier slot — see
+        # ``_adjust_params_for_ishi_boost``). Re-reconciling here
+        # preserves ``sum(components) == aggregate`` for the rendered
+        # XkY.
+        if params and len(params) >= 2:
+            result = _reconcile_breakdown(result, (params[0], params[1]))
+        return result
 
     def _annotate_wound_check(self, event: Any) -> None:
         # Per Constitution Principle VII: capture the modifier so the

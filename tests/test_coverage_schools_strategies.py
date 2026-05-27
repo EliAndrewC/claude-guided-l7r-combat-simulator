@@ -498,8 +498,12 @@ class TestBayushiAttackFailedListener(unittest.TestCase):
         )
         event = events.AttackFailedEvent(action)
         responses = list(listener.handle(self.bayushi, event, self.context))
-        self.assertEqual(0, len(responses))  # yield from () - empty generator
-        # but check that a floating bonus was added to the character
+        # The listener emits a GainFloatingBonusEvent for trace
+        # attribution per Constitution Principle VII (spec 005).
+        self.assertEqual(1, len(responses))
+        self.assertIsInstance(responses[0], events.GainFloatingBonusEvent)
+        self.assertEqual("Bayushi 4th Dan", responses[0].source)
+        # ... and the bonus is added to the character.
         bonuses = self.bayushi.floating_bonuses("attack")
         self.assertEqual(1, len(bonuses))
         self.assertEqual(5, bonuses[0].bonus())
@@ -544,7 +548,11 @@ class TestBayushiAttackSucceededListener(unittest.TestCase):
         )
         event = events.AttackSucceededEvent(action)
         responses = list(listener.handle(self.bayushi, event, self.context))
-        self.assertEqual(0, len(responses))  # yield from ()
+        # The listener emits a GainFloatingBonusEvent for trace
+        # attribution per Constitution Principle VII (spec 005).
+        self.assertEqual(1, len(responses))
+        self.assertIsInstance(responses[0], events.GainFloatingBonusEvent)
+        self.assertEqual("Bayushi 4th Dan", responses[0].source)
         bonuses = self.bayushi.floating_bonuses("attack")
         self.assertEqual(1, len(bonuses))
         self.assertEqual(5, bonuses[0].bonus())

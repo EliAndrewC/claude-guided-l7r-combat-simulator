@@ -30,6 +30,7 @@ The major aggregate values in a combat trace:
 | **TN** (number) | base TN (e.g., 30) + raises (+5 per — must show count AND source: e.g., "+20 from 4 raises for double attack") + school modifiers |
 | **Damage total** (number) | base damage roll + base weapon bonus + extra-damage-dice from margin |
 | **Cross-roll VP/AP effects** | When a spend on one roll inflates a SUBSEQUENT roll (e.g., VP-on-attack adds +1k1 to damage), the downstream roll's breakdown must show the upstream source. Inspect every "spends N VP on X → Y" event and check whether Y's components attribute the upstream contribution. |
+| **Floating bonus gain & consume** | Both the gain line (e.g., `"School ability: gained floating bonus +N (breakdown)"`) AND the consume line (e.g., `"+N (School ability floating bonus consumed)"`) must show the source. Sourceless variants like `"+N (floating bonus consumed)"` are a Principle VII gap even though the value is shown — the playtester can see WHAT the bonus did but not WHICH school ability conferred it. |
 
 Any of these rendered as a final number/dice expression without showing the components is a Principle VII gap.
 

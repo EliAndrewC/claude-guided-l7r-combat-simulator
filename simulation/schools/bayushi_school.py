@@ -12,7 +12,11 @@ from simulation import events
 from simulation.actions import FeintAction
 from simulation.listeners import Listener
 from simulation.mechanics.floating_bonuses import AnyAttackFloatingBonus
-from simulation.mechanics.roll_params import DefaultRollParameterProvider, normalize_roll_params
+from simulation.mechanics.roll_params import (
+    DefaultRollParameterProvider,
+    _normalize_breakdown,
+    normalize_roll_params,
+)
 from simulation.optimizers.wound_check_provider import DEFAULT_WOUND_CHECK_PROVIDER, WoundCheckProvider
 from simulation.schools.base import BaseSchool
 from simulation.strategies.action_factory import DefaultActionFactory
@@ -69,6 +73,70 @@ class BayushiRollParameterProvider(DefaultRollParameterProvider):
         mod = character.modifier(None, "damage")
         return normalize_roll_params(rolled, kept, mod)
 
+    def get_breakdown(
+        self,
+        character: Any,
+        target: Any,
+        skill: str,
+        kind: str = "damage",
+        attack_extra_rolled: int = 0,
+        vp: int = 0,
+        contested_skill: str | None = None,
+        ring: str | None = None,
+    ) -> list[tuple[str, int, int]]:
+        """Mirror ``get_damage_roll_params`` for the Bayushi
+        Special Ability (VP on attack inflates damage rolled AND kept
+        — rules/04-schools.md "Bayushi Bushi School: Special Ability").
+
+        For non-damage ``kind`` values, delegate to ``super`` so the
+        default attack-roll breakdown (Phase 4: FR-006) is still
+        attached. Bayushi's only roll-parameter override is the damage
+        roll; attack rolls follow the default ``get_skill_roll_params``
+        formula.
+        """
+        if kind != "damage":
+            return super().get_breakdown(
+                character, target, skill,
+                kind=kind,
+                attack_extra_rolled=attack_extra_rolled,
+                vp=vp,
+                contested_skill=contested_skill,
+                ring=ring,
+            )
+        weapon = character.weapon()
+        ring_name = character.get_skill_ring("damage")
+        ring_value = character.ring(ring_name)
+        my_extra_rolled = character.extra_rolled("damage")
+        my_extra_kept = character.extra_kept("damage")
+        components: list[tuple[str, int, int]] = []
+        components.append(
+            (weapon.name(), weapon.rolled(), weapon.kept()),
+        )
+        if ring_value > 0:
+            components.append(
+                (f"{ring_name.capitalize()} ring", ring_value, 0),
+            )
+        if attack_extra_rolled > 0:
+            margin = attack_extra_rolled * 5
+            components.append(
+                (f"margin (+{margin} over TN)", attack_extra_rolled, 0),
+            )
+        # Bayushi Special Ability: each VP spent on the attack roll
+        # adds +1 rolled AND +1 kept to the damage roll.
+        if vp > 0:
+            components.append(("VP on attack", vp, vp))
+        if my_extra_rolled > 0 or my_extra_kept > 0:
+            school = character.school() if hasattr(character, "school") else None
+            label = (
+                school.name() if school is not None and school.name()
+                else "character bonus"
+            )
+            components.append((label, my_extra_rolled, my_extra_kept))
+        aggregate_rolled, aggregate_kept, _ = self.get_damage_roll_params(
+            character, target, skill, attack_extra_rolled, vp=vp,
+        )
+        return _normalize_breakdown(components, aggregate_rolled, aggregate_kept)
+
 
 BAYUSHI_ROLL_PARAMETER_PROVIDER = BayushiRollParameterProvider()
 
@@ -120,25 +188,47 @@ class BayushiAttackFailedListener(Listener):
     """
     Listener to implement the Bayushi 4th Dan ability
     to gain a floating bonus to any attack after a Feint.
+
+    rules/04-schools.md "Bayushi Bushi School: Fourth Dan".  Tags the
+    bonus with ``source="Bayushi 4th Dan"`` and yields a
+    ``GainFloatingBonusEvent`` so the trace formatter renders the
+    acquisition with source attribution per Constitution Principle VII.
     """
 
     def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.AttackFailedEvent):
             if event.action.subject() == character:
                 if event.action.skill() == "feint":
-                    character.gain_floating_bonus(AnyAttackFloatingBonus(5))
-        yield from ()
+                    bonus = AnyAttackFloatingBonus(5, source="Bayushi 4th Dan")
+                    character.gain_floating_bonus(bonus)
+                    yield events.GainFloatingBonusEvent(
+                        character,
+                        bonus,
+                        source="Bayushi 4th Dan",
+                        breakdown="failed feint",
+                    )
 
 
 class BayushiAttackSucceededListener(Listener):
     """
     Listener to implement the Bayushi 4th Dan ability
     to gain a floating bonus to any attack after a Feint.
+
+    rules/04-schools.md "Bayushi Bushi School: Fourth Dan".  Tags the
+    bonus with ``source="Bayushi 4th Dan"`` and yields a
+    ``GainFloatingBonusEvent`` so the trace formatter renders the
+    acquisition with source attribution per Constitution Principle VII.
     """
 
     def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.AttackSucceededEvent):
             if event.action.subject() == character:
                 if event.action.skill() == "feint":
-                    character.gain_floating_bonus(AnyAttackFloatingBonus(5))
-        yield from ()
+                    bonus = AnyAttackFloatingBonus(5, source="Bayushi 4th Dan")
+                    character.gain_floating_bonus(bonus)
+                    yield events.GainFloatingBonusEvent(
+                        character,
+                        bonus,
+                        source="Bayushi 4th Dan",
+                        breakdown="successful feint",
+                    )

@@ -521,10 +521,15 @@ class TestFormatterShowsSourceAttribution(unittest.TestCase):
         self.assertNotIn("Mirumoto 5th Dan", wc_line)
         self.assertNotIn("Mirumoto 2nd Dan", wc_line)
 
-    def test_breakdown_mismatch_suppresses_attribution(self):
+    def test_breakdown_mismatch_renders_partial_with_unsourced(self):
         """When ``_detail_modifier_breakdown`` does not sum to the
-        rendered modifier, no attribution line is shown -- better
-        silent than wrong (per Principle VII safety clause).
+        rendered modifier, the formatter renders the partial breakdown
+        AND appends ``(unsourced: +K)`` for the unaccounted portion.
+
+        spec.md FR-010 (Combat Trace Observability Audit) replaced the
+        prior "better silent than wrong" safety clause with a visible
+        ``(unsourced: +K)`` placeholder so that Principle VII gaps are
+        surfaced rather than hidden.
         """
         fmt = DetailedEventFormatter()
         mirumoto = _make_fifth_dan_mirumoto()
@@ -541,13 +546,16 @@ class TestFormatterShowsSourceAttribution(unittest.TestCase):
         event._detail_params = (10, 6, 35)
         event._detail_tn = 20
         event._detail_base_tn = 20
-        # Breakdown only accounts for 30 of 35 -> attribution suppressed.
+        # Breakdown only accounts for 30 of 35 -> +5 unaccounted -> rendered
+        # as (unsourced: +5) per FR-010.
         event._detail_modifier_breakdown = [("Mirumoto 5th Dan", 30)]
 
         lines = fmt.format_history([event])
         attack_line = [ln for ln in lines if "Attack:" in ln][0]
         self.assertIn("+35", attack_line)
-        self.assertNotIn("Mirumoto 5th Dan", attack_line)
+        # Both the known source AND the unsourced remainder must appear.
+        self.assertIn("Mirumoto 5th Dan", attack_line)
+        self.assertIn("unsourced: +5", attack_line)
 
 
 class TestFormatterShowsIshiThirdDanBoostAttribution(unittest.TestCase):

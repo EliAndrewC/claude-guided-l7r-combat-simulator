@@ -79,6 +79,22 @@ def _is_isawa_ishi(character: Any) -> bool:
     return bool(school.name() == "Isawa Ishi School")
 
 
+def _is_bayushi_bushi(character: Any) -> bool:
+    """True iff the character's school is the Bayushi Bushi School."""
+    school = character.school() if hasattr(character, "school") else None
+    if school is None:
+        return False
+    return bool(school.name() == "Bayushi Bushi School")
+
+
+def _is_akodo_bushi(character: Any) -> bool:
+    """True iff the character's school is the Akodo Bushi School."""
+    school = character.school() if hasattr(character, "school") else None
+    if school is None:
+        return False
+    return bool(school.name() == "Akodo Bushi School")
+
+
 def explain_modifier(
     character: Any,
     skill: str,
@@ -168,6 +184,39 @@ def explain_modifier(
         # VP cost, always contributes once the character is rank >= 2.
         if rank >= 2 and skill == "precepts":
             contributions.append(("Isawa Ishi 2nd Dan free raise", 5))
+
+    elif _is_bayushi_bushi(character):
+        rank = _school_rank(character)
+
+        # Bayushi Bushi 2nd Dan free raise on double attack
+        # (rules/04-schools.md "Bayushi Bushi School: Second Dan"; the
+        # school's ``free_raise_skills() == ["double attack"]`` --
+        # apply_rank_two_ability installs a FreeRaise(+5) modifier).
+        # spec.md FR-013 (Combat Trace Observability Audit): the
+        # calibration combat surfaces this as a bare +5 on every
+        # Bayushi double-attack line.
+        if rank >= 2 and skill == "double attack":
+            contributions.append(("Bayushi 2nd Dan free raise", 5))
+
+    elif _is_akodo_bushi(character):
+        rank = _school_rank(character)
+
+        # Akodo Bushi 2nd Dan free raise on wound check
+        # (rules/04-schools.md "Akodo Bushi School: Second Dan"; the
+        # school's ``free_raise_skills() == ["wound check"]`` --
+        # apply_rank_two_ability installs a FreeRaise(+5) modifier on
+        # wound-check rolls).
+        #
+        # NOTE: The Akodo 4th Dan VP-for-raise (+5/VP) is a separate
+        # modifier source that ALSO contributes on wound-check lines
+        # when the AkodoWoundCheckRolledStrategy fires. The ``vp``
+        # parameter passed to explain_modifier reflects the INITIAL
+        # WoundCheckDeclaredEvent's VP count (boosts dice, not the
+        # modifier); the additional Akodo 4th-Dan VP spent on the
+        # strategy's raise is not visible here. The remainder is
+        # rendered as ``(unsourced: +K)`` by the formatter (FR-014).
+        if rank >= 2 and skill == "wound check":
+            contributions.append(("Akodo 2nd Dan free raise", 5))
 
     # Isawa Ishi 3rd Dan ally boost attribution: applies to the BOOSTED
     # roll regardless of the rolling character's school

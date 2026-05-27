@@ -100,6 +100,12 @@ and run this workflow:
      (action-disadvantage), C (mirror non-degeneracy with both
      termination AND identity-engine-firing checks per Principle IX), and
      D (behavioral round-robin against other schools).
+   - `trace-auditor` reviews the user-visible combat trace for
+     Principle VII compliance. Catches aggregates rendered without
+     source attribution or numeric breakdown (e.g., `XkY` rolls,
+     bare `+N` modifiers, sourceless floating-bonus consume lines).
+     New school work that adds modifiers, floating bonuses, or
+     extra dice MUST surface them in the trace with source labels.
 
 7. **Validate constitution gates** per the 8-point checklist in the
    constitution: ruff, mypy, pytest, coverage ≥ 90%, Streamlit smoke if
@@ -151,7 +157,7 @@ Implementation lives in `simulation/schools/base.py::BaseSchool.set_choice/choic
    - **Deploy**: `set -a && source .env && set +a && ~/.fly/bin/flyctl deploy` from the repo root. Picks up `FLY_API_TOKEN` from `.env`.
 
 <!-- SPECKIT START -->
-Active feature plan: [specs/004-akodo-bushi-school/plan.md](specs/004-akodo-bushi-school/plan.md)
-(Branch `005-akodo-bushi-school`. See sibling files in the same directory
+Active feature plan: [specs/005-trace-observability-audit/plan.md](specs/005-trace-observability-audit/plan.md)
+(Branch `006-trace-observability-audit`. See sibling files in the same directory
 for spec, research, data model, contracts, quickstart, and OPEN_QUESTIONS.)
 <!-- SPECKIT END -->

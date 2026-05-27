@@ -47,6 +47,55 @@ def normalize_roll_params(rolled: int, kept: int, bonus: int = 0) -> tuple[int, 
 
 
 class RollParameterProvider(ABC):
+    def get_breakdown(
+        self,
+        character: Any,
+        target: Any,
+        skill: str,
+        kind: str = "damage",
+        attack_extra_rolled: int = 0,
+        vp: int = 0,
+        contested_skill: str | None = None,
+        ring: str | None = None,
+    ) -> list[tuple[str, int, int]]:
+        """
+        get_breakdown(character, target, skill, kind, \
+            attack_extra_rolled=0, vp=0, contested_skill=None, \
+            ring=None) -> list of (label, +rolled, +kept)
+
+        Returns a per-source decomposition of a roll's rolled and kept
+        dice. Each tuple in the returned list is
+        ``(source_label, +rolled, +kept)`` and the components sum (after
+        an optional final ``"normalization"`` entry) to the same
+        ``(rolled, kept)`` that ``get_damage_roll_params`` /
+        ``get_skill_roll_params`` would return.
+
+        This is the audit-trail counterpart to the aggregate roll-param
+        methods. It is consumed by the trace formatter to render the
+        inline Constitution-Principle-VII breakdown of each multi-source
+        roll. ``CombatObserver`` calls it per-event and attaches the
+        result to the event as ``_detail_components``.
+
+        ``kind`` selects which roll type to decompose:
+
+        - ``"damage"`` (Phase 3): mirror ``get_damage_roll_params``.
+        - ``"attack"`` (Phase 4): mirror ``get_skill_roll_params``
+          (skill rolls — attack, parry, etc.). The ``contested_skill``
+          and ``ring`` arguments override the defaults the provider
+          would otherwise pull from the character.
+
+        Subclasses overriding ``get_damage_roll_params`` (e.g.
+        ``BayushiRollParameterProvider``) MUST override
+        ``get_breakdown`` correspondingly so the breakdown sums to the
+        aggregate that was actually rolled.
+
+        Returns an empty list when the provider has no decomposition
+        for the given ``kind`` (the formatter then renders the aggregate
+        without an inline breakdown — Edge Cases: "Aggregate with only
+        ONE source").
+        """
+        return []
+
     @abstractmethod
     def get_damage_roll_params(self, character: Any, target: Any, skill: str, attack_extra_rolled: int, vp: int = 0) -> tuple[int, int, int]:
         """
@@ -111,7 +160,197 @@ class RollParameterProvider(ABC):
         pass
 
 
+def _normalize_breakdown(
+    components: list[tuple[str, int, int]],
+    aggregate_rolled: int,
+    aggregate_kept: int,
+) -> list[tuple[str, int, int]]:
+    """Adjust a raw breakdown so the components' summed rolled/kept equals
+    the normalized aggregate.
+
+    ``normalize_roll_params`` converts excess rolled→kept dice and excess
+    kept dice→bonus modifier. The pre-normalize breakdown components
+    may therefore not sum to the displayed XkY. To preserve the
+    Principle VII invariant ``sum(rolled) == aggregate_rolled`` AND
+    ``sum(kept) == aggregate_kept``, append a synthetic
+    ``"normalization (excess rolled → kept)"`` entry that absorbs the
+    delta. The entry is a Principle VII compliance signal — itself a
+    visible mechanism (not a hidden adjustment).
+
+    Zero-delta cases produce no synthetic entry (the breakdown is
+    already balanced).
+    """
+    sum_rolled = sum(r for _, r, _ in components)
+    sum_kept = sum(k for _, _, k in components)
+    delta_rolled = aggregate_rolled - sum_rolled
+    delta_kept = aggregate_kept - sum_kept
+    if delta_rolled == 0 and delta_kept == 0:
+        return components
+    return [*components, ("normalization", delta_rolled, delta_kept)]
+
+
 class DefaultRollParameterProvider(RollParameterProvider):
+    def get_breakdown(
+        self,
+        character: Any,
+        target: Any,
+        skill: str,
+        kind: str = "damage",
+        attack_extra_rolled: int = 0,
+        vp: int = 0,
+        contested_skill: str | None = None,
+        ring: str | None = None,
+    ) -> list[tuple[str, int, int]]:
+        if kind == "damage":
+            return self._damage_breakdown(
+                character, target, skill, attack_extra_rolled, vp,
+            )
+        if kind == "attack":
+            return self._attack_breakdown(
+                character, target, skill, vp=vp,
+                contested_skill=contested_skill, ring_override=ring,
+            )
+        return []
+
+    def _damage_breakdown(
+        self,
+        character: Any,
+        target: Any,
+        skill: str,
+        attack_extra_rolled: int,
+        vp: int,
+    ) -> list[tuple[str, int, int]]:
+        # Mirror ``get_damage_roll_params`` exactly. Each contributor
+        # gets its own (label, +rolled, +kept) entry; the post-normalize
+        # delta (if any) becomes a final "normalization" entry so the
+        # components sum to the aggregate displayed in the trace.
+        weapon = character.weapon()
+        ring_name = character.get_skill_ring("damage")
+        ring_value = character.ring(ring_name)
+        my_extra_rolled = character.extra_rolled("damage")
+        my_extra_kept = character.extra_kept("damage")
+        components: list[tuple[str, int, int]] = []
+        # Weapon base (e.g., "katana" → +4 rolled, +2 kept).
+        components.append(
+            (weapon.name(), weapon.rolled(), weapon.kept()),
+        )
+        # Ring contribution (e.g., "Fire ring" → +5 rolled, +0 kept).
+        if ring_value > 0:
+            components.append(
+                (f"{ring_name.capitalize()} ring", ring_value, 0),
+            )
+        # Margin extras from the attack roll (floor(margin/5) extras).
+        if attack_extra_rolled > 0:
+            margin = attack_extra_rolled * 5
+            components.append(
+                (f"margin (+{margin} over TN)", attack_extra_rolled, 0),
+            )
+        # Character-level extra rolled/kept (school-conferred, profession,
+        # etc.). The default provider walks ``character.extra_rolled``
+        # which already incorporates the school's ``extra_rolled``
+        # accessor — per data-model.md "Per-school breakdown
+        # contribution" (1). Labelled with the school name when present
+        # so the trace identifies the source.
+        if my_extra_rolled > 0 or my_extra_kept > 0:
+            school = character.school() if hasattr(character, "school") else None
+            label = (
+                school.name() if school is not None and school.name()
+                else "character bonus"
+            )
+            components.append((label, my_extra_rolled, my_extra_kept))
+        # Reconcile against the actual aggregate (handles normalize_roll_params
+        # rolled→kept conversion). Bonus/modifier dice are NOT part of the
+        # rolled/kept breakdown — they appear in the modifier-breakdown
+        # rendering instead.
+        aggregate_rolled, aggregate_kept, _ = self.get_damage_roll_params(
+            character, target, skill, attack_extra_rolled, vp=vp,
+        )
+        return _normalize_breakdown(components, aggregate_rolled, aggregate_kept)
+
+    def _attack_breakdown(
+        self,
+        character: Any,
+        target: Any,
+        skill: str,
+        vp: int,
+        contested_skill: str | None,
+        ring_override: str | None,
+    ) -> list[tuple[str, int, int]]:
+        """Mirror ``get_skill_roll_params`` for skill rolls (attack,
+        parry, feint, double-attack, etc.).
+
+        Per the formula in ``get_skill_roll_params``:
+
+            rolled = ring + skill + extra_rolled(skill) + vp
+            kept   = ring + extra_kept(skill) + vp
+
+        The ring contributes to BOTH rolled and kept; the skill
+        contributes to rolled only; ``vp`` contributes to BOTH per
+        L7R rules. The school's ``extra_rolled``/``extra_kept`` map
+        (the 1st Dan ability for every implemented school) is labelled
+        with the school's source attribution per data-model.md
+        "Source labels".
+
+        ``contested_skill`` adds to the modifier (not rolled/kept) and
+        is therefore not part of this breakdown. The target's
+        ``attack_rolled_penalty`` (Ninja ability) would reduce rolled
+        dice; if non-zero, the synthetic ``"normalization"`` entry
+        absorbs the delta so the breakdown still sums to the aggregate.
+        """
+        ring_name = ring_override if ring_override is not None else character.get_skill_ring(skill)
+        ring_value = character.ring(ring_name)
+        skill_value = character.skill(skill)
+        my_extra_rolled = character.extra_rolled(skill)
+        my_extra_kept = character.extra_kept(skill)
+        components: list[tuple[str, int, int]] = []
+        # Ring (e.g., "Fire ring" → +3 rolled, +3 kept for a Fire-3
+        # attacker). Ring contributes to BOTH rolled AND kept.
+        if ring_value > 0:
+            components.append(
+                (f"{ring_name.capitalize()} ring", ring_value, ring_value),
+            )
+        # Skill (e.g., "attack skill" → +5 rolled, +0 kept). Skill is
+        # rolled-only per L7R skill-roll formula.
+        if skill_value > 0:
+            components.append(
+                (f"{skill} skill", skill_value, 0),
+            )
+        # School-conferred extra dice (the standard 1st Dan ability).
+        # Per data-model.md "Source labels" the convention is
+        # "<school-short-name> 1st Dan" — e.g., "Akodo 1st Dan".
+        # Extract the first word of the school name for the label.
+        if my_extra_rolled > 0 or my_extra_kept > 0:
+            school = character.school() if hasattr(character, "school") else None
+            if school is not None and school.name():
+                label = f"{school.name().split()[0]} 1st Dan"
+            else:
+                label = "character bonus"
+            components.append((label, my_extra_rolled, my_extra_kept))
+        # VP-on-attack inflation: each VP adds +1 rolled AND +1 kept
+        # (the default skill-roll formula).
+        if vp > 0:
+            components.append((f"VP on {skill}", vp, vp))
+        # Reconcile against the actual aggregate. This absorbs:
+        #   * ``normalize_roll_params`` rolled→kept conversion (e.g.,
+        #     13/7 → 10/10).
+        #   * Target's ``attack_rolled_penalty`` (Ninja ability),
+        #     which subtracts from rolled before normalization.
+        # The synthetic "normalization" entry is a visible signal
+        # (Principle VII) — not a hidden adjustment.
+        #
+        # We pass ``ring=None`` to ``get_skill_roll_params`` here even
+        # when ``ring_override`` is set, because that method's ``ring``
+        # parameter is signed as ``str`` but its arithmetic treats it
+        # as ``int`` (a latent typing inconsistency that crashes when
+        # the override is a string). Since we've already pre-computed
+        # the ring value above, the default-lookup path produces the
+        # correct aggregate.
+        aggregate_rolled, aggregate_kept, _ = self.get_skill_roll_params(
+            character, target, skill,
+            contested_skill=contested_skill, ring=None, vp=vp,
+        )
+        return _normalize_breakdown(components, aggregate_rolled, aggregate_kept)
+
     def get_damage_roll_params(self, character: Any, target: Any, skill: str, attack_extra_rolled: int, vp: int = 0) -> tuple[int, int, int]:
         # calculate extra rolled dice
         ring = character.ring(character.get_skill_ring("damage"))
