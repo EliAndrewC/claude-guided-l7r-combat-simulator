@@ -524,12 +524,14 @@ class TestFormatterShowsSourceAttribution(unittest.TestCase):
     def test_breakdown_mismatch_renders_partial_with_unsourced(self):
         """When ``_detail_modifier_breakdown`` does not sum to the
         rendered modifier, the formatter renders the partial breakdown
-        AND appends ``(unsourced: +K)`` for the unaccounted portion.
+        AND appends a ``"see preceding line"`` fallback for the
+        unaccounted portion (spec 008 FR-014 — replaces the prior
+        ``unsourced: +K`` literal with non-alarming wording).
 
-        spec.md FR-010 (Combat Trace Observability Audit) replaced the
-        prior "better silent than wrong" safety clause with a visible
-        ``(unsourced: +K)`` placeholder so that Principle VII gaps are
-        surfaced rather than hidden.
+        spec.md FR-010 (Combat Trace Observability Audit) introduced
+        the visible placeholder so that Principle VII gaps are
+        surfaced rather than hidden; spec 008 only changes the wording,
+        preserving the visibility.
         """
         fmt = DetailedEventFormatter()
         mirumoto = _make_fifth_dan_mirumoto()
@@ -546,16 +548,19 @@ class TestFormatterShowsSourceAttribution(unittest.TestCase):
         event._detail_params = (10, 6, 35)
         event._detail_tn = 20
         event._detail_base_tn = 20
-        # Breakdown only accounts for 30 of 35 -> +5 unaccounted -> rendered
-        # as (unsourced: +5) per FR-010.
+        # Breakdown only accounts for 30 of 35 -> +5 unaccounted ->
+        # rendered as ``see preceding line`` per spec 008 FR-014.
         event._detail_modifier_breakdown = [("Mirumoto 5th Dan", 30)]
 
         lines = fmt.format_history([event])
         attack_line = [ln for ln in lines if "Attack:" in ln][0]
         self.assertIn("+35", attack_line)
-        # Both the known source AND the unsourced remainder must appear.
+        # Both the known source AND the unattributed-fallback marker
+        # must appear (the gap is visible, just non-alarming).
         self.assertIn("Mirumoto 5th Dan", attack_line)
-        self.assertIn("unsourced: +5", attack_line)
+        self.assertIn("see preceding line", attack_line)
+        # Ensure the old alarming wording is gone.
+        self.assertNotIn("unsourced", attack_line)
 
 
 class TestFormatterShowsIshiThirdDanBoostAttribution(unittest.TestCase):

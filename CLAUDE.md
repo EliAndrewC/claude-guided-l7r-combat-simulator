@@ -106,6 +106,14 @@ and run this workflow:
      bare `+N` modifiers, sourceless floating-bonus consume lines).
      New school work that adds modifiers, floating bonuses, or
      extra dice MUST surface them in the trace with source labels.
+   - `trace-reader` reviews the same trace for UX intuitiveness —
+     does the rendering read coherently to a fresh playtester? Catches
+     contradictory inline math, cross-renderer disagreements, redundant
+     0-LW damage lines on feints, separated floating-bonus consumption
+     lines that should be inline, and alarming "unsourced" literal labels.
+     `trace-reader` complements `trace-auditor`: they review the same
+     output but check different properties (Principle VII compliance
+     vs. UX intuitiveness). A line can pass one and fail the other.
 
 7. **Validate constitution gates** per the 8-point checklist in the
    constitution: ruff, mypy, pytest, coverage = 100% (Principle VI;
@@ -158,7 +166,7 @@ Implementation lives in `simulation/schools/base.py::BaseSchool.set_choice/choic
    - **Deploy**: `set -a && source .env && set +a && ~/.fly/bin/flyctl deploy` from the repo root. Picks up `FLY_API_TOKEN` from `.env`.
 
 <!-- SPECKIT START -->
-Active feature plan: [specs/007-structured-trace-refactor/plan.md](specs/007-structured-trace-refactor/plan.md)
-(Branch `008-structured-trace-refactor`. See sibling files in the same directory
-for spec, research, data model, contracts, quickstart, and OPEN_QUESTIONS.)
+Active feature plan: [specs/008-trace-ux-fixes/plan.md](specs/008-trace-ux-fixes/plan.md)
+(Branch `009-trace-ux-fixes`. See sibling files in the same directory
+for spec, research, data model, quickstart, and OPEN_QUESTIONS.)
 <!-- SPECKIT END -->

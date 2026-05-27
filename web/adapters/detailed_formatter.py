@@ -26,6 +26,7 @@ from simulation.schools.kakita_school import (
     ContestedIaijutsuAttackRolledEvent,
     TakeContestedIaijutsuAttackAction,
 )
+from web.adapters._breakdown_format import format_breakdown_component
 from web.adapters.trace_entries import (
     AkodoFifthDanCounterEntry,
     AttackEntry,
@@ -107,6 +108,10 @@ def _render_components(components: list[tuple[str, int, int]] | None) -> str:
       ``kept == 0``) — OPEN_QUESTIONS Q6 (Zero-contribution component
       omission). Entries with nonzero rolled OR kept are retained
       (e.g., a kept-only contribution like ``+0k2`` is meaningful).
+
+    The 10k10-overflow synthetic source is rendered via the shared
+    :func:`web.adapters._breakdown_format.format_breakdown_component`
+    helper (spec 008 FR-002).
     """
     if not components:
         return ""
@@ -116,29 +121,9 @@ def _render_components(components: list[tuple[str, int, int]] | None) -> str:
     ]
     if len(filtered) < 2:
         return ""
-    return " + ".join(_format_one_component(r, k, label) for label, r, k in filtered)
-
-
-_EXCESS_10K10_SOURCE = "from dice in excess of 10k10"
-
-
-def _format_one_component(rolled: int, kept: int, source: str) -> str:
-    """Format a single component for the inline breakdown.
-
-    Special-cases the synthetic ``"from dice in excess of 10k10"``
-    entry when its delta represents actual overflow (rolled<0 or
-    kept<0): renders as ``"+{2*dropped} from {dropped} dropped dice
-    in excess of 10k10"`` (each die above the 10k10 cap is worth +2
-    per the L7R kept→bonus conversion).  Other sources — including
-    non-overflow reconciliations that share the same label — render
-    in the standard ``"{rolled}k{kept} {source}"`` form.
-    """
-    if source == _EXCESS_10K10_SOURCE and (rolled < 0 or kept < 0):
-        dropped = max(0, -rolled) + max(0, -kept)
-        bonus = 2 * dropped
-        noun = "die" if dropped == 1 else "dice"
-        return f"+{bonus} from {dropped} dropped {noun} in excess of 10k10"
-    return f"{rolled}k{kept} {source}"
+    return " + ".join(
+        format_breakdown_component(r, k, label) for label, r, k in filtered
+    )
 
 
 def _format_dice(dice: list[int], kept: int) -> str:
@@ -190,6 +175,10 @@ class DetailedEventFormatter:
         self._phase_shown: bool = False
         self._last_wc_passed: dict[str, bool] = {}
         self._last_take_sw_target: str | None = None
+        # Spec 008 Issue 2/4/6: track each attacker's most recent attack
+        # skill so we can recognize the LightWoundsDamageEvent that
+        # follows a feint and suppress it (FR-005/6/7).
+        self._last_attack_skill: dict[str, str] = {}
 
     def format_history(self, history: list[Any]) -> list[str]:
         """Main entry point — processes full history after combat.
@@ -221,6 +210,7 @@ class DetailedEventFormatter:
         self._phase_shown = False
         self._last_wc_passed = {}
         self._last_take_sw_target = None
+        self._last_attack_skill = {}
 
         out: list[TraceEntry] = []
         shown_opening_status = False
@@ -269,16 +259,30 @@ class DetailedEventFormatter:
                         out.append(self._entry_take_attack(event))
                     else:
                         vp_events: list[Any] = []
+                        # Spec 008 FR-008/9/10: floating-bonus
+                        # consumption events appear BETWEEN the
+                        # TakeAttackActionEvent and the AttackRolledEvent
+                        # (the engine yields them inside
+                        # ``SkillRolledStrategy.recommend`` before
+                        # re-yielding the rolled event).  Absorb them
+                        # into the AttackEntry so the inline arithmetic
+                        # on the attack line shows the bonus integration.
+                        fb_events: list[Any] = []
                         attacker = event.action.subject()
                         for j in range(i + 1, rolled_idx):
                             if j in consumed:  # pragma: no cover  # defensive
                                 continue
-                            if isinstance(history[j], events.SpendVoidPointsEvent):
-                                if history[j].subject == attacker:
-                                    vp_events.append(history[j])
+                            ev_j = history[j]
+                            if isinstance(ev_j, events.SpendVoidPointsEvent):
+                                if ev_j.subject == attacker:
+                                    vp_events.append(ev_j)
+                                    consumed.add(j)
+                            elif isinstance(ev_j, events.SpendFloatingBonusEvent):
+                                if ev_j.subject == attacker:
+                                    fb_events.append(ev_j)
                                     consumed.add(j)
                         out.append(self._entry_combined_attack(
-                            event, history[rolled_idx], vp_events,
+                            event, history[rolled_idx], vp_events, fb_events,
                         ))
                         consumed.add(rolled_idx)
                 else:
@@ -338,6 +342,20 @@ class DetailedEventFormatter:
                 any_entry_emitted = True
 
             elif isinstance(event, events.LightWoundsDamageEvent):
+                # Spec 008 FR-006: when an attack action was a feint with
+                # zero damage_roll_params AND the resulting damage is 0,
+                # suppress the entry entirely.  The reader sees the
+                # feint attack line + school-ability event without a
+                # redundant 0-LW damage rendering.  ``_last_attack_skill``
+                # was set to ``"feint"`` ONLY for zero-damage feints —
+                # Bayushi's special feint clears it so its damage
+                # rendering is preserved.
+                attacker_name = event.subject.name()
+                last_skill = self._last_attack_skill.get(attacker_name)
+                if last_skill == "feint" and event.damage == 0:
+                    self._last_attack_skill.pop(attacker_name, None)
+                    continue
+                self._last_attack_skill.pop(attacker_name, None)
                 out.append(self._entry_lw_damage(event))
                 combat_output_since_status = True
                 any_entry_emitted = True
@@ -812,6 +830,16 @@ class DetailedEventFormatter:
         phase_prefix = self._phase_prefix(subj)
 
         if not hasattr(event, "_detail_dice"):
+            # Spec 008 FR-005: a feint with zero damage params has its
+            # projection suppressed.  We don't have detail here so we
+            # use the action's damage_roll_params directly.
+            no_detail_suppress = (
+                skill == "feint"
+                and tuple(action.damage_roll_params()) == (0, 0, 0)
+            )
+            # Track skill so the upcoming LW damage event can be
+            # suppressed for zero-damage feints (FR-006).
+            self._last_attack_skill[subj] = skill
             return AttackEntry(
                 phase_prefix=phase_prefix,
                 actor_name=subj, target_name=tgt, skill=skill,
@@ -823,6 +851,7 @@ class DetailedEventFormatter:
                 damage_projection=None,
                 has_detail=False, fallback_roll=event.roll,
                 is_combined=False,
+                suppress_damage_projection=no_detail_suppress,
             )
 
         dice = list(event._detail_dice)
@@ -835,6 +864,13 @@ class DetailedEventFormatter:
         hit = action.is_hit() and not action.parried()
         outcome: Any = "hit" if hit else "miss"
         damage_projection = None
+        # Spec 008 FR-005/6: a feint whose damage_roll_params are
+        # (0, 0, 0) deals 0 LW deterministically; suppress its
+        # projection AND the followup LW damage event.  Bayushi's
+        # special feint has non-zero damage params (the school's
+        # ``BayushiFeintAction`` overrides ``damage_roll_params``) so
+        # those continue to render normally.
+        is_zero_damage_feint = False
         if hit:
             extra_dice = action.calculate_extra_damage_dice(tn=base_tn)
             subject = action.subject()
@@ -854,6 +890,23 @@ class DetailedEventFormatter:
                     extra_damage_dice=extra_dice,
                     margin_over_tn=margin,
                 )
+            if (
+                skill == "feint"
+                and tuple(action.damage_roll_params()) == (0, 0, 0)
+            ):  # pragma: no cover  # defensive: standalone AttackRolledEvent without a preceding TakeAttackActionEvent is the FR-007 fallback; engine always emits the take-action event first
+                is_zero_damage_feint = True
+        else:
+            # Even on a miss, feints can fire (Bayushi 4th Dan fires
+            # on failed feint).  No damage event will follow because
+            # the attack didn't hit.  No suppression state needed.
+            pass
+
+        # Record the skill so the following LW damage event can be
+        # absorbed when this is a zero-damage feint (FR-006).
+        if is_zero_damage_feint:  # pragma: no cover  # defensive: only reachable from the standalone-rolled-event feint path above
+            self._last_attack_skill[subj] = "feint"
+        else:
+            self._last_attack_skill.pop(subj, None)
 
         return AttackEntry(
             phase_prefix=phase_prefix,
@@ -868,10 +921,15 @@ class DetailedEventFormatter:
             tn=tn, base_tn=base_tn, outcome=outcome,
             damage_projection=damage_projection,
             is_combined=False,
+            suppress_damage_projection=is_zero_damage_feint,
         )
 
     def _entry_combined_attack(
-        self, take_event: Any, rolled_event: Any, vp_events: list[Any],
+        self,
+        take_event: Any,
+        rolled_event: Any,
+        vp_events: list[Any],
+        fb_events: list[Any] | None = None,
     ) -> AttackEntry:
         action = take_event.action
         subj = action.subject().name()
@@ -882,7 +940,28 @@ class DetailedEventFormatter:
         vp_total = sum(e.amount for e in vp_events) if vp_events else None
         vp_skill = vp_events[0].skill if vp_events else None
 
+        # Spec 008 FR-008/9: floating-bonus consumption integrated
+        # into the attack line.  Build the consumed_floating_bonuses
+        # list from the absorbed SpendFloatingBonusEvent(s).
+        consumed_fb: list[ModifierDelta] = []
+        if fb_events:
+            for fb_ev in fb_events:
+                bonus = fb_ev.bonus
+                amount = bonus.bonus() if hasattr(bonus, "bonus") else 0
+                src = bonus.source() if hasattr(bonus, "source") else None
+                consumed_fb.append(ModifierDelta(
+                    source=src or "floating bonus", amount=amount,
+                ))
+
         if not hasattr(rolled_event, "_detail_dice"):
+            no_detail_suppress = (
+                skill == "feint"
+                and tuple(action.damage_roll_params()) == (0, 0, 0)
+            )
+            if no_detail_suppress:  # pragma: no cover  # defensive: ``AttackRolledEvent`` without ``_detail_dice`` is the fallback path for un-annotated events; combat-observer-annotated events always carry the detail
+                self._last_attack_skill[subj] = "feint"
+            else:
+                self._last_attack_skill.pop(subj, None)
             return AttackEntry(
                 phase_prefix=phase_prefix,
                 actor_name=subj, target_name=tgt, skill=skill,
@@ -893,6 +972,8 @@ class DetailedEventFormatter:
                 tn=0, base_tn=0, outcome="miss",
                 damage_projection=None,
                 has_detail=False, fallback_roll=rolled_event.roll,
+                suppress_damage_projection=no_detail_suppress,
+                consumed_floating_bonuses=consumed_fb,
             )
 
         dice = list(rolled_event._detail_dice)
@@ -905,6 +986,15 @@ class DetailedEventFormatter:
         hit = action.is_hit() and not action.parried()
         outcome: Any = "hit" if hit else "miss"
         damage_projection = None
+        # Spec 008 FR-005/6: a feint whose damage_roll_params are
+        # (0, 0, 0) deals 0 LW deterministically (the standard
+        # ``FeintAction``); suppress its projection AND the followup
+        # LW damage event.  Bayushi's ``BayushiFeintAction`` overrides
+        # damage_roll_params to non-zero so those keep rendering.
+        is_zero_damage_feint = (
+            skill == "feint"
+            and tuple(action.damage_roll_params()) == (0, 0, 0)
+        )
         if hit:
             extra_dice = action.calculate_extra_damage_dice(tn=base_tn)
             subject = action.subject()
@@ -924,6 +1014,13 @@ class DetailedEventFormatter:
                     extra_damage_dice=extra_dice,
                     margin_over_tn=margin,
                 )
+
+        # Record the skill so the following LW damage event can be
+        # absorbed when this is a zero-damage feint.
+        if is_zero_damage_feint:
+            self._last_attack_skill[subj] = "feint"
+        else:
+            self._last_attack_skill.pop(subj, None)
 
         return AttackEntry(
             phase_prefix=phase_prefix,
@@ -939,6 +1036,8 @@ class DetailedEventFormatter:
             dice=dice, sum_of_kept=kept_sum, total=total,
             tn=tn, base_tn=base_tn, outcome=outcome,
             damage_projection=damage_projection,
+            suppress_damage_projection=is_zero_damage_feint,
+            consumed_floating_bonuses=consumed_fb,
         )
 
     def _entry_counterattack_rolled(self, event: Any) -> CounterattackEntry:

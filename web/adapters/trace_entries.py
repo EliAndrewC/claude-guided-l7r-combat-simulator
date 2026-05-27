@@ -93,6 +93,17 @@ class AttackEntry:
     ``is_combined`` distinguishes the legacy ``_format_combined_attack``
     path (``⚔️ attacks Target ...``) from the standalone
     ``_format_attack_rolled`` path (``🎯 Attack: ...`` or ``❌ Attack: ...``).
+
+    Spec 008 fields:
+
+    - ``suppress_damage_projection``: when ``True`` (set for feint
+      attacks per FR-005), the renderer omits the
+      ``"damage will be: XkY"`` segment from the line.
+    - ``consumed_floating_bonuses``: when a ``SpendFloatingBonusEvent``
+      immediately follows this attack's outcome events (same actor, same
+      skill), the formatter absorbs the bonus(es) into this list and
+      skips emitting a standalone ``SpendFloatingBonusEntry`` (FR-008/9/10).
+      Renderers integrate these into the attack-line inline arithmetic.
     """
 
     phase_prefix: str
@@ -117,6 +128,8 @@ class AttackEntry:
     fallback_roll: int = 0
     is_combined: bool = True
     is_take_only: bool = False
+    suppress_damage_projection: bool = False
+    consumed_floating_bonuses: list[ModifierDelta] = field(default_factory=list)
     kind: Literal["attack"] = "attack"
 
 

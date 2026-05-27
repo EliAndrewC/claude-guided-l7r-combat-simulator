@@ -438,9 +438,11 @@ class TestBareModifierSourceLabels(unittest.TestCase):
         """T021: every roll line in the calibration combat that renders
         a ``+N`` modifier (``..., +N = M vs TN ...``) MUST also contain
         a parenthetical attribution -- either a real source
-        ``(Source: +N)`` or the ``(unsourced: +K)`` placeholder. A bare
-        ``+N`` modifier with no parenthetical is the canonical
-        Principle VII violation that this Phase 5 work closes.
+        ``(Source: +N)`` or the ``(see preceding line)`` fallback (spec
+        008 FR-014 — non-alarming wording replacing the prior
+        ``(unsourced: +K)`` literal).  A bare ``+N`` modifier with no
+        parenthetical is the canonical Principle VII violation that
+        this Phase 5 work closes.
 
         Calibration anchor: the seed=1234 Bayushi double-attack lines
         all carry a ``+5`` from the Bayushi 2nd Dan free raise on
@@ -454,6 +456,9 @@ class TestBareModifierSourceLabels(unittest.TestCase):
         # or ``..., +N = M vs ...`` style — these are the ones routed
         # through ``_format_modifier_breakdown`` and that must always
         # carry an attribution per Constitution Principle VII.
+        # Restrict to the FIRST ``, +N = M`` segment (the modifier);
+        # floating-bonus inline segments use the same ``, +N = M`` form
+        # but are explicitly source-labelled in their own segment.
         modifier_lines = [
             line for line in trace if re.search(r", \+\d+ = \d+", line)
         ]
@@ -478,9 +483,9 @@ class TestBareModifierSourceLabels(unittest.TestCase):
         for line in modifier_lines:
             # The modifier renders as ``..., +N = M vs TN ...``. The
             # parenthetical attribution is appended at the END of the
-            # line. The line must contain EITHER a real source label
-            # OR the unsourced placeholder.
-            has_unsourced = bool(re.search(r"\(unsourced: [+-]\d+\)", line))
+            # line.  The line must contain EITHER a real source label
+            # OR the ``(see preceding line)`` fallback (spec 008 FR-014).
+            has_unattributed_fallback = "see preceding line" in line
             # A real source label is a parenthetical containing
             # ``: +N`` or ``: -N`` (e.g., ``(Bayushi 2nd Dan free
             # raise: +5)`` or ``(Mirumoto 5th Dan: +10 × 1 VP)``).
@@ -488,9 +493,10 @@ class TestBareModifierSourceLabels(unittest.TestCase):
                 re.search(r"\([^()]*: [+-]?\d+[^()]*\)", line),
             )
             self.assertTrue(
-                has_unsourced or has_source,
+                has_unattributed_fallback or has_source,
                 "Line has a bare ``+N`` modifier with no source "
-                f"attribution (and no unsourced placeholder): {line}",
+                "attribution (and no ``see preceding line`` fallback): "
+                f"{line}",
             )
         # Belt-and-braces: the Bayushi double-attack lines specifically
         # must show the named source, not the unsourced placeholder
@@ -505,14 +511,16 @@ class TestBareModifierSourceLabels(unittest.TestCase):
 
     def test_unaccounted_modifier_renders_unsourced_placeholder(self):
         """T022: when ``explain_modifier`` returns NOTHING for a non-zero
-        modifier, the formatter MUST emit ``(unsourced: +K)`` with
-        K equal to the full modifier value.
+        modifier, the formatter MUST emit a non-alarming
+        ``(see preceding line)`` fallback (spec 008 FR-014, replacing
+        the prior ``(unsourced: +K)`` literal).  The Principle VII
+        signal that the gap is visible is preserved.
 
         Constructed via a unit-test fixture (a synthetic event with an
         empty ``_detail_modifier_breakdown``) so the test is
         independent of any specific school's mechanics.
 
-        Verifies FR-010 + FR-014.
+        Verifies FR-010 + FR-014 (spec 005) + spec 008 FR-014.
         """
         fmt = DetailedEventFormatter()
         # Build a synthetic AttackRolledEvent whose modifier is +5 but
@@ -545,16 +553,20 @@ class TestBareModifierSourceLabels(unittest.TestCase):
         lines = fmt.format_history([event])
         attack_line = next(ln for ln in lines if "Attack:" in ln)
         self.assertIn("+5", attack_line)
-        self.assertIn("(unsourced: +5)", attack_line)
+        # Per spec 008 FR-014: the alarming ``unsourced`` literal is
+        # replaced by the non-alarming ``see preceding line`` fallback.
+        self.assertIn("see preceding line", attack_line)
+        self.assertNotIn("unsourced", attack_line)
 
     def test_partial_attribution_renders_both_known_and_unsourced(self):
         """T023: when ``explain_modifier`` accounts for only part of a
         modifier, the rendering MUST show BOTH the known source(s) AND
-        a ``(unsourced: +K)`` entry for the remainder.
+        a ``(see preceding line)`` fallback for the remainder (spec 008
+        FR-014, replacing the prior ``(unsourced: +K)`` literal).
 
-        Format: ``+5 (Source: +3; unsourced: +2)``.
+        Format: ``+5 (Source: +3; see preceding line)``.
 
-        Verifies FR-010.
+        Verifies FR-010 (spec 005) + spec 008 FR-014.
         """
         fmt = DetailedEventFormatter()
         subject = MagicMock()
@@ -581,16 +593,17 @@ class TestBareModifierSourceLabels(unittest.TestCase):
         event._detail_tn = 20
         event._detail_base_tn = 20
         # Breakdown accounts for +3 of the +5 modifier -- the remainder
-        # +2 must render as ``(unsourced: +2)``.
+        # +2 must render via the ``see preceding line`` fallback.
         event._detail_modifier_breakdown = [("Known Source", 3)]
 
         lines = fmt.format_history([event])
         attack_line = next(ln for ln in lines if "Attack:" in ln)
         self.assertIn("+5", attack_line)
         self.assertIn("Known Source", attack_line)
-        # Per the contract, the remainder is rendered as
-        # ``unsourced: +2`` (not ``+5``, not absent).
-        self.assertIn("unsourced: +2", attack_line)
+        # Per spec 008, the remainder uses the non-alarming fallback
+        # wording (the gap is still visible; just less alarming).
+        self.assertIn("see preceding line", attack_line)
+        self.assertNotIn("unsourced", attack_line)
 
 
 class TestTNRaiseAttribution(unittest.TestCase):

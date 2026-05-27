@@ -32,6 +32,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from web.adapters._breakdown_format import format_breakdown_component
 from web.adapters.trace_entries import (
     AkodoFifthDanCounterEntry,
     AttackEntry,
@@ -109,27 +110,14 @@ def _format_tn(tn: int, base_tn: int, action_skill: str) -> str:
     return f"TN {tn}"
 
 
-_EXCESS_10K10_SOURCE = "from dice in excess of 10k10"
-
-
 def _format_component_bullet(c: ComponentDelta) -> str:
     """Per-component bullet content (without the leading ``- ``).
 
-    Special-cases the synthetic ``"from dice in excess of 10k10"``
-    entry when its delta represents actual overflow (rolled<0 or
-    kept<0): each die above the 10k10 cap is worth +2 per the L7R
-    kept→bonus conversion, so the bullet renders as ``"+{2*dropped}
-    from {dropped} dropped dice in excess of 10k10"`` instead of the
-    confusing negative dice-notation form (e.g. ``-3k3``).  Other
-    deltas (non-overflow reconciliations that share the same label)
-    fall through to the standard ``{rolled}k{kept} {source}`` form.
+    Delegates to the shared
+    :func:`web.adapters._breakdown_format.format_breakdown_component`
+    helper so cross-renderer drift is impossible (spec 008 FR-003).
     """
-    if c.source == _EXCESS_10K10_SOURCE and (c.rolled < 0 or c.kept < 0):
-        dropped = max(0, -c.rolled) + max(0, -c.kept)
-        bonus = 2 * dropped
-        noun = "die" if dropped == 1 else "dice"
-        return f"+{bonus} from {dropped} dropped {noun} in excess of 10k10"
-    return f"{c.rolled}k{c.kept} {c.source}"
+    return format_breakdown_component(c.rolled, c.kept, c.source)
 
 
 def _component_bullets(
@@ -149,11 +137,13 @@ def _component_bullets(
 def _modifier_bullets(
     modifier: int, breakdown: list[ModifierDelta], indent: str = "  ",
 ) -> list[str]:
-    """Render modifier as one bullet per source (and one for unsourced remainder).
+    """Render modifier as one bullet per source (and one for unattributed remainder).
 
     Returns an empty list when modifier == 0. When the modifier is
-    nonzero but unattributed, renders an ``unsourced: +K`` bullet so
-    the gap is visible (FR-015).
+    nonzero but partly unattributed, renders the gap as
+    ``Modifier: +K (see preceding line)`` per spec 008 FR-014 — the
+    Principle VII signal is preserved (the gap is visible) but the
+    wording is non-alarming.
     """
     if modifier == 0:
         return []
@@ -166,7 +156,9 @@ def _modifier_bullets(
         out.append(f"{indent}- Modifier: {sign}{m.amount} ({m.source})")
     if remainder != 0:
         sign = "+" if remainder >= 0 else ""
-        out.append(f"{indent}- Modifier: {sign}{remainder} (unsourced)")
+        out.append(
+            f"{indent}- Modifier: {sign}{remainder} (see preceding line)",
+        )
     if not out:  # pragma: no cover  # defensive: nonzero modifier always renders something
         return []
     return out
@@ -175,12 +167,19 @@ def _modifier_bullets(
 def _damage_projection_bullets(
     proj: DamageProjection, indent: str = "  ",
 ) -> list[str]:
-    """Render the nested ``Damage will be:`` sub-bullet group (FR-018)."""
+    """Render the nested ``Damage will be:`` sub-bullet group (FR-018).
+
+    The component sub-bullets route through
+    :func:`_format_component_bullet` so the 10k10-overflow narrative
+    form matches TextRenderer's output (spec 008 FR-001/004 — Issue 1
+    fix: the damage-projection sub-bullets previously bypassed the
+    special-case helper and emitted the raw ``-3k3`` form).
+    """
     out: list[str] = [f"{indent}- Damage will be: {proj.rolled}k{proj.kept}"]
     sub_indent = indent + "  "
     if _has_breakdown(proj.components):
         for c in _nonzero_components(proj.components):
-            out.append(f"{sub_indent}- {c.rolled}k{c.kept} {c.source}")
+            out.append(f"{sub_indent}- {_format_component_bullet(c)}")
     if proj.margin_over_tn > 0:
         out.append(f"{sub_indent}- +{proj.margin_over_tn} over TN")
     if proj.extra_damage_dice > 0:
@@ -197,6 +196,26 @@ def _vp_prefix(vp_spent: int | None, vp_skill: str | None) -> str:
         return ""
     squares = "⬛" * vp_spent
     return f"{squares} spends {vp_spent} VP on {vp_skill} → "
+
+
+def _floating_bonus_inline_segment(
+    bonuses: list[ModifierDelta],
+) -> str:
+    """Render the inline ``", +N (source floating bonus), +M (source2)"``
+    segment for an attack-line header (spec 008 FR-008/9).
+
+    Returns an empty string when no bonuses are consumed.  Each bonus
+    is rendered as ``", +{amount} ({source} floating bonus)"`` and the
+    caller appends ``" = {total}"`` to close the arithmetic.
+    """
+    if not bonuses:
+        return ""
+    parts: list[str] = []
+    for fb in bonuses:
+        label = fb.source or "floating bonus"
+        sign = "+" if fb.amount >= 0 else ""
+        parts.append(f", {sign}{fb.amount} ({label} floating bonus)")
+    return "".join(parts)
 
 
 # ── BulletedRenderer ────────────────────────────────────────────────────
@@ -336,27 +355,51 @@ class BulletedRenderer:
         tn_str = _format_tn(entry.tn, entry.base_tn, entry.skill)
         result = "HIT!" if entry.outcome == "hit" else "MISS"
 
+        # Spec 008 FR-008/9: integrate consumed floating bonuses into
+        # the header's inline arithmetic.  ``entry.total`` is the
+        # pre-bonus total; add each bonus's value to get the displayed
+        # final total.
+        total_with_bonuses = entry.total + sum(
+            fb.amount for fb in entry.consumed_floating_bonuses
+        )
+        bonus_segment = _floating_bonus_inline_segment(
+            entry.consumed_floating_bonuses,
+        )
+        # Show the running displayed total: pre-bonus, then post-bonus.
+        if bonus_segment:
+            total_display = f"{entry.total}{bonus_segment} = {total_with_bonuses}"
+        else:
+            total_display = str(entry.total)
+
         if entry.is_combined:
             header = (
                 f"{entry.phase_prefix} {vp_prefix}⚔️ attacks "
                 f"{entry.target_name} ({entry.skill}) — "
-                f"{entry.rolled}k{entry.kept} → {entry.total} "
+                f"{entry.rolled}k{entry.kept} → {total_display} "
                 f"vs {tn_str} — {result}"
             )
         else:
             emoji = "🎯" if entry.outcome == "hit" else "❌"
             header = (
                 f"{entry.phase_prefix} {emoji} Attack: "
-                f"{entry.rolled}k{entry.kept} → {entry.total} "
+                f"{entry.rolled}k{entry.kept} → {total_display} "
                 f"vs {tn_str} — {result}"
             )
 
+        # Spec 008 FR-005: feint attacks suppress the damage projection.
+        proj = (
+            entry.damage_projection
+            if (
+                entry.outcome == "hit"
+                and not entry.suppress_damage_projection
+            )
+            else None
+        )
         return self._roll_body(
             header, entry.components, entry.modifier,
             entry.modifier_components, entry.dice, entry.kept,
-            entry.sum_of_kept, entry.total,
-            damage_projection=entry.damage_projection
-            if entry.outcome == "hit" else None,
+            entry.sum_of_kept, total_with_bonuses,
+            damage_projection=proj,
         )
 
     def _render_counterattack(self, entry: CounterattackEntry) -> list[str]:
@@ -494,7 +537,10 @@ class BulletedRenderer:
         if _has_breakdown(entry.components):
             out.append(f"  - Roll: {entry.rolled}k{entry.kept}")
             for c in _nonzero_components(entry.components):
-                out.append(f"    - {c.rolled}k{c.kept} {c.source}")
+                # Route through the shared helper so the 10k10-overflow
+                # narrative form is identical to TextRenderer's (spec 008
+                # FR-001 — Issue 1 fix).
+                out.append(f"    - {_format_component_bullet(c)}")
             out.append(
                 f"  - Dice: {_format_dice_inline(entry.dice, entry.kept)} "
                 f"→ {entry.sum_of_kept} kept"

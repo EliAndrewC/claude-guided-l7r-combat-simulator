@@ -13,6 +13,7 @@ references replaced by ``entry.attribute`` references.
 
 from typing import Any
 
+from web.adapters._breakdown_format import format_breakdown_component
 from web.adapters.trace_entries import (
     AkodoFifthDanCounterEntry,
     AttackEntry,
@@ -51,36 +52,6 @@ from web.adapters.trace_entries import (
     WoundCheckEntry,
 )
 
-_EXCESS_10K10_SOURCE = "from dice in excess of 10k10"
-
-
-def _format_one_component(rolled: int, kept: int, source: str) -> str:
-    """Format a single component for inline breakdown.
-
-    Special-cases the synthetic ``"from dice in excess of 10k10"``
-    entry when its delta represents actual overflow (rolled<0 or
-    kept<0, i.e. dice were "dropped" off the top): renders as
-    ``"+{2*dropped} from {dropped} dropped dice in excess of 10k10"``
-    so the user sees the L7R rule (each die above the 10k10 cap is
-    worth +2) rather than a confusing negative dice-notation delta
-    (e.g. ``-3k3``).  The dropped count is the magnitude of the
-    negative deltas summed: ``max(0, -rolled) + max(0, -kept)``.
-
-    The same label is also used by ``_reconcile_breakdown`` for
-    non-overflow reconciliations (e.g., missing-contribution gaps
-    where the actual aggregate is greater than the breakdown sum,
-    producing positive deltas).  Those cases fall through to the
-    standard ``{rolled}k{kept} {source}`` form — the label is
-    misleading for them, but that's a pre-existing labeling bug
-    separate from this rendering polish.
-    """
-    if source == _EXCESS_10K10_SOURCE and (rolled < 0 or kept < 0):
-        dropped = max(0, -rolled) + max(0, -kept)
-        bonus = 2 * dropped
-        noun = "die" if dropped == 1 else "dice"
-        return f"+{bonus} from {dropped} dropped {noun} in excess of 10k10"
-    return f"{rolled}k{kept} {source}"
-
 
 def _render_components(components: list[ComponentDelta]) -> str:
     """Inline ``"N1k(M1) source-1 + N2k(M2) source-2 + ..."`` breakdown.
@@ -88,14 +59,18 @@ def _render_components(components: list[ComponentDelta]) -> str:
     Returns "" when fewer than 2 nonzero-contribution components remain
     (single-source aggregates are redundant with the X-k-Y total).
     The synthetic ``"from dice in excess of 10k10"`` entry is rendered
-    in narrative form (see ``_format_one_component``).
+    in narrative form via the shared
+    :func:`web.adapters._breakdown_format.format_breakdown_component`
+    helper (spec 008 FR-002).
     """
     if not components:
         return ""
     filtered = [c for c in components if c.rolled != 0 or c.kept != 0]
     if len(filtered) < 2:
         return ""
-    return " + ".join(_format_one_component(c.rolled, c.kept, c.source) for c in filtered)
+    return " + ".join(
+        format_breakdown_component(c.rolled, c.kept, c.source) for c in filtered
+    )
 
 
 def _format_dice(dice: list[int], kept: int) -> str:
@@ -126,7 +101,17 @@ def _format_tn(tn: int, base_tn: int, action_skill: str) -> str:
 def _format_modifier_breakdown(
     modifier: int, breakdown: list[ModifierDelta],
 ) -> str:
-    """Render the ``(Source: +N x M VP; ...)`` modifier-attribution suffix."""
+    """Render the ``(Source: +N x M VP; ...)`` modifier-attribution suffix.
+
+    Spec 008 FR-014: when the modifier's sources don't fully account
+    for the modifier value, the remaining gap is rendered as
+    ``(see preceding line)`` rather than the alarming ``unsourced: +K``
+    literal.  Most observed gaps are attributable from context one
+    line earlier (e.g., a VP-spend annotation that the modifier
+    breakdown didn't reproduce).  The Principle VII signal that
+    ``(unsourced: +K)`` provided is preserved structurally — the gap
+    is still visible — but the wording is non-alarming.
+    """
     if modifier == 0:
         return ""
     nonzero = [m for m in breakdown if m.amount != 0]
@@ -144,8 +129,7 @@ def _format_modifier_breakdown(
         sign = "+" if m.amount >= 0 else ""
         parts.append(f"{m.source}: {sign}{m.amount}")
     if remainder != 0:
-        sign = "+" if remainder >= 0 else ""
-        parts.append(f"unsourced: {sign}{remainder}")
+        parts.append("see preceding line")
     if not parts:  # pragma: no cover  # defensive: unreachable when modifier != 0
         return ""
     return f" ({'; '.join(parts)})"
@@ -154,8 +138,20 @@ def _format_modifier_breakdown(
 def _build_roll_str(
     dice: list[int], rolled: int, kept: int, mod: int,
     fallback_total: int, components: list[ComponentDelta] | None = None,
+    consumed_floating_bonuses: list[ModifierDelta] | None = None,
 ) -> tuple[str, int]:
-    """Build a roll description string and compute the total."""
+    """Build a roll description string and compute the total.
+
+    Spec 008 FR-008/9: when ``consumed_floating_bonuses`` is non-empty,
+    each bonus is integrated into the trailing arithmetic with its
+    source attribution, e.g.::
+
+        9k3 [...] → 19, +15 (Akodo 3rd Dan floating bonus) = 34
+        10k4 [...] → 30, +5 = 35, +5 (Bayushi 4th Dan floating bonus) = 40
+
+    The returned ``total`` reflects all integrations so the
+    HIT/MISS determination uses the bonus-adjusted total.
+    """
     kept_sum = sum(dice[:kept]) if dice else fallback_total
     total = kept_sum + mod
     breakdown = _render_components(components or [])
@@ -167,6 +163,13 @@ def _build_roll_str(
         roll_str += f", +{mod} = {total}"
     elif mod < 0:
         roll_str += f", {mod} = {total}"
+    # Append each consumed floating bonus inline with source.
+    if consumed_floating_bonuses:
+        for fb in consumed_floating_bonuses:
+            total += fb.amount
+            label = fb.source or "floating bonus"
+            sign = "+" if fb.amount >= 0 else ""
+            roll_str += f", {sign}{fb.amount} ({label} floating bonus) = {total}"
     return roll_str, total
 
 
@@ -334,19 +337,22 @@ class TextRenderer:
         roll_str, _total = _build_roll_str(
             entry.dice, entry.rolled, entry.kept, entry.modifier,
             entry.sum_of_kept, components=entry.components,
+            consumed_floating_bonuses=entry.consumed_floating_bonuses,
         )
 
         proj = entry.damage_projection
         extras: list[str] = []
         if entry.outcome == "hit":
-            if proj is not None and proj.margin_over_tn > 0:
+            if proj is not None and proj.margin_over_tn > 0 and not entry.suppress_damage_projection:
                 extras.append(f"+{proj.margin_over_tn} over TN")
-            if proj is not None and proj.extra_damage_dice > 0:
+            if proj is not None and proj.extra_damage_dice > 0 and not entry.suppress_damage_projection:
                 noun = "die" if proj.extra_damage_dice == 1 else "dice"
                 extras.append(
                     f"{proj.extra_damage_dice} extra damage {noun}"
                 )
-            if proj is not None:
+            # Spec 008 FR-005: feint attacks suppress the
+            # "damage will be" projection (feints always deal 0 LW).
+            if proj is not None and not entry.suppress_damage_projection:
                 dr, dk = proj.rolled, proj.kept
                 dmg_breakdown = _render_components(proj.components)
                 if dmg_breakdown:

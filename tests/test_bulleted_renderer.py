@@ -142,10 +142,14 @@ class TestFormattingHelpers(unittest.TestCase):
         assert bullets == ["  - Modifier: +5 (Bayushi 2nd Dan)"]
 
     def test_modifier_bullets_with_unsourced(self):
+        """Spec 008 FR-014: the previously-bare ``"unsourced"`` fallback
+        is now rendered as ``"see preceding line"`` so the gap is still
+        visible (Principle VII) but the wording is non-alarming.
+        """
         bullets = _modifier_bullets(10, [ModifierDelta("Akodo 2nd Dan", 5)])
         assert bullets == [
             "  - Modifier: +5 (Akodo 2nd Dan)",
-            "  - Modifier: +5 (unsourced)",
+            "  - Modifier: +5 (see preceding line)",
         ]
 
     def test_modifier_bullets_negative(self):
@@ -153,8 +157,11 @@ class TestFormattingHelpers(unittest.TestCase):
         assert bullets == ["  - Modifier: -5 (Penalty)"]
 
     def test_modifier_bullets_negative_unsourced(self):
+        """Spec 008 FR-014: negative unattributed remainder also uses
+        the ``"see preceding line"`` fallback.
+        """
         bullets = _modifier_bullets(-3, [])
-        assert bullets == ["  - Modifier: -3 (unsourced)"]
+        assert bullets == ["  - Modifier: -3 (see preceding line)"]
 
     def test_damage_projection_bullets_multi(self):
         proj = DamageProjection(
@@ -335,13 +342,17 @@ class TestAttackRendering(unittest.TestCase):
         assert "Modifier: +5 (Bayushi 2nd Dan)" in out
 
     def test_attack_modifier_unsourced_visible(self):
+        """Spec 008 FR-014: unattributed bullet still visible but
+        rendered as ``"see preceding line"`` not the alarming
+        ``"unsourced"`` wording.
+        """
         entry = _attack_entry(
             modifier=5,
             modifier_components=[],
         )
         out = BulletedRenderer().render([entry])
-        # Unsourced bullet must still be visible.
-        assert "Modifier: +5 (unsourced)" in out
+        # Unsourced bullet must still be visible (Principle VII).
+        assert "Modifier: +5 (see preceding line)" in out
 
     def test_attack_with_damage_projection_nested(self):
         proj = DamageProjection(

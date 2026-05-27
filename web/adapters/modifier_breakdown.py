@@ -152,10 +152,14 @@ def explain_modifier(
             ``None`` skips that attribution path (back-compat for
             existing callers).
     """
-    # ``modifier`` is consulted by the caller's safety check; the
-    # helper itself only needs to know which school-specific
-    # mechanics fired, not the actual numeric the engine produced.
-    del modifier  # documented but unused by the dispatch
+    # ``modifier`` is consulted by the caller's safety check; most
+    # school-specific mechanics produce fixed-value contributions
+    # (e.g. ``+5`` for a free raise) and don't need the modifier
+    # value itself.  Spec 008 FR-013 (Akodo 4th Dan VP-for-raise on
+    # wound check) is the exception — that contribution's value is
+    # the residual after fixed sources, so we keep ``modifier`` in
+    # scope under a renamed local for clarity.
+    modifier_arg = modifier
     contributions: list[tuple[str, int]] = []
 
     if _is_mirumoto_bushi(character):
@@ -206,17 +210,26 @@ def explain_modifier(
         # school's ``free_raise_skills() == ["wound check"]`` --
         # apply_rank_two_ability installs a FreeRaise(+5) modifier on
         # wound-check rolls).
-        #
-        # NOTE: The Akodo 4th Dan VP-for-raise (+5/VP) is a separate
-        # modifier source that ALSO contributes on wound-check lines
-        # when the AkodoWoundCheckRolledStrategy fires. The ``vp``
-        # parameter passed to explain_modifier reflects the INITIAL
-        # WoundCheckDeclaredEvent's VP count (boosts dice, not the
-        # modifier); the additional Akodo 4th-Dan VP spent on the
-        # strategy's raise is not visible here. The remainder is
-        # rendered as ``(unsourced: +K)`` by the formatter (FR-014).
+        akodo_2nd_dan_amount = 0
         if rank >= 2 and skill == "wound check":
+            akodo_2nd_dan_amount = 5
             contributions.append(("Akodo 2nd Dan free raise", 5))
+
+        # Akodo Bushi 4th Dan VP-for-raise on wound check (spec 008
+        # FR-013 — Issue 5).  When the ``AkodoWoundCheckRolledStrategy``
+        # spends N VP after the initial roll, it folds ``5 * N`` into
+        # the rolled total via ``new_roll = wc_event.roll + 5 * N``.
+        # The trace observer computes modifier = ``event.roll - kept_sum``,
+        # so the Akodo 4th Dan VP raise contributes ``5 * N`` to the
+        # modifier.  Once the 2nd Dan free raise (if any) is accounted
+        # for, the residual ``modifier - (2nd Dan amount)`` is the
+        # Akodo 4th Dan VP raise — divisible by 5 (in fives, one per VP).
+        #
+        # rules/04-schools.md "Akodo Bushi School: Fourth Dan".
+        if rank >= 4 and skill == "wound check":
+            residual = modifier_arg - akodo_2nd_dan_amount
+            if residual > 0 and residual % 5 == 0:
+                contributions.append(("Akodo 4th Dan VP raises", residual))
 
     # Isawa Ishi 3rd Dan ally boost attribution: applies to the BOOSTED
     # roll regardless of the rolling character's school
