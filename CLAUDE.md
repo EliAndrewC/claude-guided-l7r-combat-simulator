@@ -35,7 +35,7 @@ as none of it is relevant to this project.
 ## Project Rules
 - **TDD First**: Always write a failing test in `tests/` before writing the code (linting should also always pass).
 - **Logic Isolation**: Keep the rules engine 100% separate from the UI code.
-- **Coverage**: Maintain >90% code coverage.
+- **Coverage**: 100% code coverage per Constitution Principle VI. Every uncovered line is either newly tested OR marked with `# pragma: no cover` and a one-line justification comment.
 
 ## Development Commands
 - **Run unit tests**: `env/bin/pytest tests/ -v`
@@ -108,7 +108,8 @@ and run this workflow:
      extra dice MUST surface them in the trace with source labels.
 
 7. **Validate constitution gates** per the 8-point checklist in the
-   constitution: ruff, mypy, pytest, coverage ≥ 90%, Streamlit smoke if
+   constitution: ruff, mypy, pytest, coverage = 100% (Principle VI;
+   pragma skips allowed with justification), Streamlit smoke if
    UI touched, trace observability per Principle VII, identity-driven
    defaults per Principle VIII, playability per Principle IX.
 

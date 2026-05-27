@@ -54,10 +54,39 @@ never hardcoded into the combat loop. This is load-bearing: the project's
 stated goal is to vary these decisions across runs and measure outcomes, which
 is only possible if every decision point is a swappable component.
 
-### VI. Coverage Floor
-Test coverage must stay above 90%. This is a floor, not a target. A change
-that drops coverage below the floor is not done. Uncovered branches in newly
-written code are a code-review blocker, not a follow-up.
+### VI. Total Coverage
+Test coverage must be 100%. Every executable line and branch under
+`simulation/` and `web/` MUST be either exercised by a test OR explicitly
+marked with `# pragma: no cover` and a one-line comment justifying the
+skip. This is a stricter rule than "90% floor"; it was chosen because
+"always go to 100%" is a simpler invariant to enforce and audit than a
+percentage threshold, and because the pragma markers make every skipped
+line individually reviewable.
+
+Acceptable pragma justifications include (non-exhaustive):
+- **UI entry points** loaded by an external framework at runtime
+  (e.g., Streamlit page modules under `web/views/` and `web/app.py`).
+  Their top-level imperative code is exercised by the manual Streamlit
+  smoke check (Quality Gate 5), not by unit tests.
+- **Defensive branches** that cannot be reached given the function's
+  preconditions (e.g., `else: raise ValueError(...)` after an
+  exhaustive `if/elif` chain).
+- **Abstract base class methods** that are not meant to be called
+  directly (e.g., `raise NotImplementedError`).
+- **Re-raise blocks** that exist purely to preserve a stack trace.
+
+Unacceptable pragma justifications:
+- "This branch is hard to test." If the branch is reachable, a test
+  must reach it. If it isn't reachable, delete the branch.
+- "We'll test this later." Test it now or pragma it now with a real
+  justification.
+- Bare `# pragma: no cover` without a comment. Every pragma must
+  document WHY the skip is legitimate so a future reviewer can
+  re-evaluate.
+
+A change that introduces an uncovered line without a pragma comment is
+not done. A change that drops coverage below 100% on any file
+(including via pragma removal) is not done.
 
 ### VII. Combat Trace Self-Explanation
 Every applied ability, modifier, free raise, extra die, point spend, or
@@ -151,7 +180,10 @@ Every change, before it is considered complete:
    checks bodies but does not require annotations. Silencing errors with
    `# type: ignore` requires an inline justification.
 3. `env/bin/pytest tests/ -v` passes with zero failures.
-4. Coverage remains above 90% (see Principle VI).
+4. Coverage is 100% per Principle VI. Every uncovered line is either
+   newly tested OR marked with `# pragma: no cover` and a one-line
+   justification comment. `env/bin/pytest tests/ --cov --cov-report=term`
+   must report 100% on every file under `simulation/` and `web/`.
 5. If UI code changed, Streamlit has been restarted and the affected page
    has been exercised in a browser. Type-checking and unit tests verify code
    correctness, not feature correctness — UI changes require manual
@@ -195,4 +227,4 @@ clarification, or non-semantic edits.
 **Compliance review**: `/speckit-plan` and `/speckit-analyze` MUST surface
 constitution violations as blockers, not suggestions.
 
-**Version**: 1.2.2 | **Ratified**: 2026-05-25 | **Last Amended**: 2026-05-27
+**Version**: 1.3.0 | **Ratified**: 2026-05-25 | **Last Amended**: 2026-05-27
