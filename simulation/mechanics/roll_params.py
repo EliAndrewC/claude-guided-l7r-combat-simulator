@@ -66,8 +66,8 @@ class RollParameterProvider(ABC):
         Returns a per-source decomposition of a roll's rolled and kept
         dice. Each tuple in the returned list is
         ``(source_label, +rolled, +kept)`` and the components sum (after
-        an optional final ``"normalization"`` entry) to the same
-        ``(rolled, kept)`` that ``get_damage_roll_params`` /
+        an optional final ``"from dice in excess of 10k10"`` entry) to
+        the same ``(rolled, kept)`` that ``get_damage_roll_params`` /
         ``get_skill_roll_params`` would return.
 
         This is the audit-trail counterpart to the aggregate roll-param
@@ -168,14 +168,18 @@ def _normalize_breakdown(
     """Adjust a raw breakdown so the components' summed rolled/kept equals
     the normalized aggregate.
 
-    ``normalize_roll_params`` converts excess rolled→kept dice and excess
-    kept dice→bonus modifier. The pre-normalize breakdown components
-    may therefore not sum to the displayed XkY. To preserve the
-    Principle VII invariant ``sum(rolled) == aggregate_rolled`` AND
-    ``sum(kept) == aggregate_kept``, append a synthetic
-    ``"normalization (excess rolled → kept)"`` entry that absorbs the
-    delta. The entry is a Principle VII compliance signal — itself a
-    visible mechanism (not a hidden adjustment).
+    ``normalize_roll_params`` converts excess rolled→kept dice (when
+    pre-normalize rolled > 10) and excess kept dice→bonus modifier
+    (when pre-normalize kept > 10).  The pre-normalize breakdown
+    components may therefore not sum to the displayed XkY.  To preserve
+    the Principle VII invariant ``sum(rolled) == aggregate_rolled``
+    AND ``sum(kept) == aggregate_kept``, append a synthetic
+    ``"from dice in excess of 10k10"`` entry that absorbs the delta.
+    The entry is a Principle VII compliance signal — a visible
+    mechanism, not a hidden adjustment.  In the typical case (rolled
+    overflow), the entry carries a negative rolled delta paired with a
+    positive kept delta (e.g., ``(-3, +3)`` means "3 rolled dice in
+    excess of 10 converted to 3 kept dice").
 
     Zero-delta cases produce no synthetic entry (the breakdown is
     already balanced).
@@ -186,7 +190,7 @@ def _normalize_breakdown(
     delta_kept = aggregate_kept - sum_kept
     if delta_rolled == 0 and delta_kept == 0:
         return components
-    return [*components, ("normalization", delta_rolled, delta_kept)]
+    return [*components, ("from dice in excess of 10k10", delta_rolled, delta_kept)]
 
 
 class DefaultRollParameterProvider(RollParameterProvider):
@@ -222,8 +226,9 @@ class DefaultRollParameterProvider(RollParameterProvider):
     ) -> list[tuple[str, int, int]]:
         # Mirror ``get_damage_roll_params`` exactly. Each contributor
         # gets its own (label, +rolled, +kept) entry; the post-normalize
-        # delta (if any) becomes a final "normalization" entry so the
-        # components sum to the aggregate displayed in the trace.
+        # delta (if any) becomes a final "from dice in excess of 10k10"
+        # entry so the components sum to the aggregate displayed in the
+        # trace.
         weapon = character.weapon()
         ring_name = character.get_skill_ring("damage")
         ring_value = character.ring(ring_name)
@@ -294,8 +299,9 @@ class DefaultRollParameterProvider(RollParameterProvider):
         ``contested_skill`` adds to the modifier (not rolled/kept) and
         is therefore not part of this breakdown. The target's
         ``attack_rolled_penalty`` (Ninja ability) would reduce rolled
-        dice; if non-zero, the synthetic ``"normalization"`` entry
-        absorbs the delta so the breakdown still sums to the aggregate.
+        dice; if non-zero, the synthetic ``"from dice in excess of
+        10k10"`` entry absorbs the delta so the breakdown still sums
+        to the aggregate.
         """
         ring_name = ring_override if ring_override is not None else character.get_skill_ring(skill)
         ring_value = character.ring(ring_name)
@@ -335,8 +341,8 @@ class DefaultRollParameterProvider(RollParameterProvider):
         #     13/7 → 10/10).
         #   * Target's ``attack_rolled_penalty`` (Ninja ability),
         #     which subtracts from rolled before normalization.
-        # The synthetic "normalization" entry is a visible signal
-        # (Principle VII) — not a hidden adjustment.
+        # The synthetic "from dice in excess of 10k10" entry is a
+        # visible signal (Principle VII) — not a hidden adjustment.
         #
         # We pass ``ring=None`` to ``get_skill_roll_params`` here even
         # when ``ring_override`` is set, because that method's ``ring``

@@ -23,10 +23,10 @@ def _reconcile_breakdown(
     """Adjust ``components`` so its summed ``(rolled, kept)`` equals the
     displayed ``aggregate``. When the components already sum correctly
     (the common case), the list is returned unchanged. Otherwise a
-    synthetic ``"normalization"`` entry is appended (or the existing
-    one updated) to absorb the delta — preserving the data-model.md
-    invariant ``sum(components) == aggregate_*`` so the trace renders
-    a per-line self-explaining breakdown (FR-017).
+    synthetic ``"from dice in excess of 10k10"`` entry is appended
+    (or the existing one updated) to absorb the delta — preserving
+    the data-model.md invariant ``sum(components) == aggregate_*`` so
+    the trace renders a per-line self-explaining breakdown (FR-017).
     """
     return _normalize_breakdown(components, aggregate[0], aggregate[1])
 
@@ -295,7 +295,8 @@ class CombatObserver:
         # breakdown for the attack roll's XkY so the formatter can render
         # the multi-source decomposition (e.g.,
         # ``10k10 = 5k5 Fire ring + 5k0 double attack skill +
-        # 1k0 Bayushi 1st Dan + 2k2 VP on double attack + -3k3 normalization``).
+        # 1k0 Bayushi 1st Dan + 2k2 VP on double attack +
+        # -3k3 from dice in excess of 10k10``).
         event._detail_components = self._skill_breakdown(
             subject, event.action.target(), event.action.skill(),
             event._detail_params, event.action.vp(),
