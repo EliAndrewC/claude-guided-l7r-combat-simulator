@@ -86,13 +86,34 @@ Do special actions get rendering tailored to their semantics?
 - **Parries that fail**: do they say "FAILED" clearly, or does the reader have to infer from a low roll number?
 - **Counterattacks**: do they have clearly-distinct headers from regular attacks?
 
+## 8. Cross-renderer consistency
+
+The same event should be described identically (or with consistent shape) across both TextRenderer and BulletedRenderer surfaces. A reader switching from a text dump to the Streamlit UI should see the same components, the same labels, the same numbers.
+
+**Example failure** (real, from dry-run): TextRenderer uses the new `"+6 from 3 dropped dice in excess of 10k10"` form while BulletedRenderer's damage breakdown still uses the old `"-3k3 from dice in excess of 10k10"` form for the same component on the same attack. The fix landed in one renderer but not the other. **Severity: Wrong** (the two surfaces contradict each other about the same data).
+
+Other cross-renderer concerns:
+- Same label for the same source ("Bayushi 2nd Dan free raise" vs. "Bayushi 2nd Dan" — even small variations are confusing).
+- Same numeric format (e.g., `(base TN 30 + 4 raises × +5 for double attack)` vs `(base TN 30, +20 from 4 raises for double attack)`).
+- Same event-ordering invariants (an event that fires after the attack outcome in TextRenderer should also fire after in BulletedRenderer).
+
 # What you DON'T check
 
 - **Engine behavior correctness**: that's `combat-simulator`.
 - **Rules-text fidelity**: that's `rules-auditor`.
 - **Principle VII attribution**: that's `trace-auditor`. If a value lacks source attribution, that's their finding — you complement by checking layout / coherence.
+
+  **Boundary clarification**: if a Principle VII failure LEAKS INTO a user-visible label (e.g., the literal word `"unsourced"` or `"unknown"` appears in the trace), that IS in scope for `trace-reader` as a label-appropriateness issue, in addition to being a `trace-auditor` issue. Both agents would report it, from different angles.
 - **Code style, type-hints, mypy concerns**: out of scope.
 - **Subjective "I would have phrased this differently"**: stick to observable issues — things a reader could measure as "this seems wrong because X" — not style preferences.
+
+# Handling calibration-anchor drift
+
+When the orchestrator gives you a calibration anchor (specific issues to look for), some of those issues may have been fixed between when the user reported them and when you run the audit. **Do not invent issues to match the anchor.** Run the probe, see what the trace actually shows, and report:
+- For each anchor issue: PASS (found it), PARTIAL (related issue surfaced but exact symptom didn't reproduce), or APPARENTLY FIXED (no trace of it in current master).
+- For each unanticipated issue: report it normally.
+
+Anchor non-reproduction is evidence of progress, not agent failure.
 
 # How to investigate
 
@@ -174,6 +195,7 @@ Block merge on Wrong and Misleading. Flag Confusing and Noisy as recommendations
 - Redundant information: ...
 - Visual hierarchy: ...
 - Special-action rendering: ...
+- Cross-renderer consistency: ...
 
 ### Issues found
 
@@ -183,7 +205,7 @@ Block merge on Wrong and Misleading. Flag Confusing and Noisy as recommendations
      ```
      <quote the problematic lines>
      ```
-   - Why this fails: <one sentence>
+   - Why this fails: <one sentence — OR 1-3 bullets if the issue is compound>
    - Suggested fix location: <file:lineno or "needs investigation">
 
 2. ...
