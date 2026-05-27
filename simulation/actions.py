@@ -141,6 +141,45 @@ class AttackAction(Action):
         rolled, kept, mod = self.subject().get_damage_roll_params(self.target(), self.skill(), extra_rolled, self.vp())
         return (rolled, kept, mod)
 
+    def damage_breakdown(self) -> list[tuple[str, int, int]]:
+        """Per-source breakdown of this action's damage roll parameters.
+
+        Default: delegates to the subject's ``RollParameterProvider``
+        with ``kind='damage'`` and the same ``attack_extra_rolled`` /
+        ``vp`` arguments used by ``damage_roll_params``.  Subclasses
+        that override ``damage_roll_params`` (e.g. ``FeintAction``,
+        ``BayushiFeintAction``) MUST override this method too so the
+        formatter's projection breakdown agrees with the actual roll —
+        spec 009 (Action-Level Damage Breakdown).
+
+        Returns ``[]`` when the provider has no decomposition for the
+        damage roll (legacy providers without ``get_breakdown`` or
+        providers that raise).  The formatter then omits the inline
+        breakdown rather than emitting a misleading one.
+        """
+        provider = self.subject().roll_parameter_provider()
+        if not hasattr(provider, "get_breakdown"):
+            return []
+        try:
+            extra_rolled = self.calculate_extra_damage_dice()
+        except (AssertionError, TypeError):
+            # No skill_roll set yet — the formatter call-sites only
+            # invoke this after the attack has rolled.  Defensive
+            # fallback: treat as zero margin extras.
+            extra_rolled = 0
+        try:
+            result = provider.get_breakdown(
+                self.subject(), self.target(), self.skill(),
+                kind="damage",
+                attack_extra_rolled=extra_rolled,
+                vp=self.vp(),
+            )
+        except Exception:
+            return []
+        if not isinstance(result, list):
+            return []
+        return result
+
     def direct_damage(self) -> Any:
         return None
 
@@ -241,6 +280,14 @@ class FeintAction(AttackAction):
 
     def damage_roll_params(self) -> Any:
         return (0, 0, 0)
+
+    def damage_breakdown(self) -> list[tuple[str, int, int]]:
+        """Standard feints deal zero deterministic damage
+        (``damage_roll_params`` is ``(0, 0, 0)``); they have no
+        per-source breakdown to display.  The formatter suppresses
+        their damage projection entirely (spec 008 FR-005/6).
+        """
+        return []
 
     def roll_damage(self) -> int:
         self.set_damage_roll(0)

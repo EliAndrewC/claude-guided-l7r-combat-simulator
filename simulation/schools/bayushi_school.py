@@ -166,6 +166,35 @@ class BayushiFeintAction(FeintAction):
         modifier = self.subject().modifier(self.target(), self.skill())
         return (rolled, kept, modifier)
 
+    def damage_breakdown(self) -> list[tuple[str, int, int]]:
+        """Per-source breakdown matching ``damage_roll_params``:
+
+            rolled = attack_skill + vp
+            kept   = 1 + vp
+
+        Components:
+
+        - ``"attack skill"`` (rolled-only, omitted when skill is 0)
+        - ``"base feint kept die"`` (kept-only, always present)
+        - ``"VP on feint"`` (rolled AND kept, omitted when vp is 0)
+
+        Pre-fix (spec 009): the formatter computed this from the
+        subject's default provider, which produced ``katana + Fire ring
+        + reconciliation`` — components attributable to the standard
+        damage formula that do not apply to a Bayushi feint.  By
+        overriding here, the projection's per-source decomposition
+        now agrees with the action's actual ``damage_roll_params``.
+        """
+        attack_skill = self.subject().skill("attack")
+        vp = self.vp()
+        components: list[tuple[str, int, int]] = []
+        if attack_skill > 0:
+            components.append(("attack skill", attack_skill, 0))
+        components.append(("base feint kept die", 0, 1))
+        if vp > 0:
+            components.append(("VP on feint", vp, vp))
+        return components
+
     def roll_damage(self) -> int:
         (rolled, kept, modifier) = self.damage_roll_params()
         damage_roll: int = self.subject().roll_provider().get_damage_roll(rolled, kept) + modifier

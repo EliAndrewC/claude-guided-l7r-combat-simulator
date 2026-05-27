@@ -65,35 +65,6 @@ from web.adapters.trace_entries import (
 )
 
 
-def _compute_damage_breakdown(
-    subject: Any, target: Any, action: Any, attack_extra_rolled: int,
-) -> list[tuple[str, int, int]]:
-    """Compute the predictive damage breakdown for the attack-line
-    "damage will be XkY" projection (FR-007).
-
-    Calls the subject's roll-parameter provider's ``get_breakdown`` with
-    the same ``attack_extra_rolled`` and ``vp`` the engine will use for
-    the damage roll. Returns an empty list when the provider doesn't
-    implement ``get_breakdown`` (legacy providers) — the formatter then
-    omits the breakdown.
-    """
-    provider = subject.roll_parameter_provider()
-    if not hasattr(provider, "get_breakdown"):
-        return []
-    try:
-        result: list[tuple[str, int, int]] = provider.get_breakdown(
-            subject, target, action.skill(),
-            kind="damage",
-            attack_extra_rolled=attack_extra_rolled,
-            vp=action.vp(),
-        )
-    except Exception:
-        return []
-    if not isinstance(result, list):
-        return []
-    return result
-
-
 def _render_components(components: list[tuple[str, int, int]] | None) -> str:
     """Render a ``_detail_components`` annotation as an inline breakdown.
 
@@ -873,17 +844,11 @@ class DetailedEventFormatter:
         is_zero_damage_feint = False
         if hit:
             extra_dice = action.calculate_extra_damage_dice(tn=base_tn)
-            subject = action.subject()
-            target = action.target()
-            damage_params = subject.get_damage_roll_params(
-                target, action.skill(), extra_dice, action.vp(),
-            )
+            damage_params = action.damage_roll_params()
             margin = total - tn
             if damage_params:
                 dr, dk, _dm = damage_params
-                damage_breakdown_raw = _compute_damage_breakdown(
-                    subject, target, action, extra_dice,
-                )
+                damage_breakdown_raw = action.damage_breakdown()
                 damage_projection = DamageProjection(
                     rolled=dr, kept=dk,
                     components=self._to_components(damage_breakdown_raw),
@@ -997,17 +962,11 @@ class DetailedEventFormatter:
         )
         if hit:
             extra_dice = action.calculate_extra_damage_dice(tn=base_tn)
-            subject = action.subject()
-            target = action.target()
-            damage_params = subject.get_damage_roll_params(
-                target, action.skill(), extra_dice, action.vp(),
-            )
+            damage_params = action.damage_roll_params()
             margin = total - tn
             if damage_params:
                 dr, dk, _dm = damage_params
-                damage_breakdown_raw = _compute_damage_breakdown(
-                    subject, target, action, extra_dice,
-                )
+                damage_breakdown_raw = action.damage_breakdown()
                 damage_projection = DamageProjection(
                     rolled=dr, kept=dk,
                     components=self._to_components(damage_breakdown_raw),
@@ -1114,17 +1073,11 @@ class DetailedEventFormatter:
         damage_projection = None
         if hit:
             extra_dice = action.calculate_extra_damage_dice(tn=tn)
-            subject = action.subject()
-            target = action.target()
-            damage_params = subject.get_damage_roll_params(
-                target, action.skill(), extra_dice, action.vp(),
-            )
+            damage_params = action.damage_roll_params()
             margin = total - tn
             if damage_params:
                 dr, dk, _dm = damage_params
-                damage_breakdown_raw = _compute_damage_breakdown(
-                    subject, target, action, extra_dice,
-                )
+                damage_breakdown_raw = action.damage_breakdown()
                 damage_projection = DamageProjection(
                     rolled=dr, kept=dk,
                     components=self._to_components(damage_breakdown_raw),

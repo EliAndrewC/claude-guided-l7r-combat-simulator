@@ -317,6 +317,9 @@ def _make_skill_action(
     action.parry_attempted.return_value = parry_attempted
     action.is_success.return_value = is_hit  # for parry actions
     action.calculate_extra_damage_dice.return_value = 0
+    # Spec 009: damage projection now reads from the action directly.
+    action.damage_roll_params.return_value = (6, 2, 0)
+    action.damage_breakdown.return_value = []
     return action
 
 

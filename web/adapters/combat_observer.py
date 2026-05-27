@@ -193,12 +193,17 @@ class CombatObserver:
         # Per spec FR-002 / FR-007: the ``LightWoundsDamageEvent`` does
         # NOT carry the attack action that produced it, but the damage
         # breakdown needs the attack's ``attack_extra_rolled`` (margin
-        # extras) and ``vp`` (VP-on-attack inflation, e.g. Bayushi).
+        # extras), ``vp`` (VP-on-attack inflation, e.g. Bayushi), AND
+        # the originating action object (so spec 009's
+        # ``action.damage_breakdown()`` can be consulted by
+        # ``_annotate_damage`` — actions that override
+        # ``damage_roll_params()`` like ``BayushiFeintAction`` produce
+        # different component attributions than the provider's default).
         # ``AttackRolledEvent`` carries the action; we cache the most
         # recent attack per attacker name so the matching
         # ``LightWoundsDamageEvent`` annotation can recover the inputs
         # without re-walking history.
-        self._pending_damage_context: dict[str, tuple[int, int]] = {}
+        self._pending_damage_context: dict[str, tuple[int, int, Any]] = {}
 
     def on_event(self, event: Any, context: Any) -> None:
         if isinstance(event, events.NewRoundEvent):
@@ -402,7 +407,7 @@ class CombatObserver:
         # returns the post-parry value the engine will pass to
         # ``get_damage_roll_params``.
         self._pending_damage_context[action.subject().name()] = (
-            action.calculate_extra_damage_dice(), action.vp(),
+            action.calculate_extra_damage_dice(), action.vp(), action,
         )
 
     def _annotate_attack_failed(self, event: Any) -> None:
@@ -437,10 +442,27 @@ class CombatObserver:
         # the correct vantage to capture the values the engine will use).
         # If missing (e.g., cross-school direct-damage paths), fall back
         # to zero.
-        extra_dice, vp = self._pending_damage_context.pop(attacker.name(), (0, 0))
-        components = self._damage_breakdown(
-            attacker, event.target, "damage", extra_dice, vp,
+        extra_dice, vp, action = self._pending_damage_context.pop(
+            attacker.name(), (0, 0, None),
         )
+        # Spec 009: when we have the originating action, ask it for the
+        # breakdown — this routes through any subclass override (e.g.,
+        # BayushiFeintAction.damage_breakdown returns "attack skill" +
+        # "base feint kept die" instead of the default katana + ring
+        # the provider would attribute).  Fall back to the provider-
+        # based breakdown when no action is available (e.g., direct-
+        # damage paths that bypass the attack-action flow).
+        if action is not None and hasattr(action, "damage_breakdown"):
+            try:
+                components = action.damage_breakdown()
+            except Exception:  # pragma: no cover  # defensive: subclass override raises -> fall back to provider
+                components = self._damage_breakdown(
+                    attacker, event.target, "damage", extra_dice, vp,
+                )
+        else:
+            components = self._damage_breakdown(
+                attacker, event.target, "damage", extra_dice, vp,
+            )
         # Reconcile the breakdown against the actually-rolled aggregate.
         # ``last_damage_info`` may carry stale state when the damage
         # path is a feint or other non-rolling action (the engine still

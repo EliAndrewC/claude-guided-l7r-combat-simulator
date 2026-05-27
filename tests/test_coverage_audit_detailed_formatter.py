@@ -10,7 +10,6 @@ the correct layer (via the public ``entries()`` + ``TextRenderer`` path).
 This file now retains only tests that exercise still-live helpers
 inside ``detailed_formatter.py``:
 
-- ``_compute_damage_breakdown`` (defensive guards)
 - ``_render_components`` (module-level helper)
 - ``_format_dice`` (module-level helper)
 - ``_phase_prefix`` (instance helper, used by every ``_entry_*`` builder)
@@ -20,13 +19,19 @@ inside ``detailed_formatter.py``:
   (used by ``entries()`` for event composition)
 - A small set of end-to-end ``format_history`` smoke tests that
   exercise composition branches not naturally hit by other tests.
+
+Spec 009 (Action-Level Damage Breakdown): the previously-tested
+``_compute_damage_breakdown`` helper was deleted when the breakdown
+computation migrated onto ``AttackAction.damage_breakdown()``.  The
+equivalent defensive guards on the new method are covered by
+``tests/test_action_damage_breakdown.py`` and
+``tests/test_coverage_audit_actions.py``.
 """
 
 from unittest.mock import MagicMock
 
 from web.adapters.detailed_formatter import (
     DetailedEventFormatter,
-    _compute_damage_breakdown,
     _format_dice,
     _render_components,
 )
@@ -45,54 +50,6 @@ def _action(subj="A", tgt="B", skill="attack", vp=0):
     action.skill.return_value = skill
     action.vp.return_value = vp
     return action
-
-
-class TestComputeDamageBreakdownDefensive:
-    """Defensive guards in ``_compute_damage_breakdown``."""
-
-    def test_provider_without_get_breakdown(self):
-        """Provider missing get_breakdown returns empty list."""
-
-        class Provider:
-            pass
-
-        class Subject:
-            def roll_parameter_provider(self):
-                return Provider()
-
-        action = _action()
-        result = _compute_damage_breakdown(Subject(), Subject(), action, 0)
-        assert result == []
-
-    def test_provider_raises_exception(self):
-        """Provider get_breakdown raising returns empty list."""
-
-        class Provider:
-            def get_breakdown(self, *a, **kw):
-                raise RuntimeError("nope")
-
-        class Subject:
-            def roll_parameter_provider(self):
-                return Provider()
-
-        action = _action()
-        result = _compute_damage_breakdown(Subject(), Subject(), action, 0)
-        assert result == []
-
-    def test_provider_returns_non_list(self):
-        """Non-list return → empty list."""
-
-        class Provider:
-            def get_breakdown(self, *a, **kw):
-                return "not a list"
-
-        class Subject:
-            def roll_parameter_provider(self):
-                return Provider()
-
-        action = _action()
-        result = _compute_damage_breakdown(Subject(), Subject(), action, 0)
-        assert result == []
 
 
 class TestRenderComponentsDefensive:

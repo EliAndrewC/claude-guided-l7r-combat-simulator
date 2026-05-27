@@ -35,6 +35,12 @@ def _make_action(subject_name="Akodo", target_name="Bayushi", skill="attack"):
     action.parry_attempted.return_value = False
     action.is_hit.return_value = True
     action.parried.return_value = False
+    # Spec 009: damage projection now reads ``damage_roll_params`` and
+    # ``damage_breakdown`` directly from the action (was: read from
+    # subject's provider).  Provide sensible defaults so legacy mock
+    # actions keep producing a damage projection.
+    action.damage_roll_params.return_value = (6, 2, 0)
+    action.damage_breakdown.return_value = []
     return action
 
 
@@ -381,7 +387,11 @@ class TestFormatterAttackExtraDiceUseCapturedTN(unittest.TestCase):
         self.assertNotIn("4 extra damage dice", attack_line)
 
     def test_damage_preview_uses_correct_extra_dice(self):
-        """Damage preview should use the correctly computed extra dice."""
+        """Damage preview should use the damage params from the action
+        directly (spec 009 — was: from ``subject.get_damage_roll_params``
+        recomputed with the formatter's own extra_dice, which could
+        disagree with the engine's actual roll).
+        """
         fmt = DetailedEventFormatter()
         action = _make_action()
         action.is_hit.return_value = True
@@ -389,6 +399,8 @@ class TestFormatterAttackExtraDiceUseCapturedTN(unittest.TestCase):
         action.calculate_extra_damage_dice.side_effect = (
             lambda skill_roll=None, tn=None: (82 - (tn if tn is not None else 62)) // 5
         )
+        # Set distinct values to confirm the projection uses the
+        # action's value, not the subject's recomputation.
         subject = action.subject()
         subject.get_damage_roll_params.return_value = (14, 4, 0)
         action.damage_roll_params.return_value = (10, 5, 0)
@@ -400,9 +412,9 @@ class TestFormatterAttackExtraDiceUseCapturedTN(unittest.TestCase):
 
         lines = fmt.format_history([event])
         attack_line = [ln for ln in lines if "Attack:" in ln][0]
-        # Should use damage params from subject.get_damage_roll_params with correct extra_dice
-        self.assertIn("damage will be 14k4", attack_line)
-        self.assertNotIn("damage will be 10k5", attack_line)
+        # Spec 009: damage projection comes from action.damage_roll_params().
+        self.assertIn("damage will be 10k5", attack_line)
+        self.assertNotIn("damage will be 14k4", attack_line)
 
 
 class TestFormatterAttackRolledMiss(unittest.TestCase):
@@ -1775,6 +1787,9 @@ class TestFormatterCounterattack(unittest.TestCase):
         action.parried.return_value = False
         action.calculate_extra_damage_dice.return_value = 2
         action.tn.return_value = 25
+        # Spec 009: damage projection now reads from the action directly.
+        action.damage_roll_params.return_value = (5, 2, 0)
+        action.damage_breakdown.return_value = []
         return action
 
     def test_combined_counterattack_hit(self):

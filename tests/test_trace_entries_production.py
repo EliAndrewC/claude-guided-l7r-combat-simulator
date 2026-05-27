@@ -77,6 +77,9 @@ def _make_action(subject_name="Akodo", target_name="Bayushi", skill="attack",
     action.parried.return_value = parried
     action.is_success.return_value = is_success
     action.calculate_extra_damage_dice.return_value = 0
+    # Spec 009: damage projection now reads from the action directly.
+    action.damage_roll_params.return_value = (6, 2, 0)
+    action.damage_breakdown.return_value = []
     return action
 
 

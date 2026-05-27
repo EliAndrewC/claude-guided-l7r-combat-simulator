@@ -63,6 +63,9 @@ def _make_action(subject_name="Akodo", target_name="Bayushi", skill="attack",
     action.parried.return_value = parried
     action.is_success.return_value = is_success
     action.calculate_extra_damage_dice.return_value = extra_damage_dice
+    # Spec 009: damage projection now reads from the action directly.
+    action.damage_roll_params.return_value = (6, 2, 0)
+    action.damage_breakdown.return_value = []
     return action
 
 
@@ -662,20 +665,18 @@ class TestRoundTripEdgeCases(unittest.TestCase):
 
     def test_combined_counterattack_with_damage_breakdown(self):
         """Counterattack hit with multi-source damage projection
-        (covers text_renderer.py line 394 ``damage will be X = breakdown``).
+        (covers text_renderer.py line 432 ``damage will be X = breakdown``).
+
+        Spec 009: damage params and breakdown now come from the action
+        directly (was: from subject's provider).
         """
-        # Build subject whose roll-parameter provider exposes a multi-source
-        # damage breakdown via get_breakdown.
         action = _make_action()
-        subject = action.subject()
-
-        class _Provider:
-            def get_breakdown(self, *args, **kwargs):
-                return [("katana", 4, 2), ("Fire ring", 5, 0)]
-
-        subject.roll_parameter_provider.return_value = _Provider()
-        # Force the action's damage params.
-        subject.get_damage_roll_params.return_value = (9, 2, 0)
+        # Force the action's damage params and a non-empty breakdown so
+        # the "damage will be XkY = ..." rendering branch fires.
+        action.damage_roll_params.return_value = (9, 2, 0)
+        action.damage_breakdown.return_value = [
+            ("katana", 4, 2), ("Fire ring", 5, 0),
+        ]
         take = events.TakeCounterattackActionEvent(action)
         rolled = events.CounterattackRolledEvent(action, 35)
         rolled._detail_dice = [10, 10, 8, 5, 2]
