@@ -109,12 +109,39 @@ def _format_tn(tn: int, base_tn: int, action_skill: str) -> str:
     return f"TN {tn}"
 
 
+_EXCESS_10K10_SOURCE = "from dice in excess of 10k10"
+
+
+def _format_component_bullet(c: ComponentDelta) -> str:
+    """Per-component bullet content (without the leading ``- ``).
+
+    Special-cases the synthetic ``"from dice in excess of 10k10"``
+    entry when its delta represents actual overflow (rolled<0 or
+    kept<0): each die above the 10k10 cap is worth +2 per the L7R
+    kept→bonus conversion, so the bullet renders as ``"+{2*dropped}
+    from {dropped} dropped dice in excess of 10k10"`` instead of the
+    confusing negative dice-notation form (e.g. ``-3k3``).  Other
+    deltas (non-overflow reconciliations that share the same label)
+    fall through to the standard ``{rolled}k{kept} {source}`` form.
+    """
+    if c.source == _EXCESS_10K10_SOURCE and (c.rolled < 0 or c.kept < 0):
+        dropped = max(0, -c.rolled) + max(0, -c.kept)
+        bonus = 2 * dropped
+        noun = "die" if dropped == 1 else "dice"
+        return f"+{bonus} from {dropped} dropped {noun} in excess of 10k10"
+    return f"{c.rolled}k{c.kept} {c.source}"
+
+
 def _component_bullets(
     components: list[ComponentDelta], indent: str = "  ",
 ) -> list[str]:
-    """Render each nonzero component as ``  - NkM source`` bullet."""
+    """Render each nonzero component as ``  - NkM source`` bullet.
+
+    The synthetic 10k10-excess entry renders in narrative form
+    (see ``_format_component_bullet``).
+    """
     return [
-        f"{indent}- {c.rolled}k{c.kept} {c.source}"
+        f"{indent}- {_format_component_bullet(c)}"
         for c in _nonzero_components(components)
     ]
 

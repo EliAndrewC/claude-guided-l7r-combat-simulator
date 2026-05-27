@@ -72,16 +72,32 @@ def _run_calibration_combat() -> list[str]:
     return DetailedEventFormatter().format_history(engine.history())
 
 
-def _parse_breakdown(breakdown_str: str) -> list[tuple[int, int]]:
-    """Parse a ``"N1k(M1) ... + N2k(M2) ... + ..."`` breakdown into a list of
-    ``(rolled, kept)`` tuples. Used by the sum-invariant test.
+def _parse_breakdown(breakdown_str: str) -> tuple[list[tuple[int, int]], int]:
+    """Parse a ``"N1k(M1) ... + N2k(M2) ... + ..."`` breakdown.
+
+    Returns ``(components, dropped_dice)`` where ``components`` is the
+    list of ``(rolled, kept)`` tuples for the standard ``NkM source``
+    entries and ``dropped_dice`` is the count from any narrative
+    ``"+{2N} from {N} dropped dice in excess of 10k10"`` entry (per
+    the user-facing relabel; this entry is NOT in standard ``NkM``
+    form so it gets parsed separately).  For sum-invariant checks,
+    the components sum to the RAW (pre-normalize) ``(rolled, kept)``
+    and the displayed aggregate is the post-normalize XkY — the two
+    differ by exactly the dropped-dice count when overflow occurred.
     """
     components: list[tuple[int, int]] = []
+    dropped_dice = 0
     for piece in breakdown_str.split(" + "):
+        m_dropped = re.match(
+            r"\s*\+?\d+ from (\d+) dropped (?:die|dice) in excess of 10k10\b", piece,
+        )
+        if m_dropped is not None:
+            dropped_dice = int(m_dropped.group(1))
+            continue
         m = re.match(r"\s*(-?\d+)k(-?\d+)\b", piece)
         if m is not None:
             components.append((int(m.group(1)), int(m.group(2))))
-    return components
+    return components, dropped_dice
 
 
 class TestDamageBreakdownInTrace(unittest.TestCase):
@@ -170,13 +186,17 @@ class TestDamageBreakdownInTrace(unittest.TestCase):
             breakdown = m.group(3).strip()
             if " + " in breakdown:
                 multi_source_found = True
-                # Each component starts with NkM where N,M are ints.
+                # Each component is either a standard ``NkM source``
+                # entry OR the narrative ``"+{2N} from {N} dropped dice
+                # in excess of 10k10"`` form for the 10k10 overflow
+                # bookkeeping (user-requested rendering: see commit
+                # relabel of "normalization").
                 for piece in breakdown.split(" + "):
                     self.assertRegex(
                         piece.strip(),
-                        r"^-?\d+k-?\d+ ",
+                        r"^(-?\d+k-?\d+ |\+\d+ from \d+ dropped (?:die|dice) in excess of 10k10$)",
                         f"Component '{piece}' in line {line!r} must start "
-                        "with NkM",
+                        "with NkM or be the dropped-dice form",
                     )
         self.assertTrue(
             multi_source_found,
@@ -204,22 +224,32 @@ class TestDamageBreakdownInTrace(unittest.TestCase):
             breakdown = m.group(3).strip()
             if " + " not in breakdown:
                 continue
-            components = _parse_breakdown(breakdown)
+            components, dropped = _parse_breakdown(breakdown)
             self.assertGreater(
                 len(components), 1,
                 f"Multi-source breakdown should parse to >1 component: {line}",
             )
             sum_rolled = sum(r for r, _ in components)
             sum_kept = sum(k for _, k in components)
+            # With the "+X from N dropped dice in excess of 10k10"
+            # rendering, the standard NkM components sum to the
+            # PRE-normalize raw rolled/kept; the displayed aggregate
+            # is post-normalize.  The dropped count bridges the gap:
+            # each dropped die was a rolled die converted to a kept
+            # die (rolled-overflow) — so raw_rolled = agg_rolled + dropped
+            # and raw_kept = agg_kept - dropped.  See OPEN_QUESTIONS
+            # in spec 007 about the renaming of "normalization".
             self.assertEqual(
-                sum_rolled, agg_rolled,
+                sum_rolled, agg_rolled + dropped,
                 f"Breakdown rolled components sum to {sum_rolled} but "
-                f"aggregate rolled is {agg_rolled} in line: {line}",
+                f"aggregate rolled is {agg_rolled} (with {dropped} "
+                f"dropped) in line: {line}",
             )
             self.assertEqual(
-                sum_kept, agg_kept,
+                sum_kept, agg_kept - dropped,
                 f"Breakdown kept components sum to {sum_kept} but "
-                f"aggregate kept is {agg_kept} in line: {line}",
+                f"aggregate kept is {agg_kept} (with {dropped} "
+                f"dropped) in line: {line}",
             )
             checked_lines += 1
         self.assertGreater(
@@ -277,11 +307,12 @@ class TestAttackBreakdownInTrace(unittest.TestCase):
             if " + " not in breakdown:
                 continue
             multi_source_found = True
-            # Each component starts with NkM where N,M are ints.
+            # Each component is either a standard NkM source entry OR
+            # the dropped-dice narrative form for the 10k10 overflow.
             for piece in breakdown.split(" + "):
                 self.assertRegex(
                     piece.strip(),
-                    r"^-?\d+k-?\d+ ",
+                    r"^(-?\d+k-?\d+ |\+\d+ from \d+ dropped (?:die|dice) in excess of 10k10$)",
                     f"Component '{piece}' in line {line!r} must start "
                     "with NkM",
                 )
@@ -314,22 +345,26 @@ class TestAttackBreakdownInTrace(unittest.TestCase):
             breakdown = m.group(3).strip()
             if " + " not in breakdown:
                 continue
-            components = _parse_breakdown(breakdown)
+            components, dropped = _parse_breakdown(breakdown)
             self.assertGreater(
                 len(components), 1,
                 f"Multi-source breakdown should parse to >1 component: {line}",
             )
             sum_rolled = sum(r for r, _ in components)
             sum_kept = sum(k for _, k in components)
+            # See test_damage_breakdown_sums_to_aggregate for the
+            # dropped-dice bridging math.
             self.assertEqual(
-                sum_rolled, agg_rolled,
+                sum_rolled, agg_rolled + dropped,
                 f"Attack breakdown rolled components sum to {sum_rolled} "
-                f"but aggregate rolled is {agg_rolled} in line: {line}",
+                f"but aggregate rolled is {agg_rolled} (with {dropped} "
+                f"dropped) in line: {line}",
             )
             self.assertEqual(
-                sum_kept, agg_kept,
+                sum_kept, agg_kept - dropped,
                 f"Attack breakdown kept components sum to {sum_kept} but "
-                f"aggregate kept is {agg_kept} in line: {line}",
+                f"aggregate kept is {agg_kept} (with {dropped} dropped) "
+                f"in line: {line}",
             )
             checked_lines += 1
         self.assertGreater(

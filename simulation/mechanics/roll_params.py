@@ -190,7 +190,24 @@ def _normalize_breakdown(
     delta_kept = aggregate_kept - sum_kept
     if delta_rolled == 0 and delta_kept == 0:
         return components
-    return [*components, ("from dice in excess of 10k10", delta_rolled, delta_kept)]
+    # Distinguish two cases that produce a synthetic delta entry:
+    #   (1) Genuine 10k10 overflow — the raw component sum exceeded
+    #       the cap, so ``normalize_roll_params`` converted some
+    #       rolled→kept or kept→bonus.  Label as "from dice in
+    #       excess of 10k10" so the renderer can emit the
+    #       "+{2N} from {N} dropped dice in excess of 10k10"
+    #       narrative form.
+    #   (2) Non-overflow reconciliation — the raw sum was already
+    #       within the 10k10 cap; the delta comes from another
+    #       mechanic the breakdown didn't capture (e.g., feint
+    #       damage reduction, attack_rolled_penalty).  Label as
+    #       "reconciliation" so the renderer uses the standard
+    #       NkM form (no dropped-dice claim).
+    if sum_rolled > 10 or sum_kept > 10:
+        label = "from dice in excess of 10k10"
+    else:
+        label = "reconciliation"
+    return [*components, (label, delta_rolled, delta_kept)]
 
 
 class DefaultRollParameterProvider(RollParameterProvider):

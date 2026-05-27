@@ -51,19 +51,51 @@ from web.adapters.trace_entries import (
     WoundCheckEntry,
 )
 
+_EXCESS_10K10_SOURCE = "from dice in excess of 10k10"
+
+
+def _format_one_component(rolled: int, kept: int, source: str) -> str:
+    """Format a single component for inline breakdown.
+
+    Special-cases the synthetic ``"from dice in excess of 10k10"``
+    entry when its delta represents actual overflow (rolled<0 or
+    kept<0, i.e. dice were "dropped" off the top): renders as
+    ``"+{2*dropped} from {dropped} dropped dice in excess of 10k10"``
+    so the user sees the L7R rule (each die above the 10k10 cap is
+    worth +2) rather than a confusing negative dice-notation delta
+    (e.g. ``-3k3``).  The dropped count is the magnitude of the
+    negative deltas summed: ``max(0, -rolled) + max(0, -kept)``.
+
+    The same label is also used by ``_reconcile_breakdown`` for
+    non-overflow reconciliations (e.g., missing-contribution gaps
+    where the actual aggregate is greater than the breakdown sum,
+    producing positive deltas).  Those cases fall through to the
+    standard ``{rolled}k{kept} {source}`` form — the label is
+    misleading for them, but that's a pre-existing labeling bug
+    separate from this rendering polish.
+    """
+    if source == _EXCESS_10K10_SOURCE and (rolled < 0 or kept < 0):
+        dropped = max(0, -rolled) + max(0, -kept)
+        bonus = 2 * dropped
+        noun = "die" if dropped == 1 else "dice"
+        return f"+{bonus} from {dropped} dropped {noun} in excess of 10k10"
+    return f"{rolled}k{kept} {source}"
+
 
 def _render_components(components: list[ComponentDelta]) -> str:
     """Inline ``"N1k(M1) source-1 + N2k(M2) source-2 + ..."`` breakdown.
 
     Returns "" when fewer than 2 nonzero-contribution components remain
     (single-source aggregates are redundant with the X-k-Y total).
+    The synthetic ``"from dice in excess of 10k10"`` entry is rendered
+    in narrative form (see ``_format_one_component``).
     """
     if not components:
         return ""
     filtered = [c for c in components if c.rolled != 0 or c.kept != 0]
     if len(filtered) < 2:
         return ""
-    return " + ".join(f"{c.rolled}k{c.kept} {c.source}" for c in filtered)
+    return " + ".join(_format_one_component(c.rolled, c.kept, c.source) for c in filtered)
 
 
 def _format_dice(dice: list[int], kept: int) -> str:

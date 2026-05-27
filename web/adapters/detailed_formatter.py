@@ -116,9 +116,29 @@ def _render_components(components: list[tuple[str, int, int]] | None) -> str:
     ]
     if len(filtered) < 2:
         return ""
-    return " + ".join(
-        f"{r}k{k} {label}" for label, r, k in filtered
-    )
+    return " + ".join(_format_one_component(r, k, label) for label, r, k in filtered)
+
+
+_EXCESS_10K10_SOURCE = "from dice in excess of 10k10"
+
+
+def _format_one_component(rolled: int, kept: int, source: str) -> str:
+    """Format a single component for the inline breakdown.
+
+    Special-cases the synthetic ``"from dice in excess of 10k10"``
+    entry when its delta represents actual overflow (rolled<0 or
+    kept<0): renders as ``"+{2*dropped} from {dropped} dropped dice
+    in excess of 10k10"`` (each die above the 10k10 cap is worth +2
+    per the L7R kept→bonus conversion).  Other sources — including
+    non-overflow reconciliations that share the same label — render
+    in the standard ``"{rolled}k{kept} {source}"`` form.
+    """
+    if source == _EXCESS_10K10_SOURCE and (rolled < 0 or kept < 0):
+        dropped = max(0, -rolled) + max(0, -kept)
+        bonus = 2 * dropped
+        noun = "die" if dropped == 1 else "dice"
+        return f"+{bonus} from {dropped} dropped {noun} in excess of 10k10"
+    return f"{rolled}k{kept} {source}"
 
 
 def _format_dice(dice: list[int], kept: int) -> str:
