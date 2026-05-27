@@ -217,9 +217,27 @@ class DetailedEventFormatter:
                 if event.skill == "wound check":
                     wc_idx = self._find_wound_check_rolled(history, i + 1, event.subject.name())
                     if wc_idx is not None:
-                        vp_infix = self._build_vp_infix([event])
+                        vp_infix = self._build_vp_infix([event], wc_event=history[wc_idx])
                         lines.extend(self._process_wound_check(history, wc_idx, consumed, vp_infix))
                         consumed.add(wc_idx)
+                        combat_output_since_status = True
+                        continue
+                # Akodo 5th Dan counter-damage: the spend is paired with
+                # the next LightWoundsDamageEvent (also tagged
+                # ``source="Akodo 5th Dan"``).  Render both as a single
+                # combined line per FR-024.
+                if (
+                    event.skill == "damage"
+                    and getattr(event, "source", None) == "Akodo 5th Dan"
+                ):
+                    counter_idx = self._find_akodo_5th_counter_damage(
+                        history, i + 1, event.subject,
+                    )
+                    if counter_idx is not None:
+                        lines.extend(self._format_akodo_5th_dan_counter(
+                            event, history[counter_idx],
+                        ))
+                        consumed.add(counter_idx)
                         combat_output_since_status = True
                         continue
                 lines.extend(self._format_spend_vp(event))
@@ -331,6 +349,24 @@ class DetailedEventFormatter:
             elif isinstance(event, events.SchoolNegatedEvent):
                 lines.extend(self._format_school_negated(event))
                 combat_output_since_status = True
+
+            elif isinstance(event, events.GainTemporaryVoidPointsEvent):
+                rendered = self._format_gain_tvp(event)
+                if rendered:
+                    lines.extend(rendered)
+                    combat_output_since_status = True
+
+            elif isinstance(event, events.GainFloatingBonusEvent):
+                rendered = self._format_gain_floating_bonus(event)
+                if rendered:
+                    lines.extend(rendered)
+                    combat_output_since_status = True
+
+            elif isinstance(event, events.SpendFloatingBonusEvent):
+                rendered = self._format_spend_floating_bonus(event)
+                if rendered:
+                    lines.extend(rendered)
+                    combat_output_since_status = True
 
         return lines
 
@@ -645,6 +681,98 @@ class DetailedEventFormatter:
         squares = "⬛" * event.amount
         return [f"{self._phase_prefix(name)} {squares} spends {event.amount} VP on {event.skill}"]
 
+    def _format_gain_tvp(self, event: Any) -> list[str]:
+        """Render ``GainTemporaryVoidPointsEvent`` with optional source
+        attribution per Constitution Principle VII.
+
+        Specifically supports the Akodo Bushi School Special Ability
+        (rules/04-schools.md "Akodo Bushi School: Special Ability") whose
+        listeners tag the event with ``source="Akodo Special Ability"`` —
+        the renderer disambiguates success (+4) vs. failure (+1) by the
+        ``amount`` field. Per FR-006, both the source string AND the
+        numeric value must appear in the user-facing trace.
+
+        Events with no ``source`` attribute are rendered with a generic
+        ``"+N TVP"`` line. Returns an empty list for non-positive
+        amounts (defensive guard; the engine should never emit ≤0).
+        """
+        if event.amount <= 0:
+            return []
+        name = event.subject.name()
+        source = getattr(event, "source", None)
+        if source == "Akodo Special Ability":
+            outcome = "successful feint" if event.amount == 4 else "failed feint"
+            return [
+                f"{self._phase_prefix(name)} ✨ {source}: "
+                f"+{event.amount} TVP on {outcome}"
+            ]
+        if source:
+            return [
+                f"{self._phase_prefix(name)} ✨ {source}: +{event.amount} TVP"
+            ]
+        return [f"{self._phase_prefix(name)} ✨ gains +{event.amount} TVP"]
+
+    def _format_gain_floating_bonus(self, event: Any) -> list[str]:
+        """Render ``GainFloatingBonusEvent`` with source attribution per
+        Constitution Principle VII.
+
+        rules/04-schools.md "Akodo Bushi School: Third Dan" -- the
+        emitter (``AkodoWoundCheckSucceededListener``) tags the event
+        with ``source="Akodo 3rd Dan"`` and an optional
+        ``breakdown`` (e.g. ``"margin 20 ÷ 5 × attack 5"``).  When the
+        bonus value is positive the formatter renders both source and
+        breakdown; a zero-valued bonus is silently skipped (it's inert
+        and would clutter the trace).
+
+        Events with no ``source`` get a generic rendering.  When the
+        bonus value is zero, returns an empty list -- the bonus is
+        inert and doesn't deserve a trace line.
+        """
+        bonus_value = event.bonus.bonus() if hasattr(event.bonus, "bonus") else 0
+        if bonus_value <= 0:
+            return []
+        name = event.subject.name()
+        source = event.source
+        breakdown = event.breakdown
+        if source:
+            if breakdown:
+                return [
+                    f"{self._phase_prefix(name)} ✨ {source}: gained "
+                    f"floating bonus +{bonus_value} ({breakdown})"
+                ]
+            return [
+                f"{self._phase_prefix(name)} ✨ {source}: gained "
+                f"floating bonus +{bonus_value}"
+            ]
+        return [
+            f"{self._phase_prefix(name)} ✨ gains floating bonus +{bonus_value}"
+        ]
+
+    def _format_spend_floating_bonus(self, event: Any) -> list[str]:
+        """Render ``SpendFloatingBonusEvent`` with source attribution.
+
+        The bonus's ``source()`` (set when the school created the
+        bonus) carries the attribution per Constitution Principle VII.
+        Untagged bonuses get a generic rendering.
+
+        rules/04-schools.md "Akodo Bushi School: Third Dan" tags every
+        Akodo-sourced bonus with ``source="Akodo 3rd Dan"`` so the
+        consumption line is identifiable in the user-facing trace.
+        """
+        bonus = event.bonus
+        bonus_value = bonus.bonus() if hasattr(bonus, "bonus") else 0
+        source = bonus.source() if hasattr(bonus, "source") else None
+        name = event.subject.name()
+        if source:
+            return [
+                f"{self._phase_prefix(name)} ✨ +{bonus_value} "
+                f"({source} floating bonus consumed)"
+            ]
+        return [
+            f"{self._phase_prefix(name)} ✨ +{bonus_value} "
+            f"(floating bonus consumed)"
+        ]
+
     def _format_school_negated(self, event: Any) -> list[str]:
         """Render ``SchoolNegatedEvent`` with the Isawa Ishi 5th Dan
         source attribution per Constitution Principle VII.
@@ -729,6 +857,55 @@ class DetailedEventFormatter:
                 continue
             break
         return None
+
+    def _find_akodo_5th_counter_damage(
+        self, history: list[Any], start: int, akodo_subject: Any,
+    ) -> int | None:
+        """Scan forward up to 5 events for the counter-damage
+        ``LightWoundsDamageEvent`` paired with an Akodo 5th Dan
+        ``SpendVoidPointsEvent``.
+
+        rules/04-schools.md "Akodo Bushi School: Fifth Dan": the strategy
+        yields the SpendVoidPointsEvent IMMEDIATELY followed by the
+        counter LightWoundsDamageEvent (``subject == akodo``,
+        ``source == "Akodo 5th Dan"``).
+        """
+        limit = min(start + 5, len(history))
+        for j in range(start, limit):
+            evt = history[j]
+            if (
+                isinstance(evt, events.LightWoundsDamageEvent)
+                and evt.subject == akodo_subject
+                and getattr(evt, "source", None) == "Akodo 5th Dan"
+            ):
+                return j
+            if isinstance(evt, _SKIP_EVENTS):
+                continue
+            break
+        return None
+
+    def _format_akodo_5th_dan_counter(
+        self, spend_event: Any, counter_event: Any,
+    ) -> list[str]:
+        """Render an Akodo 5th Dan counter-damage spend+damage pair as a
+        single combined line per FR-024 / Constitution Principle VII.
+
+        Format: ``"Akodo 5th Dan: spends N VP on counter-damage,
+        10 LW × N = +N0 LW dealt to <attacker>"`` with the source
+        attribution AND the numeric breakdown both visible.
+
+        rules/04-schools.md "Akodo Bushi School: Fifth Dan".
+        """
+        name = spend_event.subject.name()
+        squares = "⬛" * spend_event.amount
+        n = spend_event.amount
+        damage = counter_event.damage
+        target_name = counter_event.target.name()
+        return [
+            f"{self._phase_prefix(name)} {squares} Akodo 5th Dan: "
+            f"spends {n} VP on counter-damage, "
+            f"10 LW × {n} = {damage} LW dealt to {target_name}"
+        ]
 
     def _find_take_sw(
         self, history: list[Any], start: int, subject_name: str,
@@ -842,13 +1019,37 @@ class DetailedEventFormatter:
         return f"TN {tn}"
 
     @staticmethod
-    def _build_vp_infix(vp_events: list[Any]) -> str:
-        """Build a VP prefix like '⬛ spends 1 VP on attack → ' (or '' if empty)."""
+    def _build_vp_infix(vp_events: list[Any], wc_event: Any | None = None) -> str:
+        """Build a VP prefix like '⬛ spends 1 VP on attack → ' (or '' if empty).
+
+        When ``vp_events`` includes an ``Akodo 4th Dan``-sourced
+        ``SpendVoidPointsEvent`` on "wound check" AND ``wc_event`` is the
+        accompanying ``WoundCheckRolledEvent``, the prefix is augmented
+        with the school attribution AND the per-VP breakdown
+        (e.g. ``"⬛⬛ Akodo 4th Dan: spends 2 VP on wound check,
+        +5 per VP = +10 (15→25) → "``) per FR-019 / Constitution
+        Principle VII.
+        """
         if not vp_events:
             return ""
         total = sum(e.amount for e in vp_events)
         squares = "⬛" * total
         skill = vp_events[0].skill
+        # Akodo 4th Dan attribution: when the spend is tagged with the
+        # source, surface the source + the per-VP breakdown so the user
+        # sees both attribution AND arithmetic.
+        akodo_sources = [
+            e for e in vp_events
+            if getattr(e, "source", None) == "Akodo 4th Dan"
+        ]
+        if akodo_sources and skill == "wound check" and wc_event is not None:
+            akodo_total = sum(e.amount for e in akodo_sources)
+            new_roll = wc_event.roll
+            orig_roll = new_roll - (5 * akodo_total)
+            return (
+                f"{squares} Akodo 4th Dan: spends {total} VP on {skill}, "
+                f"+5 per VP = +{5 * akodo_total} ({orig_roll}→{new_roll}) → "
+            )
         return f"{squares} spends {total} VP on {skill} → "
 
     def _format_combined_attack(self, take_event: Any, rolled_event: Any, vp_infix: str = "") -> list[str]:

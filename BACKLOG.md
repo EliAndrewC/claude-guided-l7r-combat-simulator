@@ -24,8 +24,14 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
 - **Mirumoto Bushi School** — `specs/001-mirumoto-bushi-school/`,
   merged 2026-05-25.
 - **Isawa Ishi School** — `specs/002-isawa-ishi-school/`, merged
-  2026-05-26. (5th-Dan negation refactor: `specs/004-…` not
-  formalized; merged 2026-05-26 as commit `89dc0bb`.)
+  2026-05-26. (5th-Dan negation refactor not formalized as a separate
+  spec; merged 2026-05-26 as commit `89dc0bb`.)
+- **Akodo Bushi School** — `specs/004-akodo-bushi-school/`, merged
+  2026-05-27. Identity-driven AKODO_PRIORITIES + new
+  `AkodoAttackStrategy` (kill-shot / feint-first / plain-attack
+  fallback with `TVP_SATURATION_CAP = 4` for mirror non-degeneracy)
+  + 4th Dan off-by-one fix + 35 new tests (2919 → 2954). One of the
+  two Principle IX playability baselines.
 
 ## Partial work (no full audit yet)
 
@@ -42,11 +48,6 @@ adjacent runs share rules-text patterns and review heuristics.
 
 ### Bushi schools (direct combat — closest in shape to Mirumoto)
 
-- [ ] **Akodo Bushi School** (`simulation/schools/akodo_school.py`).
-  Canonical "generic" bushi; also one of the two playability
-  baselines in Principle IX. **Critical to audit early** — every
-  other school's win-feasibility check assumes Akodo behaves
-  correctly.
 - [ ] **Hida Bushi School** (`simulation/schools/hida_school.py`).
   The other Principle IX baseline. Currently has 3 TODO markers —
   likely the least-complete bushi skeleton. **Critical to audit

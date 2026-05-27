@@ -151,7 +151,7 @@ Implementation lives in `simulation/schools/base.py::BaseSchool.set_choice/choic
    - **Deploy**: `set -a && source .env && set +a && ~/.fly/bin/flyctl deploy` from the repo root. Picks up `FLY_API_TOKEN` from `.env`.
 
 <!-- SPECKIT START -->
-Active feature plan: [specs/002-isawa-ishi-school/plan.md](specs/002-isawa-ishi-school/plan.md)
-(Branch `002-isawa-ishi-school`. See sibling files in the same directory
+Active feature plan: [specs/004-akodo-bushi-school/plan.md](specs/004-akodo-bushi-school/plan.md)
+(Branch `005-akodo-bushi-school`. See sibling files in the same directory
 for spec, research, data model, contracts, quickstart, and OPEN_QUESTIONS.)
 <!-- SPECKIT END -->

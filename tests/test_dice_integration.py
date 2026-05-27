@@ -368,7 +368,18 @@ class TestEndToEndPlayByPlay(unittest.TestCase):
             self.assertNotIn("rolled []", line, f"Empty dice in initiative line: {line}")
 
     def test_detail_dice_not_empty_on_events(self):
-        """Verify _detail_dice is populated on all annotated events."""
+        """Verify _detail_dice is populated on all annotated events.
+
+        Feints emit ``LightWoundsDamageEvent`` with damage=0 and rolled=
+        kept=0 (``FeintAction.damage_roll_params`` returns ``(0, 0, 0)``),
+        which produces empty ``_detail_dice``.  This is expected -- a
+        feint by design has no damage to roll -- so we skip the empty
+        check for zero-damage damage events, matching the pattern used
+        in ``test_no_empty_dice_in_damage_lines`` (which excludes the
+        ``"0k0"`` rendering).  AkodoAttackStrategy installs feints as a
+        default offensive choice (FR-026), so this case is reachable on
+        the end-to-end Akodo combat path.
+        """
         _, history = self._build_and_run()
         for event in history:
             if isinstance(event, events.AttackRolledEvent) and hasattr(event, "_detail_dice"):
@@ -377,6 +388,9 @@ class TestEndToEndPlayByPlay(unittest.TestCase):
                     f"Empty _detail_dice on AttackRolledEvent, params={event._detail_params}",
                 )
             if isinstance(event, events.LightWoundsDamageEvent) and hasattr(event, "_detail_dice"):
+                # Skip feints: by design they roll 0k0 damage.
+                if event.damage == 0 and event._detail_params == (0, 0):
+                    continue
                 self.assertTrue(
                     len(event._detail_dice) > 0,
                     f"Empty _detail_dice on LightWoundsDamageEvent, params={event._detail_params}",

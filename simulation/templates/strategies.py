@@ -56,46 +56,68 @@ KAKITA_PRIORITIES: list[tuple[str, str, int]] = [
 ]
 
 # Akodo Bushi School (school_ring: water, knacks: double attack, feint, iaijutsu)
+# Identity-driven ordering per spec 004 design audit:
+#   - feint is the TVP economy faucet (Special Ability gives +4 on success, +1 on
+#     failure). Every higher-Dan ability is fueled by VP; raise feint first.
+#   - attack skill is a *literal multiplier* in the 3rd-Dan floating-bonus
+#     formula ((WC_roll - damage) // 5) * skill("attack"). Raise attack ahead
+#     of parry at every Dan tier.
+#   - water ring at rank 3 in the Dan-3 block: WC machinery (1st/2nd/3rd Dan)
+#     is fully online by Dan 3. 4th-Dan auto-raises water +1, so water-3 is the
+#     correct pre-4th-Dan stopping point. After 4th Dan, water gets the -5 XP
+#     school-ring discount, which dominates the max-rings phase.
+#   - void at Dan-4 (rank 3) and prioritized in max-rings: 4th Dan converts VP
+#     to WC free raises, 5th Dan converts VP to counter-damage. Both scale
+#     linearly with max_vp.
+#   - iaijutsu LAST among knacks at every Dan tier: Akodo has no iaijutsu-duel-
+#     specific Special Ability. It is a knack-of-record only.
 AKODO_PRIORITIES: list[tuple[str, str, int]] = [
-    # Dan 2
-    ("skill", "double attack", 2),
+    # Dan 2 — feint first (TVP faucet), then double attack, attack ahead of
+    # parry (3rd Dan multiplier), iaijutsu last.
     ("skill", "feint", 2),
-    ("skill", "iaijutsu", 2),
+    ("skill", "double attack", 2),
     ("skill", "attack", 2),
     ("skill", "parry", 2),
-    # Dan 3
-    ("skill", "double attack", 3),
+    ("skill", "iaijutsu", 2),
+    # Dan 3 — school knacks to 3, then water ring 3 (WC backbone).
     ("skill", "feint", 3),
-    ("skill", "iaijutsu", 3),
+    ("skill", "double attack", 3),
     ("skill", "attack", 3),
     ("skill", "parry", 3),
-    ("ring", "earth", 3),
-    # Dan 4
-    ("skill", "double attack", 4),
+    ("skill", "iaijutsu", 3),
+    ("ring", "water", 3),
+    # Dan 4 — school knacks to 4. Then void ring 3 (VP fuel for 4th + 5th Dan),
+    # then earth/air/fire to 3 for breadth. Water-4 is auto-raised by 4th Dan
+    # (free), so we do NOT buy water-4 here.
     ("skill", "feint", 4),
-    ("skill", "iaijutsu", 4),
+    ("skill", "double attack", 4),
     ("skill", "attack", 4),
     ("skill", "parry", 4),
+    ("skill", "iaijutsu", 4),
     ("ring", "void", 3),
-    ("ring", "fire", 3),
+    ("ring", "earth", 3),
     ("ring", "air", 3),
-    ("ring", "earth", 4),
-    # Dan 5
-    ("skill", "double attack", 5),
+    ("ring", "fire", 3),
+    # Dan 5 — school knacks to 5.
     ("skill", "feint", 5),
-    ("skill", "iaijutsu", 5),
+    ("skill", "double attack", 5),
     ("skill", "attack", 5),
     ("skill", "parry", 5),
-    # Max rings — ordered by cost: 20 > 25
+    ("skill", "iaijutsu", 5),
+    # Max rings — ordered by cost: 20 > 25. Water has the school-ring -5 XP
+    # discount post-4th-Dan, so water-5 (20 XP discounted) and water-6 (25 XP
+    # discounted) are bought first. Void next (5th Dan counter-damage scales
+    # with max_vp). Earth/air/fire fill out at full cost.
     ("ring", "water", 5),      # school ring discounted: 20
     ("ring", "void", 4),
-    ("ring", "fire", 4),
+    ("ring", "earth", 4),
     ("ring", "air", 4),
-    ("ring", "earth", 5),
+    ("ring", "fire", 4),
     ("ring", "water", 6),      # school ring discounted: 25
     ("ring", "void", 5),
-    ("ring", "fire", 5),
+    ("ring", "earth", 5),
     ("ring", "air", 5),
+    ("ring", "fire", 5),
 ]
 
 # Bayushi Bushi School (school_ring: fire, knacks: double attack, feint, iaijutsu)

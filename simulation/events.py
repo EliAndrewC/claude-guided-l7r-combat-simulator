@@ -323,9 +323,25 @@ class LightWoundsDamageEvent(DamageEvent):
 
     Normally this is the character's Light Wound total, but there
     are certain abilities that modify the TN.
+
+    The optional ``source`` field carries a human-readable attribution
+    for the trace formatter (Constitution Principle VII).  When set,
+    the user-facing combat trace renders the damage with the source
+    name (e.g., ``"Akodo 5th Dan: spent 3 VP on counter-damage, 10
+    LW × 3 = 30 LW dealt to <attacker>"``).  Emitters that do not set
+    ``source`` get the generic primary-damage rendering.  See
+    rules/04-schools.md "Akodo Bushi School: Fifth Dan".
     """
 
-    def __init__(self, subject: Any, target: Any, damage: int, tn: int | None = None, duel: bool = False) -> None:
+    def __init__(
+        self,
+        subject: Any,
+        target: Any,
+        damage: int,
+        tn: int | None = None,
+        duel: bool = False,
+        source: str | None = None,
+    ) -> None:
         super().__init__("lw_damage", subject, target, damage)
         if tn is None:
             self.wound_check_tn = damage
@@ -334,6 +350,7 @@ class LightWoundsDamageEvent(DamageEvent):
                 raise ValueError("tn parameter must be int")
             self.wound_check_tn = tn
         self.duel = duel
+        self.source = source
 
 
 class SeriousWoundsDamageEvent(DamageEvent):
@@ -464,8 +481,20 @@ class GainResourcesEvent(Event):
 
 
 class GainTemporaryVoidPointsEvent(GainResourcesEvent):
-    def __init__(self, subject: Any, amount: int) -> None:
+    """
+    Event emitted when a character gains temporary void points (TVP),
+    a stackable above-cap pool that resets at combat boundaries.
+
+    The optional ``source`` field carries the human-readable attribution
+    for the trace formatter (Constitution Principle VII): when set, the
+    user-facing combat trace renders the gain with the source name
+    (e.g., ``"Akodo Special Ability: +4 TVP on successful feint"``).
+    Emitters that do not set ``source`` get a generic rendering.
+    """
+
+    def __init__(self, subject: Any, amount: int, source: str | None = None) -> None:
         super().__init__("gain_tvp", subject, amount)
+        self.source = source
 
 
 class SpendActionEvent(Event):
@@ -508,8 +537,23 @@ class SpendConvictionEvent(SpendResourcesEvent):
 
 
 class SpendVoidPointsEvent(SpendResourcesEvent):
-    def __init__(self, subject: Any, skill: str, amount: int) -> None:
+    """
+    Event emitted when a character spends Void Points on a roll or
+    other action.
+
+    The optional ``source`` field carries the human-readable attribution
+    for the trace formatter (Constitution Principle VII).  When set,
+    the user-facing combat trace renders the spend with the source
+    name (e.g. ``"Akodo 4th Dan: spent 2 VP on wound check, +5 per
+    VP = +10 to roll"``).  Emitters that do not set ``source`` get the
+    generic rendering.
+    """
+
+    def __init__(
+        self, subject: Any, skill: str, amount: int, source: str | None = None,
+    ) -> None:
         super().__init__("spend_vp", subject, skill, amount)
+        self.source = source
 
 
 class SpendFloatingBonusEvent(Event):
@@ -523,6 +567,36 @@ class SpendFloatingBonusEvent(Event):
         super().__init__("spend_floating_bonus")
         self.subject = subject
         self.bonus = bonus
+
+
+class GainFloatingBonusEvent(Event):
+    """
+    Trace-observability event emitted when a character gains a floating
+    bonus from a school ability.  The engine does NOT need to handle
+    this event -- the bonus is appended directly via
+    ``Character.gain_floating_bonus`` in the same listener that emits
+    this event.  Its sole purpose is to surface the acquisition in the
+    user-facing combat trace per Constitution Principle VII.
+
+    ``source`` is the human-readable attribution (e.g.
+    ``"Akodo 3rd Dan"``).  ``breakdown`` is an optional explanatory
+    string (e.g. ``"margin 20 ÷ 5 × attack 5"``) -- when set, the
+    formatter MAY render it for the numeric breakdown clause of
+    Principle VII.
+    """
+
+    def __init__(
+        self,
+        subject: Any,
+        bonus: Any,
+        source: str | None = None,
+        breakdown: str | None = None,
+    ) -> None:
+        super().__init__("gain_floating_bonus")
+        self.subject = subject
+        self.bonus = bonus
+        self.source = source
+        self.breakdown = breakdown
 
 
 class ModifierEvent(Event):

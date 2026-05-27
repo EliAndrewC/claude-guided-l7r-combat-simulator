@@ -18,7 +18,21 @@ from simulation.mechanics.skills import ATTACK_SKILLS
 
 
 class FloatingBonus:
-    def __init__(self, skills: str | list[str], bonus: int) -> None:
+    """A floating bonus that may be applied to a roll after the fact.
+
+    ``source`` is an optional human-readable attribution (e.g.
+    ``"Akodo 3rd Dan"``) carried for trace observability per
+    Constitution Principle VII.  When set, the user-facing combat
+    trace can render the consumption with the source's name; when
+    ``None``, the formatter falls back to a generic rendering.
+    """
+
+    def __init__(
+        self,
+        skills: str | list[str],
+        bonus: int,
+        source: str | None = None,
+    ) -> None:
         if isinstance(skills, str):
             self._skills = [skills]
         elif isinstance(skills, list):
@@ -29,9 +43,13 @@ class FloatingBonus:
         else:
             raise ValueError("FloatingBonus skills must be str or list of str")
         self._bonus = bonus
+        self._source = source
 
     def bonus(self) -> int:
         return self._bonus
+
+    def source(self) -> str | None:
+        return self._source
 
     def is_applicable(self, skill: str) -> bool:
         return skill in self._skills
@@ -58,8 +76,8 @@ class AnyAttackFloatingBonus(FloatingBonus):
     Used by the Akodo and Bayushi schools.
     """
 
-    def __init__(self, bonus: int) -> None:
-        super().__init__(ATTACK_SKILLS, bonus)
+    def __init__(self, bonus: int, source: str | None = None) -> None:
+        super().__init__(ATTACK_SKILLS, bonus, source=source)
 
 
 class WoundCheckFloatingBonus(FloatingBonus):
@@ -69,5 +87,5 @@ class WoundCheckFloatingBonus(FloatingBonus):
     Used by the Isawa and Shinjo schools.
     """
 
-    def __init__(self, bonus: int) -> None:
-        super().__init__("wound check", bonus)
+    def __init__(self, bonus: int, source: str | None = None) -> None:
+        super().__init__("wound check", bonus, source=source)
