@@ -158,7 +158,7 @@ Implementation lives in `simulation/schools/base.py::BaseSchool.set_choice/choic
    - **Deploy**: `set -a && source .env && set +a && ~/.fly/bin/flyctl deploy` from the repo root. Picks up `FLY_API_TOKEN` from `.env`.
 
 <!-- SPECKIT START -->
-Active feature plan: [specs/006-coverage-to-100/plan.md](specs/006-coverage-to-100/plan.md)
-(Branch `007-coverage-to-100`. See sibling files in the same directory
-for spec, research, data model, quickstart, and OPEN_QUESTIONS.)
+Active feature plan: [specs/007-structured-trace-refactor/plan.md](specs/007-structured-trace-refactor/plan.md)
+(Branch `008-structured-trace-refactor`. See sibling files in the same directory
+for spec, research, data model, contracts, quickstart, and OPEN_QUESTIONS.)
 <!-- SPECKIT END -->

@@ -26,6 +26,42 @@ from simulation.schools.kakita_school import (
     ContestedIaijutsuAttackRolledEvent,
     TakeContestedIaijutsuAttackAction,
 )
+from web.adapters.trace_entries import (
+    AkodoFifthDanCounterEntry,
+    AttackEntry,
+    ComponentDelta,
+    CounterattackEntry,
+    DamageProjection,
+    DeathEntry,
+    DuelEndedEntry,
+    DuelInitiativeRolledEntry,
+    DuelResheathEntry,
+    DuelStrikeRolledEntry,
+    GainFloatingBonusEntry,
+    GainTvpEntry,
+    IaijutsuDuelHeaderEntry,
+    IaijutsuEntry,
+    IaijutsuFocusEntry,
+    IaijutsuStrikeEntry,
+    InitiativeEntry,
+    KeepLightWoundsEntry,
+    LightWoundsDamageEntry,
+    ModifierDelta,
+    ParryEntry,
+    RoundHeaderEntry,
+    SchoolNegatedEntry,
+    SeriousWoundsDamageEntry,
+    ShowMeYourStanceDeclaredEntry,
+    ShowMeYourStanceRolledEntry,
+    SpendFloatingBonusEntry,
+    SpendVpEntry,
+    StatusBlockEntry,
+    SurrenderEntry,
+    TakeSeriousWoundEntry,
+    TraceEntry,
+    UnconsciousEntry,
+    WoundCheckEntry,
+)
 
 
 def _compute_damage_breakdown(
@@ -136,15 +172,42 @@ class DetailedEventFormatter:
         self._last_take_sw_target: str | None = None
 
     def format_history(self, history: list[Any]) -> list[str]:
-        """Main entry point — processes full history after combat."""
-        lines: list[str] = []
+        """Main entry point — processes full history after combat.
+
+        Spec 007 T013 / T023: thin wrapper that delegates to
+        ``entries()`` plus ``TextRenderer().render_lines()``. The new
+        structured-trace path is the single source of truth for the
+        composition logic. The legacy private ``_format_*`` methods
+        were deleted in spec 007 Phase 8 (the byte-identical roundtrip
+        tests in ``test_text_renderer_roundtrip.py`` cover the same
+        rendering logic at the correct layer).
+        """
+        from web.adapters.text_renderer import TextRenderer
+        return TextRenderer().render_lines(self.entries(history))
+
+
+    # ── Structured entries (spec 007 — TraceEntry refactor) ────────────
+
+    def entries(self, history: list[Any]) -> list[TraceEntry]:
+        """Walk the event history and emit a list of structured TraceEntry
+        instances.  Mirrors the composition logic of ``format_history``
+        one-for-one so that ``TextRenderer().render_lines(entries(h))``
+        produces byte-identical output to the legacy
+        ``format_history(h)`` (FR-006 / FR-010).
+        """
+        # Reset state to support repeated calls / parallel walks.
+        self._current_phase = 0
+        self._current_round = 0
+        self._phase_shown = False
+        self._last_wc_passed = {}
+        self._last_take_sw_target = None
+
+        out: list[TraceEntry] = []
         shown_opening_status = False
-        last_status = None
-        # Track whether any visible combat output occurred since the last
-        # status block, so we don't render duplicate status blocks with
-        # nothing between them (e.g. when Phase 0 has no 5th Dan strike).
+        last_status: dict[str, Any] | None = None
         combat_output_since_status = False
         consumed: set[int] = set()
+        any_entry_emitted = False
 
         for i, event in enumerate(history):
             if i in consumed:
@@ -155,9 +218,8 @@ class DetailedEventFormatter:
 
             if isinstance(event, events.NewRoundEvent):
                 self._current_round = event.round
-                if lines:
-                    lines.append("")
-                lines.append(f"═══ Round {event.round + 1} ═══")
+                out.append(RoundHeaderEntry(round_number=event.round + 1))
+                any_entry_emitted = True
                 shown_opening_status = False
 
             elif isinstance(event, events.NewPhaseEvent):
@@ -166,123 +228,129 @@ class DetailedEventFormatter:
                 if hasattr(event, "_detail_status"):
                     last_status = event._detail_status
                 if hasattr(event, "_detail_initiative"):
-                    lines.extend(self._format_initiative(event))
+                    out.append(self._entry_initiative(event))
                 if not shown_opening_status and last_status:
-                    lines.append("  ─────")
-                    lines.extend(self._format_status_block(last_status))
-                    lines.append("  ─────")
+                    out.append(StatusBlockEntry(statuses=last_status))
                     shown_opening_status = True
                     combat_output_since_status = False
 
             elif isinstance(event, events.TakeAttackActionEvent):
                 status = getattr(event, "_detail_status", last_status)
                 if status and combat_output_since_status:
-                    lines.append("  ─────")
-                    lines.extend(self._format_status_block(status))
-                    lines.append("  ─────")
+                    out.append(StatusBlockEntry(statuses=status))
                     self._phase_shown = False
                     combat_output_since_status = False
-                # Lookahead for matching AttackRolledEvent
                 rolled_idx = self._find_attack_rolled(history, i + 1, event.action)
                 if rolled_idx is not None:
-                    # Check if counterattack events are interleaved
-                    has_counter = self._has_counterattack_between(history, i + 1, rolled_idx)
+                    has_counter = self._has_counterattack_between(
+                        history, i + 1, rolled_idx,
+                    )
                     if has_counter:
-                        # Don't combine — show declaration only; counterattack
-                        # and AttackRolledEvent will render in order
-                        lines.extend(self._format_take_attack(event))
+                        out.append(self._entry_take_attack(event))
                     else:
-                        # Collect VP events between, filtering by attacker subject
-                        # to avoid consuming counterattacker's VP events
                         vp_events: list[Any] = []
                         attacker = event.action.subject()
                         for j in range(i + 1, rolled_idx):
-                            if j in consumed:  # pragma: no cover  # defensive: VP events in this narrow window are never pre-consumed
+                            if j in consumed:  # pragma: no cover  # defensive
                                 continue
                             if isinstance(history[j], events.SpendVoidPointsEvent):
                                 if history[j].subject == attacker:
                                     vp_events.append(history[j])
                                     consumed.add(j)
-                        vp_infix = self._build_vp_infix(vp_events)
-                        lines.extend(self._format_combined_attack(event, history[rolled_idx], vp_infix=vp_infix))
+                        out.append(self._entry_combined_attack(
+                            event, history[rolled_idx], vp_events,
+                        ))
                         consumed.add(rolled_idx)
                 else:
-                    lines.extend(self._format_take_attack(event))
+                    out.append(self._entry_take_attack(event))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, TakeCounterattackActionEvent):
-                # Lookahead for matching CounterattackRolledEvent
-                rolled_idx = self._find_counterattack_rolled(history, i + 1, event.action)
+                rolled_idx = self._find_counterattack_rolled(
+                    history, i + 1, event.action,
+                )
                 if rolled_idx is not None:
                     vp_events_ca: list[Any] = []
                     for j in range(i + 1, rolled_idx):
-                        if j in consumed:  # pragma: no cover  # defensive: VP events in this narrow window are never pre-consumed
+                        if j in consumed:  # pragma: no cover  # defensive
                             continue
                         if isinstance(history[j], events.SpendVoidPointsEvent):
                             vp_events_ca.append(history[j])
                             consumed.add(j)
-                    vp_infix = self._build_vp_infix(vp_events_ca)
-                    lines.extend(self._format_combined_counterattack(event, history[rolled_idx], vp_infix=vp_infix))
+                    out.append(self._entry_combined_counterattack(
+                        event, history[rolled_idx], vp_events_ca,
+                    ))
                     consumed.add(rolled_idx)
                 else:
-                    lines.extend(self._format_take_counterattack(event))
+                    out.append(self._entry_take_counterattack(event))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, CounterattackRolledEvent):
-                lines.extend(self._format_counterattack_rolled(event))
+                out.append(self._entry_counterattack_rolled(event))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, events.AttackRolledEvent):
-                lines.extend(self._format_attack_rolled(event))
+                out.append(self._entry_attack_rolled(event))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, ContestedIaijutsuAttackRolledEvent):
-                lines.extend(self._format_contested_iaijutsu_rolled(event))
+                out.append(self._entry_contested_iaijutsu_rolled(event))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, events.TakeParryActionEvent):
                 rolled_idx = self._find_parry_rolled(history, i + 1, event.action)
                 if rolled_idx is not None:
-                    lines.extend(self._format_combined_parry(event, history[rolled_idx]))
+                    out.append(self._entry_combined_parry(event, history[rolled_idx]))
                     consumed.add(rolled_idx)
                 else:
-                    lines.extend(self._format_take_parry(event))
+                    out.append(self._entry_take_parry(event))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, events.ParryRolledEvent):
-                lines.extend(self._format_parry_rolled(event))
+                out.append(self._entry_parry_rolled(event))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, events.LightWoundsDamageEvent):
-                lines.extend(self._format_lw_damage(event))
+                out.append(self._entry_lw_damage(event))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, events.SeriousWoundsDamageEvent):
-                # Skip if redundant with preceding TakeSeriousWoundEvent
                 if self._last_take_sw_target == event.target.name():
                     self._last_take_sw_target = None
                     continue
                 self._last_take_sw_target = None
-                lines.extend(self._format_sw_damage(event))
+                out.append(self._entry_sw_damage(event))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, events.WoundCheckRolledEvent):
-                lines.extend(self._process_wound_check(history, i, consumed))
+                out.append(self._process_wound_check_entry(history, i, consumed))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, events.SpendVoidPointsEvent):
                 if event.skill == "wound check":
-                    wc_idx = self._find_wound_check_rolled(history, i + 1, event.subject.name())
+                    wc_idx = self._find_wound_check_rolled(
+                        history, i + 1, event.subject.name(),
+                    )
                     if wc_idx is not None:
-                        vp_infix = self._build_vp_infix([event], wc_event=history[wc_idx])
-                        lines.extend(self._process_wound_check(history, wc_idx, consumed, vp_infix))
+                        out.append(self._process_wound_check_entry(
+                            history, wc_idx, consumed,
+                            vp_prefix_events=[event],
+                            wc_event_for_vp=history[wc_idx],
+                        ))
                         consumed.add(wc_idx)
                         combat_output_since_status = True
+                        any_entry_emitted = True
                         continue
-                # Akodo 5th Dan counter-damage: the spend is paired with
-                # the next LightWoundsDamageEvent (also tagged
-                # ``source="Akodo 5th Dan"``).  Render both as a single
-                # combined line per FR-024.
                 if (
                     event.skill == "damage"
                     and getattr(event, "source", None) == "Akodo 5th Dan"
@@ -291,141 +359,186 @@ class DetailedEventFormatter:
                         history, i + 1, event.subject,
                     )
                     if counter_idx is not None:
-                        lines.extend(self._format_akodo_5th_dan_counter(
+                        out.append(self._entry_akodo_5th_dan_counter(
                             event, history[counter_idx],
                         ))
                         consumed.add(counter_idx)
                         combat_output_since_status = True
+                        any_entry_emitted = True
                         continue
-                lines.extend(self._format_spend_vp(event))
+                out.append(self._entry_spend_vp(event))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, events.KeepLightWoundsEvent):
-                lines.extend(self._format_keep_lw(event))
+                out.append(self._entry_keep_lw(event))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, events.TakeSeriousWoundEvent):
                 self._last_take_sw_target = event.subject.name()
-                lines.extend(self._format_take_sw(event))
+                out.append(self._entry_take_sw(event))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, IaijutsuDuelEvent):
-                lines.append("")
-                lines.append("═══ Iaijutsu Duel ═══")
+                out.append(IaijutsuDuelHeaderEntry())
                 self._phase_shown = True
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, ShowMeYourStanceDeclaredEvent):
-                name = event.subject.name()
-                lines.append(f"{name} | 🔍 prepares to assess opponent's stance")
+                out.append(ShowMeYourStanceDeclaredEntry(
+                    character_name=event.subject.name(),
+                ))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, ShowMeYourStanceRolledEvent):
-                name = event.subject.name()
-                dice_info = ""
+                rolled = None
+                kept = None
+                dice: list[int] = []
                 if hasattr(event, "_detail_dice") and event._detail_dice:
                     rp = getattr(event, "_detail_roll_params", None)
                     if rp:
-                        dice_info = f" ({rp['rolled']}k{rp['kept']} {_format_dice(event._detail_dice, rp['kept'])})"
-                lines.append(
-                    f"{name} | 🔍 Stance: rolled {event.roll}{dice_info}"
-                    f" — discerns Fire ~{event.discerned_fire}, TN ~{event.discerned_tn}"
-                )
+                        rolled = rp["rolled"]
+                        kept = rp["kept"]
+                        dice = list(event._detail_dice)
+                out.append(ShowMeYourStanceRolledEntry(
+                    character_name=event.subject.name(),
+                    roll=event.roll,
+                    discerned_fire=event.discerned_fire,
+                    discerned_tn=event.discerned_tn,
+                    rolled=rolled,
+                    kept=kept,
+                    dice=dice,
+                ))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, DuelInitiativeRolledEvent):
-                winner_name = event.winner.name()
-                lines.append(
-                    f"⚔️ Contested Iaijutsu: "
-                    f"{event.challenger.name()} {event.challenger_roll} vs "
-                    f"{event.defender.name()} {event.defender_roll} "
-                    f"— {winner_name} chooses first"
-                )
+                out.append(DuelInitiativeRolledEntry(
+                    challenger_name=event.challenger.name(),
+                    defender_name=event.defender.name(),
+                    challenger_roll=event.challenger_roll,
+                    defender_roll=event.defender_roll,
+                    winner_name=event.winner.name(),
+                ))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, IaijutsuFocusEvent):
-                name = event.subject.name()
-                c_name = event.challenger.name()
-                d_name = event.defender.name()
-                lines.append(
-                    f"{name} | 🎯 focuses — "
-                    f"TNs: {c_name} {event.challenger_tn}, {d_name} {event.defender_tn}"
-                )
+                out.append(IaijutsuFocusEntry(
+                    character_name=event.subject.name(),
+                    challenger_name=event.challenger.name(),
+                    defender_name=event.defender.name(),
+                    challenger_tn=event.challenger_tn,
+                    defender_tn=event.defender_tn,
+                ))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, IaijutsuStrikeEvent):
-                name = event.subject.name()
-                c_name = event.challenger.name()
-                d_name = event.defender.name()
-                lines.append(
-                    f"{name} | ⚔️ declares strike — "
-                    f"TNs: {c_name} {event.challenger_tn}, {d_name} {event.defender_tn}"
-                )
+                out.append(IaijutsuStrikeEntry(
+                    character_name=event.subject.name(),
+                    challenger_name=event.challenger.name(),
+                    defender_name=event.defender.name(),
+                    challenger_tn=event.challenger_tn,
+                    defender_tn=event.defender_tn,
+                ))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, DuelStrikeRolledEvent):
-                name = event.subject.name()
-                target_name = event.target.name()
-                dice_info = ""
+                ds_rolled = None
+                ds_kept = None
+                ds_dice: list[int] = []
                 if hasattr(event, "_detail_dice") and event._detail_dice:
                     rp = getattr(event, "_detail_roll_params", None)
                     if rp:
-                        dice_info = f" {rp['rolled']}k{rp['kept']} {_format_dice(event._detail_dice, rp['kept'])}"
-                if event.is_hit:
-                    result = "HIT!"
-                    extra = f" (+{event.extra_damage_dice} extra damage dice)" if event.extra_damage_dice > 0 else ""
-                    lines.append(f"{name} | ⚔️ Strike vs {target_name}:{dice_info} {event.roll} vs TN {event.tn} — {result}{extra}")
-                else:
-                    lines.append(f"{name} | ❌ Strike vs {target_name}:{dice_info} {event.roll} vs TN {event.tn} — MISS")
+                        ds_rolled = rp["rolled"]
+                        ds_kept = rp["kept"]
+                        ds_dice = list(event._detail_dice)
+                out.append(DuelStrikeRolledEntry(
+                    character_name=event.subject.name(),
+                    target_name=event.target.name(),
+                    roll=event.roll,
+                    tn=event.tn,
+                    is_hit=event.is_hit,
+                    extra_damage_dice=event.extra_damage_dice,
+                    rolled=ds_rolled,
+                    kept=ds_kept,
+                    dice=ds_dice,
+                ))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, DuelResheathEvent):
-                higher = event.higher_roller.name()
-                lines.append(f"🔄 Neither hit — resheathe. {higher} gains a free raise on damage.")
+                out.append(DuelResheathEntry(
+                    higher_roller_name=event.higher_roller.name(),
+                ))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, DuelEndedEvent):
-                lines.append("⚔️ Duel ended — transitioning to melee combat")
+                out.append(DuelEndedEntry())
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, events.DeathEvent):
                 name = event.subject.name()
-                lines.append(f"{self._phase_prefix(name)} ☠️ is killed!")
+                out.append(DeathEntry(
+                    phase_prefix=self._phase_prefix(name),
+                    character_name=name,
+                ))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, events.UnconsciousEvent):
                 name = event.subject.name()
-                lines.append(f"{self._phase_prefix(name)} 💀 falls unconscious!")
+                out.append(UnconsciousEntry(
+                    phase_prefix=self._phase_prefix(name),
+                    character_name=name,
+                ))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, events.SurrenderEvent):
                 name = event.subject.name()
-                lines.append(f"{self._phase_prefix(name)} 🏳️ surrenders!")
+                out.append(SurrenderEntry(
+                    phase_prefix=self._phase_prefix(name),
+                    character_name=name,
+                ))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, events.SchoolNegatedEvent):
-                lines.extend(self._format_school_negated(event))
+                out.append(self._entry_school_negated(event))
                 combat_output_since_status = True
+                any_entry_emitted = True
 
             elif isinstance(event, events.GainTemporaryVoidPointsEvent):
-                rendered = self._format_gain_tvp(event)
-                if rendered:
-                    lines.extend(rendered)
+                tvp_entry = self._entry_gain_tvp(event)
+                if tvp_entry is not None:
+                    out.append(tvp_entry)
                     combat_output_since_status = True
+                    any_entry_emitted = True
 
             elif isinstance(event, events.GainFloatingBonusEvent):
-                rendered = self._format_gain_floating_bonus(event)
-                if rendered:
-                    lines.extend(rendered)
+                gfb_entry = self._entry_gain_floating_bonus(event)
+                if gfb_entry is not None:
+                    out.append(gfb_entry)
                     combat_output_since_status = True
+                    any_entry_emitted = True
 
             elif isinstance(event, events.SpendFloatingBonusEvent):
-                rendered = self._format_spend_floating_bonus(event)
-                if rendered:
-                    lines.extend(rendered)
-                    combat_output_since_status = True
+                sfb_entry = self._entry_spend_floating_bonus(event)
+                out.append(sfb_entry)
+                combat_output_since_status = True
+                any_entry_emitted = True
 
-        return lines
+        _ = any_entry_emitted  # for symmetry with format_history's tracking
+        return out
 
     def _phase_prefix(self, char_name: str) -> str:
         """Returns 'Phase X | Name |' on first call per phase, then 'Name |'."""
@@ -433,291 +546,6 @@ class DetailedEventFormatter:
             self._phase_shown = True
             return f"Phase {self._current_phase} | {char_name} |"
         return f"{char_name} |"
-
-    def _format_status_block(self, status: dict[str, Any]) -> list[str]:
-        """Format a status snapshot as a block of lines."""
-        lines: list[str] = []
-        for name, s in status.items():
-            crippled = " | CRIPPLED" if s["crippled"] else ""
-            lines.append(
-                f"  {name}:  Light {s['lw']} | Serious {s['sw']}/{s['max_sw']} | "
-                f"Void {s['vp']}/{s['max_vp']} | Actions: {s['actions']}{crippled}"
-            )
-        return lines
-
-    def _format_initiative(self, event: Any) -> list[str]:
-        lines = ["", "🎲 Initiative:"]
-        for name, data in event._detail_initiative.items():
-            rolled, kept = data["roll_params"]
-            all_dice = data["all_dice"]
-            actions = data["actions"]
-            dice_str = _format_dice(all_dice, kept)
-            lines.append(f"  {name}: {rolled}k{kept} rolled {dice_str} → Actions: {actions}")
-        return lines
-
-    def _format_take_attack(self, event: Any) -> list[str]:
-        subj = event.action.subject().name()
-        tgt = event.action.target().name()
-        skill = event.action.skill()
-        return [f"{self._phase_prefix(subj)} ⚔️ attacks {tgt} ({skill})"]
-
-    def _format_take_counterattack(self, event: Any) -> list[str]:
-        subj = event.action.subject().name()
-        tgt = event.action.target().name()
-        return [f"{self._phase_prefix(subj)} ⚔️ counterattacks {tgt}"]
-
-    def _format_take_parry(self, event: Any) -> list[str]:
-        subj = event.action.subject().name()
-        tgt = event.action.target().name()
-        return [f"{self._phase_prefix(subj)} 🛡️ parries {tgt}"]
-
-    def _format_attack_rolled(self, event: Any) -> list[str]:
-        """Combine attack roll with hit/miss result."""
-        if not hasattr(event, "_detail_dice"):
-            return [f"  Roll: {event.roll}"]
-
-        dice = event._detail_dice
-        rolled, kept, mod = event._detail_params
-        tn = event._detail_tn
-        base_tn = getattr(event, "_detail_base_tn", tn)
-        # Per FR-011: pass the action's skill to _format_tn so the
-        # raise clause carries the action name (e.g., "double attack",
-        # "feint") rather than a generic placeholder.
-        tn_str = self._format_tn(tn, base_tn, event.action.skill())
-        name = event.action.subject().name()
-
-        kept_sum = sum(dice[:kept]) if dice else event.roll
-        total = kept_sum + mod
-
-        # Per FR-006: render the inline attack-XkY source breakdown
-        # when the observer attached ``_detail_components`` with more
-        # than one nonzero entry. The breakdown precedes the dice list,
-        # matching the damage-line convention (``XkY = <breakdown>
-        # [dice]``).
-        attack_breakdown = _render_components(
-            getattr(event, "_detail_components", None),
-        )
-        xky = f"{rolled}k{kept}"
-        if attack_breakdown:
-            xky = f"{rolled}k{kept} = {attack_breakdown}"
-
-        # Build roll description
-        roll_str = f"{xky} {_format_dice(dice, kept)} → {kept_sum}"
-        if mod > 0:
-            roll_str += f", +{mod} = {total}"
-        elif mod < 0:
-            roll_str += f", {mod} = {total}"
-
-        # Determine hit/miss
-        hit = event.action.is_hit() and not event.action.parried()
-        if hit:
-            emoji = "🎯"
-            result = "HIT!"
-            # Use base TN for extra dice calculation (double attack computes
-            # extra dice against the base TN, not the inflated +20 TN).
-            extra_dice = event.action.calculate_extra_damage_dice(tn=base_tn)
-            subject = event.action.subject()
-            target = event.action.target()
-            damage_params = subject.get_damage_roll_params(
-                target, event.action.skill(), extra_dice, event.action.vp()
-            )
-            extras = []
-            margin = total - tn
-            if margin > 0:
-                extras.append(f"+{margin} over TN")
-            if extra_dice > 0:
-                extras.append(f"{extra_dice} extra damage {'die' if extra_dice == 1 else 'dice'}")
-            if damage_params:
-                dr, dk, _dm = damage_params
-                damage_breakdown = _render_components(
-                    _compute_damage_breakdown(subject, target, event.action, extra_dice),
-                )
-                if damage_breakdown:
-                    extras.append(f"damage will be {dr}k{dk} = {damage_breakdown}")
-                else:
-                    extras.append(f"damage will be {dr}k{dk}")
-            extra_str = f" ({', '.join(extras)})" if extras else ""
-            attribution = self._format_modifier_breakdown(event, mod)
-            return [f"{self._phase_prefix(name)} {emoji} Attack: {roll_str} vs {tn_str} — {result}{extra_str}{attribution}"]
-        else:
-            emoji = "❌"
-            result = "MISS"
-            attribution = self._format_modifier_breakdown(event, mod)
-            return [f"{self._phase_prefix(name)} {emoji} Attack: {roll_str} vs {tn_str} — {result}{attribution}"]
-
-    def _format_counterattack_rolled(self, event: Any) -> list[str]:
-        """Standalone counterattack roll with hit/miss result."""
-        if not hasattr(event, "_detail_dice"):
-            return [f"  Counterattack Roll: {event.roll}"]
-
-        dice = event._detail_dice
-        rolled, kept, mod = event._detail_params
-        tn = event._detail_tn
-        name = event.action.subject().name()
-
-        roll_str, total = self._build_roll_str(dice, rolled, kept, mod, event.roll)
-
-        hit = event.action.is_hit()
-        if hit:
-            emoji = "🎯"
-            result = "HIT!"
-        else:
-            emoji = "❌"
-            result = "MISS"
-        attribution = self._format_modifier_breakdown(event, mod)
-        return [f"{self._phase_prefix(name)} {emoji} Counterattack: {roll_str} vs TN {tn} — {result}{attribution}"]
-
-    def _format_contested_iaijutsu_rolled(self, event: Any) -> list[str]:
-        """Format a contested iaijutsu attack rolled event."""
-        action = event.action
-        name = action.subject().name()
-        is_challenger = action.challenger() == action.subject()
-        skill_roll = action.skill_roll()
-        opponent_roll = action.opponent_skill_roll()
-        extra_dice = action.calculate_extra_damage_dice()
-
-        # Determine WON/LOST/TIED
-        if skill_roll > opponent_roll:
-            result = "WON"
-        elif skill_roll < opponent_roll:
-            result = "LOST"
-        else:
-            result = "TIED"
-
-        margin = abs(skill_roll - opponent_roll)
-
-        # Build dice string if annotations present
-        # Use skill_roll() as the authoritative total — the modifier from
-        # skill_roll_params() may include action-level adjustments that
-        # weren't actually applied during the roll (e.g. the -5 penalty
-        # for using "attack" instead of "iaijutsu").
-        if hasattr(event, "_detail_dice") and hasattr(event, "_detail_params"):
-            dice = event._detail_dice
-            rolled, kept, _mod = event._detail_params
-            kept_sum = sum(dice[:kept]) if dice else skill_roll
-            effective_mod = skill_roll - kept_sum
-
-            roll_str = f"{rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum}"
-            if effective_mod > 0:
-                roll_str += f", +{effective_mod} = {skill_roll}"
-            elif effective_mod < 0:
-                roll_str += f", {effective_mod} = {skill_roll}"
-        else:
-            roll_str = str(skill_roll)
-
-        # Build label and extras
-        if is_challenger:
-            label = "⚔️ Contested Iaijutsu (5th Dan)"
-            extras = [f"+{margin}" if margin > 0 else ""]
-            if result == "WON" and extra_dice > 0:
-                extras.append(f"{extra_dice} extra damage {'die' if extra_dice == 1 else 'dice'}")
-            elif result == "LOST" and extra_dice < 0:
-                extras.append(f"{abs(extra_dice)} fewer damage dice")
-            extras = [e for e in extras if e]
-            extra_str = f" ({', '.join(extras)})" if extras else ""
-        else:
-            skill = action.skill()
-            label = f"⚔️ Contested Iaijutsu ({skill})"
-            extras = [f"+{margin}" if margin > 0 else ""]
-            extras = [e for e in extras if e]
-            extra_str = f" ({', '.join(extras)})" if extras else ""
-
-        return [
-            f"{self._phase_prefix(name)} {label}: {roll_str} vs {opponent_roll} — {result}{extra_str}"
-        ]
-
-    def _format_parry_rolled(self, event: Any) -> list[str]:
-        """Combine parry roll with succeeded/failed result."""
-        name = event.action.subject().name()
-
-        if not hasattr(event, "_detail_dice"):
-            return [f"{self._phase_prefix(name)} 🛡️ Parry roll: {event.roll}"]
-
-        dice = event._detail_dice
-        rolled, kept, mod = event._detail_params
-        tn = event._detail_tn
-
-        kept_sum = sum(dice[:kept]) if dice else event.roll
-        total = kept_sum + mod
-
-        roll_str = f"{rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum}"
-        if mod > 0:
-            roll_str += f", +{mod} = {total}"
-        elif mod < 0:
-            roll_str += f", {mod} = {total}"
-
-        succeeded = event.action.is_success()
-        result = "SUCCEEDED" if succeeded else "FAILED"
-        attribution = self._format_modifier_breakdown(event, mod)
-        return [f"{self._phase_prefix(name)} 🛡️ Parry: {roll_str} vs TN {tn} — {result}{attribution}"]
-
-    def _format_lw_damage(self, event: Any) -> list[str]:
-        name = event.target.name()
-        attacker = event.subject.name()
-
-        if not hasattr(event, "_detail_dice"):
-            return [f"{self._phase_prefix(name)} 💥 takes {event.damage} light wounds"]
-
-        dice = event._detail_dice
-        rolled, kept = event._detail_params
-        kept_sum = sum(dice[:kept]) if dice else event.damage
-
-        lw_after = getattr(event, "_detail_lw_after", None)
-        total_str = f" (total: {lw_after})" if lw_after is not None else ""
-
-        # Per FR-009: render the inline source breakdown when the
-        # observer attached ``_detail_components`` and the breakdown has
-        # more than one nonzero entry. Zero-contribution entries are
-        # filtered out (Edge Cases: "Zero-contribution sources").
-        breakdown_str = _render_components(getattr(event, "_detail_components", None))
-        xky = f"{rolled}k{kept}"
-        if breakdown_str:
-            xky = f"{rolled}k{kept} = {breakdown_str}"
-
-        return [
-            f"{self._phase_prefix(attacker)} 💥 Damage: {xky} {_format_dice(dice, kept)} → {kept_sum}"
-            f" → {name} takes {event.damage} light wounds{total_str}",
-        ]
-
-    def _format_sw_damage(self, event: Any) -> list[str]:
-        name = event.target.name()
-        hearts = "💔" * event.damage
-        noun = "wound" if event.damage == 1 else "wounds"
-        suffix = " (double attack penalty)" if getattr(event, "_from_double_attack", False) else ""
-        return [f"{self._phase_prefix(name)} {hearts} {name} takes {event.damage} serious {noun}{suffix}"]
-
-    def _format_wound_check_rolled(self, event: Any, emoji: str | None = None, vp_infix: str = "") -> list[str]:
-        """Combine wound check roll with pass/fail.
-
-        Per Constitution Principle VII the rendered line shows BOTH
-        the kept-sum and the modifier (when non-zero), plus a source
-        attribution line when a school-specific breakdown is known
-        and sums correctly to the modifier.
-        """
-        name = event.subject.name()
-
-        passed = event.roll >= event.tn
-        if emoji is None:
-            emoji = "💔" if passed else "🖤"
-        result = "PASSED" if passed else "FAILED"
-
-        if not hasattr(event, "_detail_dice"):
-            return [f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: rolled {event.roll} vs TN {event.tn} — {result}"]
-
-        dice = event._detail_dice
-        rolled, kept, mod = self._unpack_wound_check_params(event._detail_params)
-        kept_sum = sum(dice[:kept]) if dice else event.roll
-        total = kept_sum + mod
-
-        roll_str = f"{rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum}"
-        if mod > 0:
-            roll_str += f", +{mod} = {total}"
-        elif mod < 0:
-            roll_str += f", {mod} = {total}"
-
-        line = f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: {roll_str} vs TN {event.tn} — {result}"
-        line += self._format_modifier_breakdown(event, mod)
-        return [line]
 
     @staticmethod
     def _unpack_wound_check_params(params: Any) -> tuple[int, int, int]:
@@ -731,179 +559,6 @@ class DetailedEventFormatter:
         if len(params) >= 3:
             return (params[0], params[1], params[2])
         return (params[0], params[1], 0)
-
-    @staticmethod
-    def _format_modifier_breakdown(event: Any, modifier: int) -> str:
-        """Return a parenthetical ``" (Source: +N x M VP; Source2: +K)"``
-        suffix attributing the rendered ``modifier`` to its source(s).
-
-        Per spec.md FR-010 / FR-014 (Combat Trace Observability Audit):
-        a non-zero modifier MUST always carry an attribution. When the
-        ``event._detail_modifier_breakdown`` accounts for only part
-        (or none) of the modifier, the remainder is rendered as
-        ``(unsourced: +K)`` -- a visible Principle VII violation rather
-        than silently suppressing the attribution. This makes the gap
-        flag-able by tests (``test_unaccounted_modifier_renders_unsourced_placeholder``)
-        instead of hidden behind a "better silent than wrong" guard.
-
-        Returns an empty string only when ``modifier == 0`` (nothing to
-        attribute).
-        """
-        if modifier == 0:
-            return ""
-        breakdown = getattr(event, "_detail_modifier_breakdown", None) or []
-        # Filter out zero-value contributions per the audit's edge-case
-        # rule ("Zero-contribution sources").
-        breakdown = [(label, value) for label, value in breakdown if value != 0]
-        known_total = sum(value for _label, value in breakdown)
-        remainder = modifier - known_total
-        # Special-case the single-source "Mirumoto 5th Dan" rendering
-        # so it explicitly shows the "x N VP" multiplier (matching the
-        # user's expected trace format). All other single-source
-        # renderings show "Label: +N".
-        if breakdown and remainder == 0 and len(breakdown) == 1:
-            label, value = breakdown[0]
-            if label == "Mirumoto 5th Dan" and value > 0 and value % 10 == 0:
-                vp_count = value // 10
-                return f" ({label}: +10 × {vp_count} VP)"
-            sign = "+" if value >= 0 else ""
-            return f" ({label}: {sign}{value})"
-        parts: list[str] = []
-        for label, value in breakdown:
-            sign = "+" if value >= 0 else ""
-            parts.append(f"{label}: {sign}{value}")
-        if remainder != 0:
-            sign = "+" if remainder >= 0 else ""
-            parts.append(f"unsourced: {sign}{remainder}")
-        if not parts:  # pragma: no cover  # defensive: unreachable when modifier != 0 (remainder forces unsourced part); modifier == 0 short-circuits earlier
-            return ""
-        return f" ({'; '.join(parts)})"
-
-    def _format_spend_vp(self, event: Any) -> list[str]:
-        name = event.subject.name()
-        squares = "⬛" * event.amount
-        return [f"{self._phase_prefix(name)} {squares} spends {event.amount} VP on {event.skill}"]
-
-    def _format_gain_tvp(self, event: Any) -> list[str]:
-        """Render ``GainTemporaryVoidPointsEvent`` with optional source
-        attribution per Constitution Principle VII.
-
-        Specifically supports the Akodo Bushi School Special Ability
-        (rules/04-schools.md "Akodo Bushi School: Special Ability") whose
-        listeners tag the event with ``source="Akodo Special Ability"`` —
-        the renderer disambiguates success (+4) vs. failure (+1) by the
-        ``amount`` field. Per FR-006, both the source string AND the
-        numeric value must appear in the user-facing trace.
-
-        Events with no ``source`` attribute are rendered with a generic
-        ``"+N TVP"`` line. Returns an empty list for non-positive
-        amounts (defensive guard; the engine should never emit ≤0).
-        """
-        if event.amount <= 0:
-            return []
-        name = event.subject.name()
-        source = getattr(event, "source", None)
-        if source == "Akodo Special Ability":
-            outcome = "successful feint" if event.amount == 4 else "failed feint"
-            return [
-                f"{self._phase_prefix(name)} ✨ {source}: "
-                f"+{event.amount} TVP on {outcome}"
-            ]
-        if source:
-            return [
-                f"{self._phase_prefix(name)} ✨ {source}: +{event.amount} TVP"
-            ]
-        return [f"{self._phase_prefix(name)} ✨ gains +{event.amount} TVP"]
-
-    def _format_gain_floating_bonus(self, event: Any) -> list[str]:
-        """Render ``GainFloatingBonusEvent`` with source attribution per
-        Constitution Principle VII.
-
-        rules/04-schools.md "Akodo Bushi School: Third Dan" -- the
-        emitter (``AkodoWoundCheckSucceededListener``) tags the event
-        with ``source="Akodo 3rd Dan"`` and an optional
-        ``breakdown`` (e.g. ``"margin 20 ÷ 5 × attack 5"``).  When the
-        bonus value is positive the formatter renders both source and
-        breakdown; a zero-valued bonus is silently skipped (it's inert
-        and would clutter the trace).
-
-        Events with no ``source`` get a generic rendering.  When the
-        bonus value is zero, returns an empty list -- the bonus is
-        inert and doesn't deserve a trace line.
-        """
-        bonus_value = event.bonus.bonus() if hasattr(event.bonus, "bonus") else 0
-        if bonus_value <= 0:
-            return []
-        name = event.subject.name()
-        source = event.source
-        breakdown = event.breakdown
-        if source:
-            if breakdown:
-                return [
-                    f"{self._phase_prefix(name)} ✨ {source}: gained "
-                    f"floating bonus +{bonus_value} ({breakdown})"
-                ]
-            return [
-                f"{self._phase_prefix(name)} ✨ {source}: gained "
-                f"floating bonus +{bonus_value}"
-            ]
-        return [
-            f"{self._phase_prefix(name)} ✨ gains floating bonus +{bonus_value}"
-        ]
-
-    def _format_spend_floating_bonus(self, event: Any) -> list[str]:
-        """Render ``SpendFloatingBonusEvent`` with source attribution.
-
-        The bonus's ``source()`` (set when the school created the
-        bonus) carries the attribution per Constitution Principle VII.
-        Untagged bonuses get a generic rendering.
-
-        rules/04-schools.md "Akodo Bushi School: Third Dan" tags every
-        Akodo-sourced bonus with ``source="Akodo 3rd Dan"`` so the
-        consumption line is identifiable in the user-facing trace.
-        """
-        bonus = event.bonus
-        bonus_value = bonus.bonus() if hasattr(bonus, "bonus") else 0
-        source = bonus.source() if hasattr(bonus, "source") else None
-        name = event.subject.name()
-        if source:
-            return [
-                f"{self._phase_prefix(name)} ✨ +{bonus_value} "
-                f"({source} floating bonus consumed)"
-            ]
-        return [
-            f"{self._phase_prefix(name)} ✨ +{bonus_value} "
-            f"(floating bonus consumed)"
-        ]
-
-    def _format_school_negated(self, event: Any) -> list[str]:
-        """Render ``SchoolNegatedEvent`` with the Isawa Ishi 5th Dan
-        source attribution per Constitution Principle VII.
-
-        rules/04-schools.md "Isawa Ishi School: 5th Dan": the Ishi spends
-        VP equal to ``2 * opponent.school_rank()`` (or ``floor(xp/50)``
-        for schoolless opponents) to negate the opponent's school /
-        profession for the duration of a fight.
-        """
-        negator_name = event.negator.name()
-        target_name = event.target.name()
-        return [
-            f"{self._phase_prefix(negator_name)} ⛔ negates {target_name}'s "
-            f"{event.target_school_name} "
-            f"({event.vp_cost} VP — Isawa Ishi 5th Dan)"
-        ]
-
-    def _format_keep_lw(self, event: Any) -> list[str]:
-        name = event.subject.name()
-        lw_total = getattr(event, "_detail_lw_total", event.damage)
-        return [f"{self._phase_prefix(name)} 🖤 keeping {lw_total} light wounds"]
-
-    def _format_take_sw(self, event: Any) -> list[str]:
-        name = event.subject.name()
-        voluntary = self._last_wc_passed.get(name, False)
-        if voluntary:
-            return [f"{self._phase_prefix(name)} 💔 chooses to take 1 serious wound"]
-        return [f"{self._phase_prefix(name)} 💔 takes 1 serious wound"]
 
     # ── Lookahead helpers ──────────────────────────────────────────────
 
@@ -987,29 +642,6 @@ class DetailedEventFormatter:
             break
         return None
 
-    def _format_akodo_5th_dan_counter(
-        self, spend_event: Any, counter_event: Any,
-    ) -> list[str]:
-        """Render an Akodo 5th Dan counter-damage spend+damage pair as a
-        single combined line per FR-024 / Constitution Principle VII.
-
-        Format: ``"Akodo 5th Dan: spends N VP on counter-damage,
-        10 LW × N = +N0 LW dealt to <attacker>"`` with the source
-        attribution AND the numeric breakdown both visible.
-
-        rules/04-schools.md "Akodo Bushi School: Fifth Dan".
-        """
-        name = spend_event.subject.name()
-        squares = "⬛" * spend_event.amount
-        n = spend_event.amount
-        damage = counter_event.damage
-        target_name = counter_event.target.name()
-        return [
-            f"{self._phase_prefix(name)} {squares} Akodo 5th Dan: "
-            f"spends {n} VP on counter-damage, "
-            f"10 LW × {n} = {damage} LW dealt to {target_name}"
-        ]
-
     def _find_take_sw(
         self, history: list[Any], start: int, subject_name: str,
     ) -> int | None:
@@ -1070,321 +702,705 @@ class DetailedEventFormatter:
             break
         return None
 
-    def _process_wound_check(
-        self, history: list[Any], wc_idx: int, consumed: set[int], vp_infix: str = "",
-    ) -> list[str]:
-        """Process a WoundCheckRolledEvent with lookahead for TakeSW/KeepLW."""
-        event = history[wc_idx]
-        passed = event.roll >= event.tn
-        self._last_wc_passed[event.subject.name()] = passed
-        # Lookahead for matching TakeSeriousWoundEvent
-        sw_idx = self._find_take_sw(history, wc_idx + 1, event.subject.name())
-        if sw_idx is not None:
-            self._last_take_sw_target = event.subject.name()
-            consumed.add(sw_idx)
-            # Also consume the following SeriousWoundsDamageEvent to get the count
-            sw_count = 1
-            sw_dmg_idx = self._find_sw_damage(history, sw_idx + 1, event.subject.name())
-            if sw_dmg_idx is not None:
-                sw_count = history[sw_dmg_idx].damage
-                consumed.add(sw_dmg_idx)
-            return self._format_combined_wound_check_sw(event, history[sw_idx], sw_count=sw_count, vp_infix=vp_infix)
-        # Peek for KeepLW to combine onto one line
-        keep_idx = self._find_keep_lw(history, wc_idx + 1, event.subject.name())
-        if keep_idx is not None:
-            consumed.add(keep_idx)
-            return self._format_combined_wound_check_lw(event, history[keep_idx], vp_infix=vp_infix)
-        return self._format_wound_check_rolled(event, vp_infix=vp_infix)
-
-    # ── Combined-line formatters ───────────────────────────────────────
+    # ── Structured-entry builders (spec 007) ──────────────────────────
 
     @staticmethod
-    def _build_roll_str(
-        dice: list[int], rolled: int, kept: int, mod: int,
-        fallback_total: int = 0,
-        components: list[tuple[str, int, int]] | None = None,
-    ) -> tuple[str, int]:
-        """Build a roll description string and compute the total.
-
-        Returns (roll_str, total) where *roll_str* looks like
-        ``'10k6 [...] → 24'`` or ``'10k6 [...] → 24, +5 = 29'``.
-
-        When ``components`` carries a multi-source breakdown (per
-        FR-006), the leading XkY is augmented with
-        ``= <component-list>`` (e.g.,
-        ``'10k10 = 5k5 Fire ring + 5k0 double attack skill + ...
-        [...] → 24'``).
-        """
-        kept_sum = sum(dice[:kept]) if dice else fallback_total
-        total = kept_sum + mod
-        breakdown = _render_components(components)
-        xky = f"{rolled}k{kept}"
-        if breakdown:
-            xky = f"{rolled}k{kept} = {breakdown}"
-        roll_str = f"{xky} {_format_dice(dice, kept)} → {kept_sum}"
-        if mod > 0:
-            roll_str += f", +{mod} = {total}"
-        elif mod < 0:
-            roll_str += f", {mod} = {total}"
-        return roll_str, total
+    def _to_components(
+        raw: list[tuple[str, int, int]] | None,
+    ) -> list[ComponentDelta]:
+        if not raw:
+            return []
+        return [ComponentDelta(source=s, rolled=r, kept=k) for s, r, k in raw]
 
     @staticmethod
-    def _format_tn(
-        tn: int,
-        base_tn: int | None = None,
-        action_skill: str | None = None,
-    ) -> str:
-        """Format TN for display with full raise-attribution breakdown.
+    def _to_modifier_components(
+        raw: list[tuple[str, int]] | None,
+    ) -> list[ModifierDelta]:
+        if not raw:
+            return []
+        return [ModifierDelta(source=s, amount=v) for s, v in raw]
 
-        Per the formatter-rendering contract (§ "TN rendering") for
-        Combat Trace Observability Audit FR-011:
-        - Always show ``(base TN M)`` when ``base_tn`` is provided.
-        - When ``tn > base_tn`` (raises were taken), append
-          ``+X from K raises for {action_skill}`` where K = (tn - base_tn) / 5
-          and X = K * 5. This is the L7R raise rule (each raise = +5 TN).
+    def _entry_initiative(self, event: Any) -> InitiativeEntry:
+        entries_list: list[dict[str, Any]] = []
+        for name, data in event._detail_initiative.items():
+            rolled, kept = data["roll_params"]
+            entries_list.append({
+                "name": name,
+                "rolled": rolled,
+                "kept": kept,
+                "all_dice": list(data["all_dice"]),
+                "actions": list(data["actions"]),
+            })
+        return InitiativeEntry(entries=entries_list)
 
-        The raise count is derived from ``(tn - base_tn) // 5`` since
-        ``Action`` does not expose an ``Action.raises()`` accessor in
-        the rules engine; this matches the in-rules invariant that
-        only raises inflate the TN above its base.
-        """
-        if base_tn is None:
-            return f"TN {tn}"
-        if tn > base_tn:
-            diff = tn - base_tn
-            raises = diff // 5
-            skill = action_skill or "raises"
-            return (
-                f"TN {tn} (base TN {base_tn}, "
-                f"+{diff} from {raises} raises for {skill})"
-            )
-        return f"TN {tn} (base TN {base_tn})"
-
-    @staticmethod
-    def _build_vp_infix(vp_events: list[Any], wc_event: Any | None = None) -> str:
-        """Build a VP prefix like '⬛ spends 1 VP on attack → ' (or '' if empty).
-
-        When ``vp_events`` includes an ``Akodo 4th Dan``-sourced
-        ``SpendVoidPointsEvent`` on "wound check" AND ``wc_event`` is the
-        accompanying ``WoundCheckRolledEvent``, the prefix is augmented
-        with the school attribution AND the per-VP breakdown
-        (e.g. ``"⬛⬛ Akodo 4th Dan: spends 2 VP on wound check,
-        +5 per VP = +10 (15→25) → "``) per FR-019 / Constitution
-        Principle VII.
-        """
-        if not vp_events:
-            return ""
-        total = sum(e.amount for e in vp_events)
-        squares = "⬛" * total
-        skill = vp_events[0].skill
-        # Akodo 4th Dan attribution: when the spend is tagged with the
-        # source, surface the source + the per-VP breakdown so the user
-        # sees both attribution AND arithmetic.
-        akodo_sources = [
-            e for e in vp_events
-            if getattr(e, "source", None) == "Akodo 4th Dan"
-        ]
-        if akodo_sources and skill == "wound check" and wc_event is not None:
-            akodo_total = sum(e.amount for e in akodo_sources)
-            new_roll = wc_event.roll
-            orig_roll = new_roll - (5 * akodo_total)
-            return (
-                f"{squares} Akodo 4th Dan: spends {total} VP on {skill}, "
-                f"+5 per VP = +{5 * akodo_total} ({orig_roll}→{new_roll}) → "
-            )
-        return f"{squares} spends {total} VP on {skill} → "
-
-    def _format_combined_attack(self, take_event: Any, rolled_event: Any, vp_infix: str = "") -> list[str]:
-        """Build a combined 'attacks … — emoji roll vs TN — RESULT' line."""
-        action = take_event.action
+    def _entry_take_attack(self, event: Any) -> AttackEntry:
+        """Standalone TakeAttackActionEvent (no AttackRolledEvent yet)."""
+        action = event.action
         subj = action.subject().name()
         tgt = action.target().name()
         skill = action.skill()
-
-        if not hasattr(rolled_event, "_detail_dice"):
-            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ attacks {tgt} ({skill}) — Roll: {rolled_event.roll}"]
-
-        dice = rolled_event._detail_dice
-        rolled, kept, mod = rolled_event._detail_params
-        tn = rolled_event._detail_tn
-        base_tn = getattr(rolled_event, "_detail_base_tn", tn)
-        # Per FR-011: thread the action skill into _format_tn so the
-        # raise clause carries the action name.
-        tn_str = self._format_tn(tn, base_tn, skill)
-
-        # Per FR-006 / FR-008: pass the attack-roll breakdown into
-        # ``_build_roll_str`` so the combined attack-line renders the
-        # multi-source XkY decomposition inline.
-        attack_components = getattr(rolled_event, "_detail_components", None)
-        roll_str, total = self._build_roll_str(
-            dice, rolled, kept, mod, rolled_event.roll,
-            components=attack_components,
+        return AttackEntry(
+            phase_prefix=self._phase_prefix(subj),
+            actor_name=subj, target_name=tgt, skill=skill,
+            vp_spent=None, vp_skill=None,
+            rolled=0, kept=0, modifier=0,
+            components=[], modifier_components=[],
+            dice=[], sum_of_kept=0, total=0,
+            tn=0, base_tn=0, outcome="miss",
+            damage_projection=None,
+            has_detail=False, fallback_roll=0,
+            is_combined=True, is_take_only=True,
         )
 
+    def _entry_take_counterattack(self, event: Any) -> CounterattackEntry:
+        action = event.action
+        subj = action.subject().name()
+        tgt = action.target().name()
+        return CounterattackEntry(
+            phase_prefix=self._phase_prefix(subj),
+            actor_name=subj, target_name=tgt,
+            vp_spent=None, vp_skill=None,
+            rolled=0, kept=0, modifier=0,
+            components=[], modifier_components=[],
+            dice=[], sum_of_kept=0, total=0,
+            tn=0, outcome="miss", damage_projection=None,
+            has_detail=False, fallback_roll=0,
+            is_combined=True, is_take_only=True,
+        )
+
+    def _entry_take_parry(self, event: Any) -> ParryEntry:
+        action = event.action
+        subj = action.subject().name()
+        tgt = action.target().name()
+        return ParryEntry(
+            phase_prefix=self._phase_prefix(subj),
+            actor_name=subj, target_name=tgt,
+            rolled=0, kept=0, modifier=0,
+            components=[], modifier_components=[],
+            dice=[], sum_of_kept=0, total=0,
+            tn=0, outcome="failed",
+            has_detail=False, fallback_roll=0,
+            is_combined=True, is_take_only=True,
+        )
+
+    def _entry_attack_rolled(self, event: Any) -> AttackEntry:
+        """Standalone AttackRolledEvent (no take_attack preceded it)."""
+        action = event.action
+        subj = action.subject().name()
+        tgt = action.target().name()
+        skill = action.skill()
+        phase_prefix = self._phase_prefix(subj)
+
+        if not hasattr(event, "_detail_dice"):
+            return AttackEntry(
+                phase_prefix=phase_prefix,
+                actor_name=subj, target_name=tgt, skill=skill,
+                vp_spent=None, vp_skill=None,
+                rolled=0, kept=0, modifier=0,
+                components=[], modifier_components=[],
+                dice=[], sum_of_kept=0, total=0,
+                tn=0, base_tn=0, outcome="miss",
+                damage_projection=None,
+                has_detail=False, fallback_roll=event.roll,
+                is_combined=False,
+            )
+
+        dice = list(event._detail_dice)
+        rolled, kept, mod = event._detail_params
+        tn = event._detail_tn
+        base_tn = getattr(event, "_detail_base_tn", tn)
+        kept_sum = sum(dice[:kept]) if dice else event.roll
+        total = kept_sum + mod
+
         hit = action.is_hit() and not action.parried()
+        outcome: Any = "hit" if hit else "miss"
+        damage_projection = None
         if hit:
-            result = "HIT!"
             extra_dice = action.calculate_extra_damage_dice(tn=base_tn)
             subject = action.subject()
             target = action.target()
             damage_params = subject.get_damage_roll_params(
-                target, action.skill(), extra_dice, action.vp()
+                target, action.skill(), extra_dice, action.vp(),
             )
-            extras = []
             margin = total - tn
-            if margin > 0:
-                extras.append(f"+{margin} over TN")
-            if extra_dice > 0:
-                extras.append(f"{extra_dice} extra damage {'die' if extra_dice == 1 else 'dice'}")
             if damage_params:
                 dr, dk, _dm = damage_params
-                damage_breakdown = _render_components(
-                    _compute_damage_breakdown(subject, target, action, extra_dice),
+                damage_breakdown_raw = _compute_damage_breakdown(
+                    subject, target, action, extra_dice,
                 )
-                if damage_breakdown:
-                    extras.append(f"damage will be {dr}k{dk} = {damage_breakdown}")
-                else:
-                    extras.append(f"damage will be {dr}k{dk}")
-            extra_str = f" ({', '.join(extras)})" if extras else ""
-            attribution = self._format_modifier_breakdown(rolled_event, mod)
-            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ attacks {tgt} ({skill}) — {roll_str} vs {tn_str} — {result}{extra_str}{attribution}"]
-        else:
-            result = "MISS"
-            attribution = self._format_modifier_breakdown(rolled_event, mod)
-            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ attacks {tgt} ({skill}) — {roll_str} vs {tn_str} — {result}{attribution}"]
+                damage_projection = DamageProjection(
+                    rolled=dr, kept=dk,
+                    components=self._to_components(damage_breakdown_raw),
+                    extra_damage_dice=extra_dice,
+                    margin_over_tn=margin,
+                )
 
-    def _format_combined_counterattack(self, take_event: Any, rolled_event: Any, vp_infix: str = "") -> list[str]:
-        """Build a combined 'counterattacks TARGET — roll vs TN — RESULT' line."""
+        return AttackEntry(
+            phase_prefix=phase_prefix,
+            actor_name=subj, target_name=tgt, skill=skill,
+            vp_spent=None, vp_skill=None,
+            rolled=rolled, kept=kept, modifier=mod,
+            components=self._to_components(getattr(event, "_detail_components", None)),
+            modifier_components=self._to_modifier_components(
+                getattr(event, "_detail_modifier_breakdown", None),
+            ),
+            dice=dice, sum_of_kept=kept_sum, total=total,
+            tn=tn, base_tn=base_tn, outcome=outcome,
+            damage_projection=damage_projection,
+            is_combined=False,
+        )
+
+    def _entry_combined_attack(
+        self, take_event: Any, rolled_event: Any, vp_events: list[Any],
+    ) -> AttackEntry:
         action = take_event.action
         subj = action.subject().name()
         tgt = action.target().name()
+        skill = action.skill()
+        phase_prefix = self._phase_prefix(subj)
+
+        vp_total = sum(e.amount for e in vp_events) if vp_events else None
+        vp_skill = vp_events[0].skill if vp_events else None
 
         if not hasattr(rolled_event, "_detail_dice"):
-            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ counterattacks {tgt} — Roll: {rolled_event.roll}"]
+            return AttackEntry(
+                phase_prefix=phase_prefix,
+                actor_name=subj, target_name=tgt, skill=skill,
+                vp_spent=vp_total, vp_skill=vp_skill,
+                rolled=0, kept=0, modifier=0,
+                components=[], modifier_components=[],
+                dice=[], sum_of_kept=0, total=0,
+                tn=0, base_tn=0, outcome="miss",
+                damage_projection=None,
+                has_detail=False, fallback_roll=rolled_event.roll,
+            )
 
-        dice = rolled_event._detail_dice
+        dice = list(rolled_event._detail_dice)
         rolled, kept, mod = rolled_event._detail_params
         tn = rolled_event._detail_tn
+        base_tn = getattr(rolled_event, "_detail_base_tn", tn)
+        kept_sum = sum(dice[:kept]) if dice else rolled_event.roll
+        total = kept_sum + mod
 
-        roll_str, total = self._build_roll_str(dice, rolled, kept, mod, rolled_event.roll)
+        hit = action.is_hit() and not action.parried()
+        outcome: Any = "hit" if hit else "miss"
+        damage_projection = None
+        if hit:
+            extra_dice = action.calculate_extra_damage_dice(tn=base_tn)
+            subject = action.subject()
+            target = action.target()
+            damage_params = subject.get_damage_roll_params(
+                target, action.skill(), extra_dice, action.vp(),
+            )
+            margin = total - tn
+            if damage_params:
+                dr, dk, _dm = damage_params
+                damage_breakdown_raw = _compute_damage_breakdown(
+                    subject, target, action, extra_dice,
+                )
+                damage_projection = DamageProjection(
+                    rolled=dr, kept=dk,
+                    components=self._to_components(damage_breakdown_raw),
+                    extra_damage_dice=extra_dice,
+                    margin_over_tn=margin,
+                )
+
+        return AttackEntry(
+            phase_prefix=phase_prefix,
+            actor_name=subj, target_name=tgt, skill=skill,
+            vp_spent=vp_total, vp_skill=vp_skill,
+            rolled=rolled, kept=kept, modifier=mod,
+            components=self._to_components(
+                getattr(rolled_event, "_detail_components", None),
+            ),
+            modifier_components=self._to_modifier_components(
+                getattr(rolled_event, "_detail_modifier_breakdown", None),
+            ),
+            dice=dice, sum_of_kept=kept_sum, total=total,
+            tn=tn, base_tn=base_tn, outcome=outcome,
+            damage_projection=damage_projection,
+        )
+
+    def _entry_counterattack_rolled(self, event: Any) -> CounterattackEntry:
+        action = event.action
+        subj = action.subject().name()
+        tgt = action.target().name()
+        phase_prefix = self._phase_prefix(subj)
+
+        if not hasattr(event, "_detail_dice"):
+            return CounterattackEntry(
+                phase_prefix=phase_prefix,
+                actor_name=subj, target_name=tgt,
+                vp_spent=None, vp_skill=None,
+                rolled=0, kept=0, modifier=0,
+                components=[], modifier_components=[],
+                dice=[], sum_of_kept=0, total=0,
+                tn=0, outcome="miss", damage_projection=None,
+                has_detail=False, fallback_roll=event.roll,
+                is_combined=False,
+            )
+
+        dice = list(event._detail_dice)
+        rolled, kept, mod = event._detail_params
+        tn = event._detail_tn
+        kept_sum = sum(dice[:kept]) if dice else event.roll
+        total = kept_sum + mod
+        hit = action.is_hit()
+        outcome: Any = "hit" if hit else "miss"
+        return CounterattackEntry(
+            phase_prefix=phase_prefix,
+            actor_name=subj, target_name=tgt,
+            vp_spent=None, vp_skill=None,
+            rolled=rolled, kept=kept, modifier=mod,
+            components=self._to_components(getattr(event, "_detail_components", None)),
+            modifier_components=self._to_modifier_components(
+                getattr(event, "_detail_modifier_breakdown", None),
+            ),
+            dice=dice, sum_of_kept=kept_sum, total=total,
+            tn=tn, outcome=outcome, damage_projection=None,
+            is_combined=False,
+        )
+
+    def _entry_combined_counterattack(
+        self, take_event: Any, rolled_event: Any, vp_events: list[Any],
+    ) -> CounterattackEntry:
+        action = take_event.action
+        subj = action.subject().name()
+        tgt = action.target().name()
+        phase_prefix = self._phase_prefix(subj)
+
+        vp_total = sum(e.amount for e in vp_events) if vp_events else None
+        vp_skill = vp_events[0].skill if vp_events else None
+
+        if not hasattr(rolled_event, "_detail_dice"):
+            return CounterattackEntry(
+                phase_prefix=phase_prefix,
+                actor_name=subj, target_name=tgt,
+                vp_spent=vp_total, vp_skill=vp_skill,
+                rolled=0, kept=0, modifier=0,
+                components=[], modifier_components=[],
+                dice=[], sum_of_kept=0, total=0,
+                tn=0, outcome="miss", damage_projection=None,
+                has_detail=False, fallback_roll=rolled_event.roll,
+            )
+
+        dice = list(rolled_event._detail_dice)
+        rolled, kept, mod = rolled_event._detail_params
+        tn = rolled_event._detail_tn
+        kept_sum = sum(dice[:kept]) if dice else rolled_event.roll
+        total = kept_sum + mod
 
         hit = action.is_hit()
+        outcome: Any = "hit" if hit else "miss"
+        damage_projection = None
         if hit:
-            result = "HIT!"
             extra_dice = action.calculate_extra_damage_dice(tn=tn)
             subject = action.subject()
             target = action.target()
             damage_params = subject.get_damage_roll_params(
-                target, action.skill(), extra_dice, action.vp()
+                target, action.skill(), extra_dice, action.vp(),
             )
-            extras = []
             margin = total - tn
-            if margin > 0:
-                extras.append(f"+{margin} over TN")
-            if extra_dice > 0:
-                extras.append(f"{extra_dice} extra damage {'die' if extra_dice == 1 else 'dice'}")
             if damage_params:
                 dr, dk, _dm = damage_params
-                damage_breakdown = _render_components(
-                    _compute_damage_breakdown(subject, target, action, extra_dice),
+                damage_breakdown_raw = _compute_damage_breakdown(
+                    subject, target, action, extra_dice,
                 )
-                if damage_breakdown:
-                    extras.append(f"damage will be {dr}k{dk} = {damage_breakdown}")
-                else:
-                    extras.append(f"damage will be {dr}k{dk}")
-            extra_str = f" ({', '.join(extras)})" if extras else ""
-            attribution = self._format_modifier_breakdown(rolled_event, mod)
-            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ counterattacks {tgt} — {roll_str} vs TN {tn} — {result}{extra_str}{attribution}"]
-        else:
-            result = "MISS"
-            attribution = self._format_modifier_breakdown(rolled_event, mod)
-            return [f"{self._phase_prefix(subj)} {vp_infix}⚔️ counterattacks {tgt} — {roll_str} vs TN {tn} — {result}{attribution}"]
+                damage_projection = DamageProjection(
+                    rolled=dr, kept=dk,
+                    components=self._to_components(damage_breakdown_raw),
+                    extra_damage_dice=extra_dice,
+                    margin_over_tn=margin,
+                )
 
-    def _format_combined_parry(self, take_event: Any, rolled_event: Any) -> list[str]:
-        """Build a combined 'parries TARGET — roll vs TN — RESULT' line."""
+        return CounterattackEntry(
+            phase_prefix=phase_prefix,
+            actor_name=subj, target_name=tgt,
+            vp_spent=vp_total, vp_skill=vp_skill,
+            rolled=rolled, kept=kept, modifier=mod,
+            components=self._to_components(
+                getattr(rolled_event, "_detail_components", None),
+            ),
+            modifier_components=self._to_modifier_components(
+                getattr(rolled_event, "_detail_modifier_breakdown", None),
+            ),
+            dice=dice, sum_of_kept=kept_sum, total=total,
+            tn=tn, outcome=outcome, damage_projection=damage_projection,
+        )
+
+    def _entry_parry_rolled(self, event: Any) -> ParryEntry:
+        action = event.action
+        subj = action.subject().name()
+        tgt = action.target().name()
+        phase_prefix = self._phase_prefix(subj)
+
+        if not hasattr(event, "_detail_dice"):
+            return ParryEntry(
+                phase_prefix=phase_prefix,
+                actor_name=subj, target_name=tgt,
+                rolled=0, kept=0, modifier=0,
+                components=[], modifier_components=[],
+                dice=[], sum_of_kept=0, total=0,
+                tn=0, outcome="failed",
+                has_detail=False, fallback_roll=event.roll,
+                is_combined=False,
+            )
+
+        dice = list(event._detail_dice)
+        rolled, kept, mod = event._detail_params
+        tn = event._detail_tn
+        kept_sum = sum(dice[:kept]) if dice else event.roll
+        total = kept_sum + mod
+        succeeded = action.is_success()
+        outcome: Any = "succeeded" if succeeded else "failed"
+        return ParryEntry(
+            phase_prefix=phase_prefix,
+            actor_name=subj, target_name=tgt,
+            rolled=rolled, kept=kept, modifier=mod,
+            components=self._to_components(getattr(event, "_detail_components", None)),
+            modifier_components=self._to_modifier_components(
+                getattr(event, "_detail_modifier_breakdown", None),
+            ),
+            dice=dice, sum_of_kept=kept_sum, total=total,
+            tn=tn, outcome=outcome,
+            is_combined=False,
+        )
+
+    def _entry_combined_parry(
+        self, take_event: Any, rolled_event: Any,
+    ) -> ParryEntry:
         action = take_event.action
         subj = action.subject().name()
         tgt = action.target().name()
+        phase_prefix = self._phase_prefix(subj)
 
         if not hasattr(rolled_event, "_detail_dice"):
-            return [f"{self._phase_prefix(subj)} 🛡️ parries {tgt} — Roll: {rolled_event.roll}"]
+            return ParryEntry(
+                phase_prefix=phase_prefix,
+                actor_name=subj, target_name=tgt,
+                rolled=0, kept=0, modifier=0,
+                components=[], modifier_components=[],
+                dice=[], sum_of_kept=0, total=0,
+                tn=0, outcome="failed",
+                has_detail=False, fallback_roll=rolled_event.roll,
+            )
 
-        dice = rolled_event._detail_dice
+        dice = list(rolled_event._detail_dice)
         rolled, kept, mod = rolled_event._detail_params
         tn = rolled_event._detail_tn
-
         kept_sum = sum(dice[:kept]) if dice else rolled_event.roll
         total = kept_sum + mod
-
-        roll_str = f"{rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum}"
-        if mod > 0:
-            roll_str += f", +{mod} = {total}"
-        elif mod < 0:
-            roll_str += f", {mod} = {total}"
-
         succeeded = action.is_success()
-        result = "SUCCEEDED" if succeeded else "FAILED"
-        attribution = self._format_modifier_breakdown(rolled_event, mod)
-        return [f"{self._phase_prefix(subj)} 🛡️ parries {tgt} — {roll_str} vs TN {tn} — {result}{attribution}"]
+        outcome: Any = "succeeded" if succeeded else "failed"
+        return ParryEntry(
+            phase_prefix=phase_prefix,
+            actor_name=subj, target_name=tgt,
+            rolled=rolled, kept=kept, modifier=mod,
+            components=self._to_components(
+                getattr(rolled_event, "_detail_components", None),
+            ),
+            modifier_components=self._to_modifier_components(
+                getattr(rolled_event, "_detail_modifier_breakdown", None),
+            ),
+            dice=dice, sum_of_kept=kept_sum, total=total,
+            tn=tn, outcome=outcome,
+        )
 
-    def _format_combined_wound_check_lw(self, wc_event: Any, lw_event: Any, vp_infix: str = "") -> list[str]:
-        """Build a combined 'Wound Check … — PASSED → keeping N light wounds' line."""
-        name = wc_event.subject.name()
-        emoji = "🖤"
+    def _entry_contested_iaijutsu_rolled(self, event: Any) -> IaijutsuEntry:
+        action = event.action
+        name = action.subject().name()
+        is_challenger = action.challenger() == action.subject()
+        skill_roll = action.skill_roll()
+        opponent_roll = action.opponent_skill_roll()
+        extra_dice = action.calculate_extra_damage_dice()
 
-        if not hasattr(wc_event, "_detail_dice"):
-            passed = wc_event.roll >= wc_event.tn
-            result = "PASSED" if passed else "FAILED"
-            wc_str = f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: rolled {wc_event.roll} vs TN {wc_event.tn} — {result}"
-        else:
-            dice = wc_event._detail_dice
-            rolled, kept, mod = self._unpack_wound_check_params(wc_event._detail_params)
-            kept_sum = sum(dice[:kept]) if dice else wc_event.roll
-            total = kept_sum + mod
-            passed = wc_event.roll >= wc_event.tn
-            result = "PASSED" if passed else "FAILED"
-            roll_str = f"{rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum}"
-            if mod > 0:
-                roll_str += f", +{mod} = {total}"
-            elif mod < 0:
-                roll_str += f", {mod} = {total}"
-            wc_str = f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: {roll_str} vs TN {wc_event.tn} — {result}"
-            wc_str += self._format_modifier_breakdown(wc_event, mod)
+        rolled_val = 0
+        kept_val = 0
+        dice: list[int] = []
+        kept_sum = skill_roll
+        effective_mod = 0
+        has_detail = False
+        if hasattr(event, "_detail_dice") and hasattr(event, "_detail_params"):
+            dice = list(event._detail_dice)
+            rolled_val, kept_val, _mod = event._detail_params
+            kept_sum = sum(dice[:kept_val]) if dice else skill_roll
+            effective_mod = skill_roll - kept_sum
+            has_detail = True
 
-        lw_total = getattr(lw_event, "_detail_lw_total", lw_event.damage)
-        return [f"{wc_str} → keeping {lw_total} light wounds"]
+        return IaijutsuEntry(
+            phase_prefix=self._phase_prefix(name),
+            actor_name=name,
+            is_challenger=is_challenger,
+            skill=action.skill(),
+            skill_roll=skill_roll,
+            opponent_skill_roll=opponent_roll,
+            extra_damage_dice=extra_dice,
+            rolled=rolled_val,
+            kept=kept_val,
+            dice=dice,
+            sum_of_kept=kept_sum,
+            effective_modifier=effective_mod,
+            has_detail=has_detail,
+        )
 
-    def _format_combined_wound_check_sw(self, wc_event: Any, sw_event: Any, sw_count: int = 1, vp_infix: str = "") -> list[str]:
-        """Build a combined 'Wound Check … — RESULT → SW text' line."""
-        name = wc_event.subject.name()
+    def _entry_lw_damage(self, event: Any) -> LightWoundsDamageEntry:
+        attacker = event.subject.name()
+        target = event.target.name()
 
-        # Build wound check portion — 💔 repeated per serious wound
-        emoji = "💔" * sw_count
-        if not hasattr(wc_event, "_detail_dice"):
-            passed = wc_event.roll >= wc_event.tn
-            result = "PASSED" if passed else "FAILED"
-            wc_str = f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: rolled {wc_event.roll} vs TN {wc_event.tn} — {result}"
-        else:
-            dice = wc_event._detail_dice
-            rolled, kept, mod = self._unpack_wound_check_params(wc_event._detail_params)
-            kept_sum = sum(dice[:kept]) if dice else wc_event.roll
-            total = kept_sum + mod
-            passed = wc_event.roll >= wc_event.tn
-            result = "PASSED" if passed else "FAILED"
-            roll_str = f"{rolled}k{kept} {_format_dice(dice, kept)} → {kept_sum}"
-            if mod > 0:
-                roll_str += f", +{mod} = {total}"
-            elif mod < 0:
-                roll_str += f", {mod} = {total}"
-            wc_str = f"{self._phase_prefix(name)} {vp_infix}{emoji} Wound Check: {roll_str} vs TN {wc_event.tn} — {result}"
-            wc_str += self._format_modifier_breakdown(wc_event, mod)
+        if not hasattr(event, "_detail_dice"):
+            return LightWoundsDamageEntry(
+                phase_prefix=self._phase_prefix(target),
+                attacker_name=attacker, target_name=target,
+                rolled=0, kept=0, components=[],
+                dice=[], sum_of_kept=0,
+                damage=event.damage, lw_after=None,
+                has_detail=False,
+            )
 
-        # Build serious wound suffix
-        noun = "wound" if sw_count == 1 else "wounds"
+        dice = list(event._detail_dice)
+        rolled, kept = event._detail_params
+        kept_sum = sum(dice[:kept]) if dice else event.damage
+        return LightWoundsDamageEntry(
+            phase_prefix=self._phase_prefix(attacker),
+            attacker_name=attacker, target_name=target,
+            rolled=rolled, kept=kept,
+            components=self._to_components(getattr(event, "_detail_components", None)),
+            dice=dice, sum_of_kept=kept_sum,
+            damage=event.damage,
+            lw_after=getattr(event, "_detail_lw_after", None),
+        )
+
+    def _entry_sw_damage(self, event: Any) -> SeriousWoundsDamageEntry:
+        target = event.target.name()
+        return SeriousWoundsDamageEntry(
+            phase_prefix=self._phase_prefix(target),
+            target_name=target,
+            damage=event.damage,
+            from_double_attack=bool(getattr(event, "_from_double_attack", False)),
+        )
+
+    def _build_wound_check_entry(
+        self,
+        event: Any,
+        *,
+        vp_spent: int | None,
+        vp_source: str | None,
+        vp_skill: str | None,
+        vp_breakdown: str | None,
+        follow_up: str,
+        follow_up_sw_count: int,
+        follow_up_lw_total: int,
+        follow_up_voluntary: bool,
+    ) -> WoundCheckEntry:
+        name = event.subject.name()
+        passed = event.roll >= event.tn
+        outcome: Any = "passed" if passed else "failed"
+
+        if not hasattr(event, "_detail_dice"):
+            return WoundCheckEntry(
+                phase_prefix=self._phase_prefix(name),
+                character_name=name,
+                vp_spent=vp_spent, vp_source=vp_source, vp_skill=vp_skill,
+                vp_breakdown=vp_breakdown,
+                rolled=0, kept=0, modifier=0,
+                components=[], modifier_components=[],
+                dice=[], sum_of_kept=0, total=0,
+                tn=event.tn, outcome=outcome,
+                has_detail=False, fallback_roll=event.roll,
+                follow_up=follow_up,  # type: ignore[arg-type]
+                follow_up_sw_count=follow_up_sw_count,
+                follow_up_lw_total=follow_up_lw_total,
+                follow_up_voluntary=follow_up_voluntary,
+            )
+
+        dice = list(event._detail_dice)
+        rolled, kept, mod = self._unpack_wound_check_params(event._detail_params)
+        kept_sum = sum(dice[:kept]) if dice else event.roll
+        total = kept_sum + mod
+        return WoundCheckEntry(
+            phase_prefix=self._phase_prefix(name),
+            character_name=name,
+            vp_spent=vp_spent, vp_source=vp_source, vp_skill=vp_skill,
+            vp_breakdown=vp_breakdown,
+            rolled=rolled, kept=kept, modifier=mod,
+            components=self._to_components(getattr(event, "_detail_components", None)),
+            modifier_components=self._to_modifier_components(
+                getattr(event, "_detail_modifier_breakdown", None),
+            ),
+            dice=dice, sum_of_kept=kept_sum, total=total,
+            tn=event.tn, outcome=outcome,
+            follow_up=follow_up,  # type: ignore[arg-type]
+            follow_up_sw_count=follow_up_sw_count,
+            follow_up_lw_total=follow_up_lw_total,
+            follow_up_voluntary=follow_up_voluntary,
+        )
+
+    def _process_wound_check_entry(
+        self,
+        history: list[Any],
+        wc_idx: int,
+        consumed: set[int],
+        *,
+        vp_prefix_events: list[Any] | None = None,
+        wc_event_for_vp: Any | None = None,
+    ) -> WoundCheckEntry:
+        event = history[wc_idx]
+        passed = event.roll >= event.tn
+        self._last_wc_passed[event.subject.name()] = passed
+
+        # Resolve VP-prefix (Akodo 4th Dan or plain VP-on-wound-check).
+        vp_spent: int | None = None
+        vp_source: str | None = None
+        vp_skill: str | None = None
+        vp_breakdown: str | None = None
+        if vp_prefix_events:
+            vp_spent = sum(e.amount for e in vp_prefix_events)
+            vp_skill = vp_prefix_events[0].skill
+            akodo_sources = [
+                e for e in vp_prefix_events
+                if getattr(e, "source", None) == "Akodo 4th Dan"
+            ]
+            if (
+                akodo_sources
+                and vp_skill == "wound check"
+                and wc_event_for_vp is not None
+            ):
+                vp_source = "Akodo 4th Dan"
+                akodo_total = sum(e.amount for e in akodo_sources)
+                new_roll = wc_event_for_vp.roll
+                orig_roll = new_roll - (5 * akodo_total)
+                vp_breakdown = (
+                    f"+5 per VP = +{5 * akodo_total} ({orig_roll}→{new_roll})"
+                )
+
+        # Look ahead for matching TakeSW/KeepLW to compose follow-up.
+        sw_idx = self._find_take_sw(history, wc_idx + 1, event.subject.name())
+        if sw_idx is not None:
+            self._last_take_sw_target = event.subject.name()
+            consumed.add(sw_idx)
+            sw_count = 1
+            sw_dmg_idx = self._find_sw_damage(
+                history, sw_idx + 1, event.subject.name(),
+            )
+            if sw_dmg_idx is not None:
+                sw_count = history[sw_dmg_idx].damage
+                consumed.add(sw_dmg_idx)
+            voluntary = self._last_wc_passed.get(event.subject.name(), False)
+            return self._build_wound_check_entry(
+                event, vp_spent=vp_spent, vp_source=vp_source,
+                vp_skill=vp_skill, vp_breakdown=vp_breakdown,
+                follow_up="take_sw",
+                follow_up_sw_count=sw_count,
+                follow_up_lw_total=0,
+                follow_up_voluntary=voluntary,
+            )
+
+        keep_idx = self._find_keep_lw(history, wc_idx + 1, event.subject.name())
+        if keep_idx is not None:
+            consumed.add(keep_idx)
+            lw_total = getattr(
+                history[keep_idx], "_detail_lw_total", history[keep_idx].damage,
+            )
+            return self._build_wound_check_entry(
+                event, vp_spent=vp_spent, vp_source=vp_source,
+                vp_skill=vp_skill, vp_breakdown=vp_breakdown,
+                follow_up="keep_lw",
+                follow_up_sw_count=0,
+                follow_up_lw_total=lw_total,
+                follow_up_voluntary=False,
+            )
+
+        return self._build_wound_check_entry(
+            event, vp_spent=vp_spent, vp_source=vp_source,
+            vp_skill=vp_skill, vp_breakdown=vp_breakdown,
+            follow_up="none",
+            follow_up_sw_count=0,
+            follow_up_lw_total=0,
+            follow_up_voluntary=False,
+        )
+
+    def _entry_spend_vp(self, event: Any) -> SpendVpEntry:
+        name = event.subject.name()
+        return SpendVpEntry(
+            phase_prefix=self._phase_prefix(name),
+            character_name=name,
+            amount=event.amount,
+            skill=event.skill,
+        )
+
+    def _entry_gain_tvp(self, event: Any) -> GainTvpEntry | None:
+        if event.amount <= 0:
+            return None
+        name = event.subject.name()
+        return GainTvpEntry(
+            phase_prefix=self._phase_prefix(name),
+            character_name=name,
+            amount=event.amount,
+            source=getattr(event, "source", None),
+        )
+
+    def _entry_gain_floating_bonus(
+        self, event: Any,
+    ) -> GainFloatingBonusEntry | None:
+        bonus_value = event.bonus.bonus() if hasattr(event.bonus, "bonus") else 0
+        if bonus_value <= 0:
+            return None
+        name = event.subject.name()
+        return GainFloatingBonusEntry(
+            phase_prefix=self._phase_prefix(name),
+            character_name=name,
+            amount=bonus_value,
+            source=event.source,
+            breakdown=event.breakdown,
+        )
+
+    def _entry_spend_floating_bonus(self, event: Any) -> SpendFloatingBonusEntry:
+        bonus = event.bonus
+        bonus_value = bonus.bonus() if hasattr(bonus, "bonus") else 0
+        source = bonus.source() if hasattr(bonus, "source") else None
+        name = event.subject.name()
+        return SpendFloatingBonusEntry(
+            phase_prefix=self._phase_prefix(name),
+            character_name=name,
+            amount=bonus_value,
+            source=source,
+        )
+
+    def _entry_school_negated(self, event: Any) -> SchoolNegatedEntry:
+        negator = event.negator.name()
+        return SchoolNegatedEntry(
+            phase_prefix=self._phase_prefix(negator),
+            negator_name=negator,
+            target_name=event.target.name(),
+            target_school_name=event.target_school_name,
+            vp_cost=event.vp_cost,
+        )
+
+    def _entry_keep_lw(self, event: Any) -> KeepLightWoundsEntry:
+        name = event.subject.name()
+        return KeepLightWoundsEntry(
+            phase_prefix=self._phase_prefix(name),
+            character_name=name,
+            lw_total=getattr(event, "_detail_lw_total", event.damage),
+        )
+
+    def _entry_take_sw(self, event: Any) -> TakeSeriousWoundEntry:
+        name = event.subject.name()
         voluntary = self._last_wc_passed.get(name, False)
-        if voluntary:
-            sw_str = f"chooses to take {sw_count} serious {noun}"
-        else:
-            sw_str = f"takes {sw_count} serious {noun}"
+        return TakeSeriousWoundEntry(
+            phase_prefix=self._phase_prefix(name),
+            character_name=name,
+            voluntary=voluntary,
+        )
 
-        return [f"{wc_str} → {sw_str}"]
+    def _entry_akodo_5th_dan_counter(
+        self, spend_event: Any, counter_event: Any,
+    ) -> AkodoFifthDanCounterEntry:
+        name = spend_event.subject.name()
+        return AkodoFifthDanCounterEntry(
+            phase_prefix=self._phase_prefix(name),
+            akodo_name=name,
+            vp_spent=spend_event.amount,
+            damage=counter_event.damage,
+            target_name=counter_event.target.name(),
+        )

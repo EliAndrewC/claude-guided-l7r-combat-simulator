@@ -98,7 +98,10 @@ def run_single(characters: list[CharacterConfig], groups: list[GroupConfig]) -> 
     features = context.features()
     features.complete(context)
 
-    play_by_play = DetailedEventFormatter().format_history(engine.history())
+    formatter = DetailedEventFormatter()
+    history = engine.history()
+    trace_entries = formatter.entries(history)
+    play_by_play = formatter.format_history(history)
     winner = features.winner()
     duration_rounds = features.data().get("duration_rounds", 0)
     duration_phases = features.data().get("duration_phases", 0)
@@ -112,6 +115,7 @@ def run_single(characters: list[CharacterConfig], groups: list[GroupConfig]) -> 
 
     return SingleCombatResult(
         play_by_play=play_by_play,
+        trace_entries=trace_entries,
         group_names=group_names,
         winner=winner,
         features=dict(features.display_data()),
@@ -147,7 +151,10 @@ def run_duel_single(characters: list[CharacterConfig], groups: list[GroupConfig]
     features = context.features()
     features.complete(context)
 
-    play_by_play = DetailedEventFormatter().format_history(engine.history())
+    formatter = DetailedEventFormatter()
+    history = engine.history()
+    trace_entries = formatter.entries(history)
+    play_by_play = formatter.format_history(history)
     winner = features.winner()
     duration_rounds = features.data().get("duration_rounds", 0)
     duration_phases = features.data().get("duration_phases", 0)
@@ -160,6 +167,7 @@ def run_duel_single(characters: list[CharacterConfig], groups: list[GroupConfig]
 
     return SingleCombatResult(
         play_by_play=play_by_play,
+        trace_entries=trace_entries,
         group_names=group_names,
         winner=winner,
         features=dict(features.display_data()),

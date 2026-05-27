@@ -3,8 +3,8 @@ from typing import Any
 import streamlit as st
 
 from simulation.schools.factory import get_school
+from web.adapters.bulleted_renderer import BulletedRenderer
 from web.adapters.engine_adapter import is_duel_eligible, run_batch, run_duel_batch, run_duel_single, run_single
-from web.adapters.html_renderer import render_play_by_play_html
 from web.models import CharacterConfig
 
 RING_ORDER = ["air", "earth", "fire", "water", "void"]
@@ -148,10 +148,10 @@ else:
                 st.subheader(f"Winner: {winner_label}")
                 st.write(f"Duration: {result.duration_rounds} rounds, {result.duration_phases} phases")
 
-                # Play-by-play
+                # Play-by-play — bulleted Markdown form (spec 007 FR-023/FR-024)
                 with st.expander("Play-by-Play Log", expanded=True):
-                    html = render_play_by_play_html(result.play_by_play, result.group_names)
-                    st.markdown(html, unsafe_allow_html=True)
+                    markdown_trace = BulletedRenderer().render(result.trace_entries)
+                    st.markdown(markdown_trace)
 
                 # Features
                 with st.expander("Trial Statistics"):
@@ -173,8 +173,8 @@ else:
                     st.subheader(f"Winner: {winner_label}")
 
                     with st.expander("Play-by-Play Log", expanded=True):
-                        html = render_play_by_play_html(result.play_by_play, result.group_names)
-                        st.markdown(html, unsafe_allow_html=True)
+                        markdown_trace = BulletedRenderer().render(result.trace_entries)
+                        st.markdown(markdown_trace)
 
                     with st.expander("Trial Statistics"):
                         for k, v in sorted(result.features.items()):
