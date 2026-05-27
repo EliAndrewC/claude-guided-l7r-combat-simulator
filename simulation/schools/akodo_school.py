@@ -14,7 +14,7 @@ from simulation.listeners import Listener
 from simulation.log import logger
 from simulation.mechanics.floating_bonuses import AnyAttackFloatingBonus
 from simulation.schools.base import BaseSchool
-from simulation.strategies.base import BaseAttackStrategy, Strategy
+from simulation.strategies.base import BaseAttackStrategy, Strategy, WoundCheckRolledStrategy
 
 
 class AkodoBushiSchool(BaseSchool):
@@ -26,6 +26,12 @@ class AkodoBushiSchool(BaseSchool):
 
     def apply_rank_four_ability(self, character: Any) -> None:
         self.apply_school_ring_raise_and_discount(character)
+        # Install Akodo's strategy at the wound_check_rolled slot so
+        # the listener's dispatch through character.wound_check_rolled_strategy()
+        # picks up the 4th-Dan VP-for-raise behavior (layered on top of
+        # the engine default's FB/AP/conviction selection via super
+        # delegation).
+        self._set_school_strategy(character, "wound_check_rolled", AkodoWoundCheckRolledStrategy())
         self._set_school_listener(character, "wound_check_declared", AkodoWoundCheckDeclaredListener())
 
     def apply_rank_three_ability(self, character: Any) -> None:
@@ -137,6 +143,12 @@ class AkodoAttackSucceededListener(Listener):
 class AkodoLightWoundsDamageListener(Listener):
     """
     Listener to implement the Akodo 5th Dan technique.
+
+    Replaces the engine default ``LightWoundsDamageListener`` (so the
+    5th Dan counter-damage strategy can interleave between the LW take
+    and the WC dispatch).  Mirrors the engine default's structure
+    including the ``event.damage > 0`` gate on the WC + counter
+    dispatch (matching simulation/listeners.py::LightWoundsDamageListener).
     """
 
     def __init__(self) -> None:
@@ -149,8 +161,12 @@ class AkodoLightWoundsDamageListener(Listener):
                 character.knowledge().observe_damage_roll(event.subject, event.damage)
             if event.target == character:
                 character.take_lw(event.damage)
-                yield from character.wound_check_strategy().recommend(character, event, context)
-                yield from self._strategy.recommend(character, event, context)
+                # continue with wound check + 5th Dan counter only on
+                # nonzero damage (matches engine default's gate at
+                # simulation/listeners.py::LightWoundsDamageListener).
+                if event.damage > 0:
+                    yield from character.wound_check_strategy().recommend(character, event, context)
+                    yield from self._strategy.recommend(character, event, context)
 
 
 class AkodoFifthDanStrategy(Strategy):
@@ -226,39 +242,68 @@ class AkodoWoundCheckSucceededListener(Listener):
 
 class AkodoWoundCheckDeclaredListener(Listener):
     """
-    Listener to implement the Akodo 4th Dan technique
-    to spend Void Points after a Wound Check roll to
-    apply Free Raises to the roll.
-    """
+    Listener for the Akodo 4th Dan technique to spend Void Points
+    after a Wound Check roll to apply Free Raises to the roll.
 
-    def __init__(self) -> None:
-        self._strategy = AkodoWoundCheckRolledStrategy()
+    Mirrors the engine default ``WoundCheckDeclaredListener``
+    (simulation/listeners.py) so that:
+      * pre-declared ``event.vp`` is actually deducted via a
+        ``SpendVoidPointsEvent`` (instead of being consumed "for free"
+        by the roll-bonus path),
+      * ``tn`` and the ``duel``/``explode`` flag are propagated to the
+        synthesized ``WoundCheckRolledEvent`` + ``roll_wound_check``
+        call (so custom-TN and iaijutsu-duel paths work),
+      * the post-roll dispatch goes through
+        ``character.wound_check_rolled_strategy()`` (the school
+        installs ``AkodoWoundCheckRolledStrategy`` at the
+        ``wound_check_rolled`` slot in ``apply_rank_four_ability``,
+        so the engine default's resource selection -- floating
+        bonuses, AP, conviction -- is still available alongside the
+        Akodo VP-for-raise on top).
+
+    rules/04-schools.md "Akodo Bushi School: Fourth Dan".
+    """
 
     def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.WoundCheckDeclaredEvent):
             if event.subject == character:
-                roll = character.roll_wound_check(event.damage, event.vp)
-                event = events.WoundCheckRolledEvent(character, event.attacker, event.damage, roll)
-                yield from self._strategy.recommend(character, event, context)
+                explode = not getattr(event, "duel", False)
+                roll = character.roll_wound_check(event.damage, event.vp, explode=explode)
+                if event.vp > 0:
+                    yield events.SpendVoidPointsEvent(character, "wound check", event.vp)
+                initial_roll = events.WoundCheckRolledEvent(
+                    character, event.attacker, event.damage, roll, tn=event.tn,
+                )
+                yield from character.wound_check_rolled_strategy().recommend(
+                    character, initial_roll, context,
+                )
 
 
-class AkodoWoundCheckRolledStrategy(Strategy):
+class AkodoWoundCheckRolledStrategy(WoundCheckRolledStrategy):
     """
-    Strategy for the Akodo 4th Dan technique to decide
-    whether to spend Void Points after a Wound Check roll.  Each VP
-    spent adds +5 to the roll (one Free Raise equivalent), reducing
-    the resulting Serious Wound count.
+    Strategy for the Akodo 4th Dan technique to decide whether to
+    spend Void Points after a Wound Check roll.  Each VP spent adds
+    +5 to the roll (one Free Raise equivalent), reducing the resulting
+    Serious Wound count.
 
-    Per FR-018 the strategy selects the SMALLEST spend that brings
-    expected SW into ``tolerable_sw = min(1, sw_remaining())``.  When
-    no spend reaches tolerable, the strategy spends the SMALLEST
-    amount that minimizes expected SW (smallest-tie-break preserves
-    VP for later -- per OPEN_QUESTIONS.md Q2).
+    Inherits from the engine default ``WoundCheckRolledStrategy`` so
+    Akodo characters at Dan 4+ retain access to the default's
+    floating-bonus / AP / conviction resource menu.  Akodo's
+    VP-for-raise is layered on TOP of the default's resource selection:
 
-    Per FR-017 the iteration considers every spend from 1 through
-    ``max_spend = min(available_vp_for_wc, max_vp_per_roll)``,
+      1. Run super().recommend() -- collect FB/AP/conviction spends and
+         the resulting (possibly adjusted) WoundCheckRolledEvent.
+      2. If the post-default expected SW is still > Akodo's tolerable
+         threshold, find the smallest additional VP spend that brings
+         expected SW into ``min(1, sw_remaining())``.  Per OPEN_QUESTIONS
+         Q2 / FR-018, ties prefer the smallest spend.
+      3. Yield the super's spends, then Akodo's SpendVoidPointsEvent
+         (if any), then the final WoundCheckRolledEvent.
+
+    Per FR-017 the VP iteration considers every spend from 1 through
+    ``max_spend = min(available_vp_for_wc, max_vp_per_roll)``
     INCLUSIVE.  The skeleton's ``range(1, max_spend)`` excluded
-    ``max_spend`` itself -- the fix is ``range(1, max_spend + 1)``.
+    ``max_spend`` itself; the fix is ``range(1, max_spend + 1)``.
 
     Per FR-019 the emitted ``SpendVoidPointsEvent`` is tagged with
     ``source="Akodo 4th Dan"`` so the trace formatter renders the
@@ -268,48 +313,64 @@ class AkodoWoundCheckRolledStrategy(Strategy):
     """
 
     def recommend(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
-        if isinstance(event, events.WoundCheckRolledEvent):
-            if event.subject == character:
-                # how many wounds can I tolerate?
-                tolerable_sw = min(1, character.sw_remaining())
-                # how many wounds would I take with no extra spend?
-                no_spend_sw = character.wound_check(event.roll)
-                if no_spend_sw <= tolerable_sw:
-                    # ignore if the result is tolerable
-                    yield event
-                    return
-                # spend VP to reduce SW
-                available_vp = character.void_point_manager().vp("wound check")
-                max_spend = min(available_vp, character.max_vp_per_roll())
-                # FR-018 selection: prefer the smallest spend reaching
-                # tolerable; otherwise the smallest spend that minimizes
-                # expected SW.  Iterate 1..max_spend INCLUSIVE (FR-017
-                # off-by-one fix).
-                chosen_spend = 0
-                best_sw = no_spend_sw
-                for vp in range(1, max_spend + 1):
-                    new_roll = event.roll + (5 * vp)
-                    expected_sw = character.wound_check(new_roll)
-                    if expected_sw <= tolerable_sw:
-                        # first spend reaching tolerable wins -- it is by
-                        # construction the smallest such spend.
-                        chosen_spend = vp
-                        best_sw = expected_sw
-                        break
-                    if expected_sw < best_sw:
-                        chosen_spend = vp
-                        best_sw = expected_sw
-                    # On ties (expected_sw == best_sw), do NOT update
-                    # chosen_spend -- preserve the smallest-spend
-                    # tie-break (OPEN_QUESTIONS.md Q2 / FR-018).
-                # emit the spend (if any) and the adjusted WC roll
-                new_roll = event.roll + (5 * chosen_spend)
-                if chosen_spend > 0:
-                    yield events.SpendVoidPointsEvent(
-                        character, "wound check", chosen_spend,
-                        source="Akodo 4th Dan",
-                    )
-                yield events.WoundCheckRolledEvent(character, event.attacker, event.damage, new_roll)
+        if not isinstance(event, events.WoundCheckRolledEvent):
+            return
+        if event.subject != character:
+            return
+
+        # Step 1: run the engine default to spend FB / AP / conviction.
+        # Collect events so we can separate the spends from the final WC
+        # event we may need to adjust further.
+        default_events = list(super().recommend(character, event, context))
+        prior_spends: list[events.Event] = []
+        wc_event: events.WoundCheckRolledEvent = event
+        for e in default_events:
+            if isinstance(e, events.WoundCheckRolledEvent):
+                wc_event = e
+            else:
+                prior_spends.append(e)
+
+        # Step 2: compute Akodo VP-for-raise on top of the post-default
+        # roll, per FR-018 (smallest spend reaching tolerable;
+        # smallest-tie-break otherwise).
+        tolerable_sw = min(1, character.sw_remaining())
+        current_expected = character.wound_check(wc_event.roll)
+        if current_expected <= tolerable_sw:
+            # Default already brought us into tolerable range; no VP needed.
+            yield from prior_spends
+            yield wc_event
+            return
+
+        available_vp = character.void_point_manager().vp("wound check")
+        max_spend = min(available_vp, character.max_vp_per_roll())
+        chosen_spend = 0
+        best_sw = current_expected
+        # Iterate 1..max_spend INCLUSIVE (FR-017 off-by-one fix).
+        for vp in range(1, max_spend + 1):
+            new_roll = wc_event.roll + (5 * vp)
+            expected_sw = character.wound_check(new_roll)
+            if expected_sw <= tolerable_sw:
+                chosen_spend = vp
+                best_sw = expected_sw
+                break
+            if expected_sw < best_sw:
+                chosen_spend = vp
+                best_sw = expected_sw
+            # On ties, do NOT update chosen_spend -- preserve the
+            # smallest-spend tie-break (OPEN_QUESTIONS Q2 / FR-018).
+
+        # Step 3: emit prior spends, the Akodo VP spend (if any), and
+        # the final WC event with the further-adjusted roll.
+        yield from prior_spends
+        new_roll = wc_event.roll + (5 * chosen_spend)
+        if chosen_spend > 0:
+            yield events.SpendVoidPointsEvent(
+                character, "wound check", chosen_spend,
+                source="Akodo 4th Dan",
+            )
+        yield events.WoundCheckRolledEvent(
+            character, wc_event.attacker, wc_event.damage, new_roll, tn=wc_event.tn,
+        )
 
 
 class AkodoAttackStrategy(BaseAttackStrategy):

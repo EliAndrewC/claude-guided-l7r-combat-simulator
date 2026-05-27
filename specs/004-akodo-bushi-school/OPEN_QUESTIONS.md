@@ -108,16 +108,28 @@ The school never defaults to defense (no `AlwaysParryStrategy`-equivalent instal
 
 ## Scope-creep findings
 
-### Pre-existing skeleton defects flagged by rules-auditor (NOT introduced by this branch)
+### Pre-existing skeleton defects — FIXED (2026-05-27 follow-up)
 
-The rules-auditor's cumulative-diff review (2026-05-27, HIGH confidence PASS) flagged four defects in `AkodoWoundCheckDeclaredListener` (`simulation/schools/akodo_school.py:237-242` area) that **predate this spec** and **were not touched by the implementation**. They are recorded here for the user's awareness; addressing them is out of scope for the Akodo spec but should be tracked as follow-up:
+The rules-auditor's cumulative-diff review flagged four defects in `AkodoWoundCheckDeclaredListener` and `AkodoLightWoundsDamageListener` that predated this spec. They have been **fixed in a follow-up commit** with regression tests in `tests/test_akodo_school_defects.py` (8 tests, all PASS). Test count 2954 → 2962.
 
-1. **VP swallowed without deduction**: `AkodoWoundCheckDeclaredListener` consumes `event.vp` as a roll bonus via `roll_wound_check(damage, vp)` but never emits `SpendVoidPointsEvent(character, "wound check", event.vp)`. Result: a 4th-Dan Akodo's pre-declared VP spend (from the engine's `WoundCheckOptimizer.declare()` at `simulation/optimizers/wound_check_optimizers.py:152`) is "free" — the bonus applies but VP is not deducted from the pool.
-2. **`tn` and `duel/explode` not propagated**: The listener synthesizes `WoundCheckRolledEvent(character, event.attacker, event.damage, roll)` without `tn=event.tn`, and calls `roll_wound_check(damage, vp)` without `explode=not duel`. Affects custom-TN and iaijutsu-duel paths.
-3. **`wound_check_rolled_strategy()` bypassed**: The listener replaces the engine default's post-roll dispatcher with `AkodoWoundCheckRolledStrategy` directly, skipping `character.wound_check_rolled_strategy().recommend(...)` (the engine default at `simulation/strategies/base.py:539`). Result: a Dan-4+ Akodo loses access to AP / conviction / floating-bonus spend on WC — rules text only ADDS VP-for-raise, it does not REMOVE other resource options.
-4. **`AkodoLightWoundsDamageListener` doesn't gate on `event.damage > 0`**: Mild divergence from the engine default. Harmless (the 5th Dan strategy short-circuits when `event.damage // 10 == 0`) but inconsistent.
+1. **VP swallowed without deduction — FIXED.** `AkodoWoundCheckDeclaredListener.handle` now mirrors the engine default at `simulation/listeners.py::WoundCheckDeclaredListener`: emits `SpendVoidPointsEvent(character, "wound check", event.vp)` when `event.vp > 0` so pre-declared VP is actually deducted from the pool. Regression: `TestDefect1AkodoWcDeclaredEmitsSpendVpEvent`.
 
-These would justify a follow-up spec ("Akodo WC listener completeness") to align the override with the engine default's semantics while preserving the 4th Dan addition. Not blocking for the current merge.
+2. **`tn` and `duel/explode` not propagated — FIXED.** The listener now passes `explode=not duel` to `roll_wound_check` and `tn=event.tn` to the constructed `WoundCheckRolledEvent`. Custom-TN paths (iaijutsu duels, etc.) now work. Regression: `TestDefect2AkodoWcDeclaredPropagatesTnAndDuel`.
+
+3. **`wound_check_rolled_strategy()` bypassed — FIXED.** Two coordinated changes:
+   - The listener now dispatches via `character.wound_check_rolled_strategy().recommend(...)` instead of holding a direct reference.
+   - `AkodoWoundCheckRolledStrategy` now inherits from the engine default `WoundCheckRolledStrategy`; its `recommend()` chains `super().recommend()` for FB/AP/conviction selection FIRST, then layers Akodo VP-for-raise on top.
+   - `apply_rank_four_ability` now installs `AkodoWoundCheckRolledStrategy` at the `wound_check_rolled` strategy slot via `_set_school_strategy` (so the listener's slot lookup picks it up).
+   - Result: a Dan-4+ Akodo retains access to AP/conviction/floating-bonus on WC; the 4th Dan VP-for-raise is ADDITIVE rather than REPLACING. Regression: `TestDefect3AkodoUsesWoundCheckRolledStrategySlot` (3 tests).
+
+4. **`AkodoLightWoundsDamageListener` damage-gate — FIXED.** Added `if event.damage > 0:` gate before dispatching `wound_check_strategy().recommend(...)` and the 5th Dan strategy. Mirrors the engine default at `simulation/listeners.py::LightWoundsDamageListener`. Regression: `TestDefect4AkodoLwDamageGatesOnDamageGreaterThanZero` (2 tests).
+
+**Implementation notes for chaining (defect #3)**:
+- The Akodo strategy's tolerance formula `min(1, sw_remaining())` is preserved per FR-018. The engine default uses `min(1, sw_remaining() - 1)` (stricter near-death). When chained, the engine default spends FB/AP/conviction first under its own tolerance; if expected SW is then still above Akodo's tolerance, Akodo's VP-for-raise fires on top.
+- In typical setups (no FB/AP/conviction), the chain reduces to the same behavior as the standalone Akodo logic. All 6 pre-existing 4th-Dan tests (T022–T027) continue to pass.
+- The chain preserves the per-call freshness: each `recommend()` invocation gets a fresh `_chosen_ap`/`_chosen_bonuses`/`_chosen_conviction` via the super's `reset()` call.
+
+Quality gates after the follow-up: ruff PASS, mypy PASS (195 source files), pytest 2962/2962 PASS.
 
 ### Per-matchup feint-ratio dip (combat-simulator finding)
 
