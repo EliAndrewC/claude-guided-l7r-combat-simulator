@@ -26,9 +26,17 @@ The human-readable rules at
 `https://github.com/EliAndrewC/l7r/tree/master/rules` are the specification
 this simulator implements. When simulator behavior and the rules disagree,
 the simulator is wrong by definition. Out of scope: everything outside the
-`rules/` directory of that repository, and the Between Place / Spirit
-Encounter rules within it. Specs and plans that reference mechanics MUST cite
-the relevant rules file.
+`rules/` directory of that repository; the Between Place / Spirit Encounter
+rules within it; and the **Shugenja School** in `rules/04-schools.md`
+(deferred to a future project phase — this phase does not model the spell
+subsystem its abilities depend on). Specs and plans that reference
+mechanics MUST cite the relevant rules file.
+
+Note: other schools whose abilities reference spells or shugenja-adjacent
+mechanics (e.g., Yogo Warden's wards, Isawa Ishi's void mysticism) remain
+in scope insofar as their combat-relevant abilities can be modeled without
+the spell engine. When an in-scope school's ability genuinely requires the
+spell subsystem, that specific ability is deferred — not the whole school.
 
 ### IV. Injectable Randomness
 Engine logic does not call `random.*` directly. Every die roll flows through
@@ -128,6 +136,10 @@ three scenarios still hold.
 - **Style**: PEP 8, enforced by `ruff`. Lint must pass on every change.
 - **Scope Boundary**: Between Place and Spirit Encounter rules are
   permanently out of scope and MUST NOT appear in specs, plans, or tasks.
+  The Shugenja School in `rules/04-schools.md` is deferred to a future
+  project phase and MUST NOT be implemented in the current phase; see
+  Principle III for the carve-out covering other schools that brush
+  against shugenja mechanics.
 
 ## Quality Gates
 
@@ -183,4 +195,4 @@ clarification, or non-semantic edits.
 **Compliance review**: `/speckit-plan` and `/speckit-analyze` MUST surface
 constitution violations as blockers, not suggestions.
 
-**Version**: 1.2.1 | **Ratified**: 2026-05-25 | **Last Amended**: 2026-05-26
+**Version**: 1.2.2 | **Ratified**: 2026-05-25 | **Last Amended**: 2026-05-27

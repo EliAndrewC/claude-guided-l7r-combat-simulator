@@ -62,6 +62,63 @@ If `.env` is missing in a fresh container, the user has the canonical copy and w
 
 To use the secrets in a shell session: `set -a && source .env && set +a` (the `set -a` makes sourced assignments exported). Values containing whitespace (the Fly token does) MUST be quoted in `.env`.
 
+## New school implementation workflow
+
+The queue of unimplemented schools lives in [BACKLOG.md](BACKLOG.md) at
+repo root. When asked to "implement the next school", pick the topmost
+unchecked entry under **Skeleton present — needs full audit + completion**
+and run this workflow:
+
+1. **Verify scope.** Confirm the school is not in BACKLOG.md's "Out of
+   scope" section. Shugenja School and any ability that requires the
+   (deferred) spell subsystem are excluded per Constitution Principle III.
+
+2. **Specify.** `/speckit-specify` with: (a) the verbatim rules text from
+   `https://github.com/EliAndrewC/l7r/blob/master/rules/04-schools.md` for
+   the chosen school, (b) an audit of the existing skeleton file in
+   `simulation/schools/`, (c) the list of known ambiguities with your
+   pre-resolution of each, and (d) the autonomous-run authorization
+   (decisions logged to `OPEN_QUESTIONS.md` for end-of-run review).
+
+3. **Clarify.** `/speckit-clarify` — in autonomous mode, pre-answer each
+   question per the spec's pre-resolutions; log any non-trivial choices
+   to `OPEN_QUESTIONS.md`.
+
+4. **Plan + design review.** `/speckit-plan`, then dispatch
+   `school-progression-designer` and `school-strategy-designer` (in
+   parallel) for ring/skill priorities and default-strategy bindings.
+   Apply their proposals to `simulation/templates/strategies.py` and the
+   school file respectively.
+
+5. **Tasks.** `/speckit-tasks`.
+
+6. **Implement.** `/speckit-implement` — batches of 3–6 tasks per
+   `school-implementer` call. After every substantial batch:
+   - `rules-auditor` reviews the diff against the upstream rules clause.
+   - `combat-simulator` runs scenarios A (clause exercise), B
+     (win-feasibility vs Akodo + Hida baselines at matched XP), B.2
+     (action-disadvantage), C (mirror non-degeneracy with both
+     termination AND identity-engine-firing checks per Principle IX), and
+     D (behavioral round-robin against other schools).
+
+7. **Validate constitution gates** per the 8-point checklist in the
+   constitution: ruff, mypy, pytest, coverage ≥ 90%, Streamlit smoke if
+   UI touched, trace observability per Principle VII, identity-driven
+   defaults per Principle VIII, playability per Principle IX.
+
+8. **Squash-merge** the feature branch into `master`. User handles
+   `git push` (per durable constraint — never run `git push` yourself).
+
+9. **Update BACKLOG.md** — move the school's entry from "Skeleton
+   present" to "Validated via speckit workflow" with the merge commit
+   reference.
+
+The user reviews after each school before the next starts. Do not
+batch multiple schools without a checkpoint — the methodology kept
+evolving across Mirumoto and Ishi (Principles VII/VIII/IX were added
+mid-run), and per-school review is what catches identity/playability
+defects before they propagate.
+
 ## School player choices (build-time, via YAML)
 
 Schools whose rules text gives players a build-time choice (e.g., Ishi 1st Dan "any two skills of your choice", Ide Diplomat "Any non-Void Ring") expose those as `school_choices` in the character YAML:
