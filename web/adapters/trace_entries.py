@@ -275,6 +275,15 @@ class WoundCheckEntry:
     # ("Hida 5th Dan: counterattack excess +X") on the WC line per
     # Constitution Principle VII.  Default 0 = no bonus applied.
     hida_5th_dan_excess_bonus: int = 0
+    # rules/04-schools.md "Bayushi Bushi School: Fifth Dan": when a
+    # Bayushi fails a WC, SW is computed against ``lw // 2`` instead
+    # of ``lw``.  Renderers surface the halving with explicit
+    # attribution ("Bayushi 5th Dan: SW computed against halved LW
+    # (actual N -> halved M)") on the WC line per Constitution
+    # Principle VII (trace-auditor + trace-reader fix 2026-05-28).
+    # Default 0 = halving did not apply (the WC was not Bayushi 5th
+    # Dan's path, or the WC passed and halving was a no-op).
+    bayushi_5th_dan_halved_lw_actual: int = 0
     kind: Literal["wound_check"] = "wound_check"
 
 

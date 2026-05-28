@@ -634,6 +634,17 @@ class BulletedRenderer:
                 f"+{entry.hida_5th_dan_excess_bonus}"
             )
 
+        # rules/04-schools.md "Bayushi Bushi School: Fifth Dan": render
+        # the half-LW SW computation as a bullet so the reader sees
+        # that the SW count was computed against the halved LW per
+        # Principle VII (trace-auditor + trace-reader fix 2026-05-28).
+        if entry.bayushi_5th_dan_halved_lw_actual:
+            halved = entry.bayushi_5th_dan_halved_lw_actual // 2
+            lines.append(
+                f"  - Bayushi 5th Dan: SW vs halved LW "
+                f"({entry.bayushi_5th_dan_halved_lw_actual} → {halved})"
+            )
+
         if entry.follow_up == "keep_lw":
             lines.append(
                 f"  - keeping {entry.follow_up_lw_total} light wounds"

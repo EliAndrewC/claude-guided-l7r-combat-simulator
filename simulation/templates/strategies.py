@@ -121,6 +121,17 @@ AKODO_PRIORITIES: list[tuple[str, str, int]] = [
 ]
 
 # Bayushi Bushi School (school_ring: fire, knacks: double attack, feint, iaijutsu)
+# NOTE (2026-05-28, Bayushi spec branch 013): the school-progression-
+# designer proposed a feint-first identity-aligned revision of this list
+# (parry capped at 3, fire promoted to Dan 3, void promoted to Dan 4,
+# earth demoted) per specs/012 OPEN_QUESTIONS Q8.  The revision was
+# NOT applied — applying it shifts the 300-XP Bayushi build composition,
+# which shifts the seed=1234 Bayushi-vs-Akodo calibration combat used
+# by ~10 trace-observability tests.  Per the user's framing ("audit the
+# existing implementation"), the audit identified the priorities as
+# anti-identity (parry at every rank, no parry-keyed rules text); the
+# revision is deferred to a follow-up branch that can also re-calibrate
+# the dependent tests.  See specs/012-bayushi-bushi-school/OPEN_QUESTIONS.md.
 BAYUSHI_PRIORITIES: list[tuple[str, str, int]] = [
     # Dan 2
     ("skill", "double attack", 2),

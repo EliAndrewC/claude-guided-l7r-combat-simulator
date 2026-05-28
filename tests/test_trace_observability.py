@@ -830,10 +830,14 @@ class TestVPOnAttackDamageAttribution(unittest.TestCase):
             "Calibration combat produced no Bayushi damage lines.",
         )
         # At least one Bayushi damage line must contain a VP-on-attack
-        # source entry matching the format ``NkN VP on attack``.
+        # source entry matching the format ``NkN Bayushi Special Ability
+        # VP on attack`` (trace-reader fix 2026-05-28: relabeled from
+        # bare "VP on attack" to include explicit school attribution).
         vp_damage_lines = [
             line for line in bayushi_damage_lines
-            if re.search(r"\b\d+k\d+ VP on attack\b", line)
+            if re.search(
+                r"\b\d+k\d+ Bayushi Special Ability VP on attack\b", line,
+            )
         ]
         self.assertTrue(
             vp_damage_lines,
@@ -844,7 +848,8 @@ class TestVPOnAttackDamageAttribution(unittest.TestCase):
         # spent (the calibration opener spends 2 VP).
         opener_damage_line = vp_damage_lines[0]
         m = re.search(
-            r"(\d+)k(\d+) VP on attack", opener_damage_line,
+            r"(\d+)k(\d+) Bayushi Special Ability VP on attack",
+            opener_damage_line,
         )
         self.assertIsNotNone(m)
         assert m is not None

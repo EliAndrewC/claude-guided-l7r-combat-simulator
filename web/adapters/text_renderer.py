@@ -667,6 +667,17 @@ class TextRenderer:
                 f"+{entry.hida_5th_dan_excess_bonus}]"
             )
 
+        # rules/04-schools.md "Bayushi Bushi School: Fifth Dan": surface
+        # the half-LW SW computation on the WC line.  Principle VII
+        # requires the trace to identify that the SW count was modified
+        # by the school ability AND show the actual vs halved LW values.
+        if entry.bayushi_5th_dan_halved_lw_actual:
+            halved = entry.bayushi_5th_dan_halved_lw_actual // 2
+            wc_str += (
+                f" [Bayushi 5th Dan: SW vs halved LW "
+                f"({entry.bayushi_5th_dan_halved_lw_actual} → {halved})]"
+            )
+
         if entry.follow_up == "keep_lw":
             return [f"{wc_str} → keeping {entry.follow_up_lw_total} light wounds"]
         if entry.follow_up == "take_sw":

@@ -1345,6 +1345,27 @@ class DetailedEventFormatter:
             getattr(event, "_hida_5th_dan_excess_bonus", 0) or 0,
         )
 
+        # rules/04-schools.md "Bayushi Bushi School: Fifth Dan": when
+        # the WC subject is a Bayushi 5th-Dan-or-higher AND the WC
+        # FAILED, the SW computation reads ``lw // 2`` instead of
+        # ``lw``.  We probe the subject's wound-check provider type
+        # to determine if Bayushi's half-LW path applies; if so,
+        # surface the actual LW (the renderer derives the halved
+        # value as ``// 2``) so the trace explicitly attributes the
+        # modified SW count per Principle VII.  Default 0 = halving
+        # didn't apply (passed WC OR non-Bayushi WC provider).
+        bayushi_5th_dan_halved_lw_actual = 0
+        if not passed:
+            wc_provider = getattr(event.subject, "wound_check_provider", None)
+            if callable(wc_provider):
+                from simulation.schools.bayushi_school import (
+                    BayushiWoundCheckProvider,
+                )
+                if isinstance(wc_provider(), BayushiWoundCheckProvider):
+                    bayushi_5th_dan_halved_lw_actual = int(
+                        event.subject.lw()
+                    )
+
         if not hasattr(event, "_detail_dice"):
             return WoundCheckEntry(
                 phase_prefix=self._phase_prefix(name),
@@ -1361,6 +1382,7 @@ class DetailedEventFormatter:
                 follow_up_lw_total=follow_up_lw_total,
                 follow_up_voluntary=follow_up_voluntary,
                 hida_5th_dan_excess_bonus=hida_5th_dan_excess_bonus,
+                bayushi_5th_dan_halved_lw_actual=bayushi_5th_dan_halved_lw_actual,
             )
 
         dice = list(event._detail_dice)
