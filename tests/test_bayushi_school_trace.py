@@ -344,6 +344,100 @@ class TestBayushiAttackStrategyAdditionalCoverage(unittest.TestCase):
         self.assertEqual(1, len(attack_events))
         self.assertEqual("attack", attack_events[0].action.skill())
 
+    def test_kill_shot_falls_back_to_plain_attack_when_double_attack_skill_zero(self) -> None:
+        """When the target is at sw_remaining=1 AND double_attack skill
+        is 0, the kill-shot branch's double-attack attempt declines and
+        falls back to plain attack at threshold 0.7.  Drives coverage
+        on the kill-shot fallback path (lines 417-424)."""
+        from simulation import events as ev
+        from simulation.context import EngineContext
+        from simulation.groups import Group
+        from simulation.schools.bayushi_school import (
+            BayushiAttackStrategy,
+            BayushiBushiSchool,
+        )
+        bayushi = Character("Bayushi")
+        bayushi.set_school(BayushiBushiSchool())
+        # Double attack skill 0 → kill-shot's first attempt declines.
+        # Plain attack skill 5 + Fire 5 → 0.7 reachable vs weak target.
+        bayushi.set_skill("attack", 5)
+        bayushi.set_skill("double attack", 0)
+        bayushi.set_skill("feint", 0)  # feint also declines
+        bayushi.set_skill("iaijutsu", 0)
+        bayushi.set_skill("parry", 3)
+        bayushi.set_ring("fire", 5)
+        bayushi.set_ring("water", 4)
+        bayushi.set_actions([1])
+        # Target at sw_remaining=1 → kill-shot engages.  Weak parry → plain
+        # attack at 0.7 succeeds.
+        target = Character("Target")
+        target.set_skill("parry", 0)
+        target.set_ring("earth", 1)  # max_sw 2
+        target.take_sw(1)  # sw_remaining = 1
+        target.set_actions([1])
+        groups = [Group("Scorpion", bayushi), Group("Target", target)]
+        context = EngineContext(groups, phase=1)
+        context.initialize()
+        bayushi.set_strategy("attack", BayushiAttackStrategy())
+        strategy = bayushi.attack_strategy()
+        responses = list(strategy.recommend(
+            bayushi, ev.YourMoveEvent(bayushi), context,
+        ))
+        # Plain attack (NOT double attack) must fire from the kill-shot
+        # fallback path.
+        attack_events = [
+            e for e in responses if isinstance(e, ev.TakeAttackActionEvent)
+        ]
+        self.assertEqual(1, len(attack_events))
+        self.assertEqual("attack", attack_events[0].action.skill())
+
+    def test_recommend_falls_through_to_desperation_branch(self) -> None:
+        """When kill-shot/saturation/feint/plain all decline but
+        desperation at 0.01 fires, the desperation yield-from-events
+        path executes.  Drives coverage on lines 493-494, 525-527."""
+        from simulation import events as ev
+        from simulation.context import EngineContext
+        from simulation.groups import Group
+        from simulation.schools.bayushi_school import (
+            BayushiAttackStrategy,
+            BayushiBushiSchool,
+        )
+        bayushi = Character("Bayushi")
+        bayushi.set_school(BayushiBushiSchool())
+        # Attack skill 1, no other knacks.  Feint at 0 → declines.
+        # Plain attack at 0.7 declines vs strong defender.  Desperation
+        # at 0.01 succeeds because the optimizer accepts a bare-skill
+        # attack at near-zero confidence.
+        bayushi.set_skill("attack", 1)
+        bayushi.set_skill("feint", 0)
+        bayushi.set_skill("double attack", 0)
+        bayushi.set_skill("iaijutsu", 0)
+        bayushi.set_skill("parry", 0)
+        bayushi.set_ring("fire", 1)
+        bayushi.set_actions([1])
+        target = Character("Target")
+        target.set_skill("parry", 5)  # strong parry → 0.7 unreachable
+        target.set_ring("earth", 5)  # max_sw 10 → not kill-shot
+        target.set_actions([1])
+        groups = [Group("Scorpion", bayushi), Group("Target", target)]
+        context = EngineContext(groups, phase=1)
+        context.initialize()
+        bayushi.set_strategy("attack", BayushiAttackStrategy())
+        strategy = bayushi.attack_strategy()
+        responses = list(strategy.recommend(
+            bayushi, ev.YourMoveEvent(bayushi), context,
+        ))
+        # Desperation tier fires → some attack event yields.
+        attack_events = [
+            e for e in responses if isinstance(e, ev.TakeAttackActionEvent)
+        ]
+        self.assertEqual(
+            1, len(attack_events),
+            f"Desperation tier must fire when plain attack declines.  "
+            f"Drives coverage on the desperation yield-from-events "
+            f"path.  Got: {responses}",
+        )
+
     def test_recommend_hold_action_when_all_branches_decline(self) -> None:
         """When kill-shot/saturation/feint/plain/desperation all
         decline (skill 0), the strategy falls through to HoldActionEvent."""
