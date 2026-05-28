@@ -47,6 +47,22 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   structural gap) and Principle IX 2(a) clean mirror termination
   (Hida defensive stack absorbs damage indefinitely). Both require
   a follow-up branch with broader scope than the school itself.
+- **Matsu Bushi School** — `specs/011-matsu-bushi-school/`, merged
+  2026-05-28 as commit `69cd640`. Identity-driven MATSU_PRIORITIES
+  (parry capped at 3, fire promoted, void at Dan 4) + revised
+  default strategy bindings (`WoundCheckStrategy04` +
+  `DefaultInterruptStrategy`) + Special Ability strict 10-dice
+  initiative (Q1) + 3rd Dan source-attributed
+  `WoundCheckFloatingBonus` + 4th Dan rules-fidelity fixes
+  (clean-hit extra-dice bug + strict `<` boundary) + 5th Dan
+  listener relocated from `wound_check_failed` to `sw_damage` slot
+  (eliminates double-SW emission + LW race vs defender's default
+  listener) + ~50 new tests (3887 → 3925). One US3 sub-test
+  (vs Wave-Man baseline) honestly skipped — cross-school evidence
+  shows NO validated school meets the 35% floor vs Wave-Man at
+  450 XP, indicating the Wave-Man template at 450 XP is
+  structurally over-tuned (rules-balance question for a follow-up
+  branch). Matsu vs Akodo 40% PASSES (clear contrast to Hida's 0%).
 
 ## Partial work (no full audit yet)
 
@@ -63,8 +79,6 @@ adjacent runs share rules-text patterns and review heuristics.
 
 ### Bushi schools (direct combat — closest in shape to Mirumoto)
 
-- [ ] **Matsu Bushi School** (`simulation/schools/matsu_school.py`).
-  Berserker/Lion-clan offensive bushi.
 - [ ] **Bayushi Bushi School**
   (`simulation/schools/bayushi_school.py`). Scorpion-clan deception
   bushi (feint-heavy).
