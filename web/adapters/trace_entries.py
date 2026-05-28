@@ -260,6 +260,13 @@ class WoundCheckEntry:
     follow_up_sw_count: int = 0
     follow_up_lw_total: int = 0
     follow_up_voluntary: bool = False
+    # rules/04-schools.md "Hida Bushi School: Fifth Dan": when the
+    # Hida's WC fires on damage from a previously counterattacked
+    # attack, the counterattack-excess margin (roll - TN) is added to
+    # the WC roll.  Renderers surface this with explicit attribution
+    # ("Hida 5th Dan: counterattack excess +X") on the WC line per
+    # Constitution Principle VII.  Default 0 = no bonus applied.
+    hida_5th_dan_excess_bonus: int = 0
     kind: Literal["wound_check"] = "wound_check"
 
 
@@ -350,6 +357,55 @@ class AkodoFifthDanCounterEntry:
     damage: int
     target_name: str
     kind: Literal["akodo_5th_dan_counter"] = "akodo_5th_dan_counter"
+
+
+@dataclass(frozen=True)
+class HidaThirdDanRerollEntry:
+    """Hida 3rd Dan reroll annotation, emitted alongside an attack /
+    counterattack entry whose action has a ``_hida_3rd_dan_reroll``
+    annotation set by ``Action.roll_skill``.
+
+    Constitution Principle VII: each rerolled die appears with its
+    before-value and after-value, and the entry carries an explicit
+    ``"Hida 3rd Dan"`` source label.
+
+    rules/04-schools.md "Hida Bushi School: Third Dan".
+    """
+
+    phase_prefix: str
+    actor_name: str
+    skill: str
+    n: int  # effective reroll cap after crippled halving
+    crippled: bool
+    rerolls: list[tuple[int, int]]  # list of (before, after) die values
+    before_total: int
+    after_total: int
+    kind: Literal["hida_3rd_dan_reroll"] = "hida_3rd_dan_reroll"
+
+
+@dataclass(frozen=True)
+class HidaSWForLWTradeEntry:
+    """Hida 4th Dan SW-for-LW trade — the alternative wound check
+    that takes 2 SW to reset LW to 0.
+
+    Emitted when a ``HidaSWForLWTradeEvent`` appears in the engine
+    history.  The entry carries the explicit ``"Hida 4th Dan"`` source
+    label, the LW value being reset (``lw_reset_from``), and the 2-SW
+    cost (per rules text).
+
+    Constitution Principle VII: the trade replaces the wound check
+    entirely, so its rendering must clearly attribute the action to
+    the Hida 4th Dan ability AND state the cost-to-benefit numerically
+    (take 2 SW; reset LW from N to 0).
+
+    rules/04-schools.md "Hida Bushi School: Fourth Dan".
+    """
+
+    phase_prefix: str
+    character_name: str
+    lw_reset_from: int
+    sw_taken: int = 2
+    kind: Literal["hida_sw_for_lw_trade"] = "hida_sw_for_lw_trade"
 
 
 @dataclass(frozen=True)
@@ -509,6 +565,8 @@ TraceEntry = (
     | SpendFloatingBonusEntry
     | SchoolNegatedEntry
     | AkodoFifthDanCounterEntry
+    | HidaThirdDanRerollEntry
+    | HidaSWForLWTradeEntry
     | IaijutsuDuelHeaderEntry
     | ShowMeYourStanceDeclaredEntry
     | ShowMeYourStanceRolledEntry

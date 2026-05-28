@@ -32,7 +32,7 @@ SCHOOL_KNACK_LOOKUP: dict[str, list[str]] = {
     "Courtier School": ["discern honor", "oppose social", "worldliness"],
     "Daidoji Yojimbo School": ["counterattack", "double attack", "iaijutsu"],
     "Doji Artisan School": ["counterattack", "oppose social", "worldliness"],
-    "Hida Bushi School": ["counterattack", "iaijutsu", "lunge"],
+    "Hida Bushi School": ["counterattack", "double attack", "iaijutsu"],
     "Hiruma Scout School": ["double attack", "feint", "iaijutsu"],
     "Ide Diplomat School": ["double attack", "feint", "worldliness"],
     "Ikoma Bard School": ["discern honor", "oppose knowledge", "oppose social"],

@@ -35,6 +35,8 @@ from web.adapters.trace_entries import (
     DuelStrikeRolledEntry,
     GainFloatingBonusEntry,
     GainTvpEntry,
+    HidaSWForLWTradeEntry,
+    HidaThirdDanRerollEntry,
     IaijutsuDuelHeaderEntry,
     IaijutsuFocusEntry,
     IaijutsuStrikeEntry,
@@ -241,6 +243,16 @@ class TestJsonRenderer:
             AkodoFifthDanCounterEntry(
                 phase_prefix="A |", akodo_name="A",
                 vp_spent=2, damage=20, target_name="B",
+            ),
+            HidaThirdDanRerollEntry(
+                phase_prefix="A |", actor_name="A", skill="attack",
+                n=3, crippled=False,
+                rerolls=[(1, 7), (2, 6)],
+                before_total=10, after_total=21,
+            ),
+            HidaSWForLWTradeEntry(
+                phase_prefix="A |", character_name="A",
+                lw_reset_from=40, sw_taken=2,
             ),
             IaijutsuDuelHeaderEntry(),
             ShowMeYourStanceDeclaredEntry(character_name="A"),

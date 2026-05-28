@@ -290,6 +290,17 @@ class CombatObserver:
         event._detail_params = self._adjust_params_for_ishi_boost(
             event.action.skill_roll_params(), event.action,
         )
+        # Per rules/04-schools.md "Hida Bushi School: Special Ability":
+        # a 1-die interrupt counterattack grants the attacker a free
+        # raise (+5) on their attack roll.  The engine adds the bonus
+        # directly into ``set_skill_roll`` (events.py::_roll_attack),
+        # so ``skill_roll_params()`` returns the pre-bonus modifier.
+        # Fold the bonus into the modifier slot here so the trace's
+        # ``total = kept_sum + modifier`` arithmetic accounts for it,
+        # and ``explain_modifier`` will attribute it to a source label.
+        event._detail_params = self._adjust_params_for_counterattack_bonus(
+            event._detail_params, event.action,
+        )
         event._detail_tn = event.action.tn()
         event._detail_base_tn = event.action.target().tn_to_hit()
         event._detail_modifier_breakdown = self._build_modifier_breakdown(
@@ -365,6 +376,36 @@ class CombatObserver:
         if not isinstance(boost_value, int) or boost_value <= 0:
             return params
         adjusted = (params[0], params[1], params[2] + boost_value)
+        return adjusted
+
+    @staticmethod
+    def _adjust_params_for_counterattack_bonus(
+        params: Any, action: Any,
+    ) -> Any:
+        """Augment the (rolled, kept, modifier) tuple with the Hida
+        Bushi School special-ability free raise: when an attack action
+        carries ``_counterattack_roll_bonus`` (set by
+        ``HidaTakeCounterattackActionEvent`` on a 1-die interrupt
+        counterattack), the attacker gets that bonus added to the
+        attack roll.
+
+        The engine adds the bonus directly into the rolled value (see
+        ``events.py::_roll_attack``), so ``skill_roll_params()``
+        returns the pre-bonus modifier.  Fold the bonus into the
+        modifier slot here so the trace's ``total = kept_sum + mod``
+        arithmetic stays consistent with the engine's hit
+        determination, and ``explain_modifier`` will then attribute
+        the contribution to "Hida special ability free raise" per
+        Principle VII.
+
+        rules/04-schools.md "Hida Bushi School: Special Ability".
+        """
+        if not params or len(params) < 3:  # pragma: no cover  # defensive: ``skill_roll_params()`` always returns a 3-tuple
+            return params
+        bonus = getattr(action, "_counterattack_roll_bonus", 0)
+        if not isinstance(bonus, int) or bonus <= 0:
+            return params
+        adjusted = (params[0], params[1], params[2] + bonus)
         return adjusted
 
     @staticmethod

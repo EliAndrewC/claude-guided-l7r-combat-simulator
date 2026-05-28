@@ -26,6 +26,8 @@ from web.adapters.trace_entries import (
     DuelStrikeRolledEntry,
     GainFloatingBonusEntry,
     GainTvpEntry,
+    HidaSWForLWTradeEntry,
+    HidaThirdDanRerollEntry,
     IaijutsuDuelHeaderEntry,
     IaijutsuEntry,
     IaijutsuFocusEntry,
@@ -247,6 +249,10 @@ class TextRenderer:
             return self._render_school_negated(entry)
         if isinstance(entry, AkodoFifthDanCounterEntry):
             return self._render_akodo_5th_dan_counter(entry)
+        if isinstance(entry, HidaThirdDanRerollEntry):
+            return self._render_hida_3rd_dan_reroll(entry)
+        if isinstance(entry, HidaSWForLWTradeEntry):
+            return self._render_hida_sw_for_lw_trade(entry)
         if isinstance(entry, IaijutsuDuelHeaderEntry):
             return self._render_iaijutsu_duel_header(lines_so_far)
         if isinstance(entry, ShowMeYourStanceDeclaredEntry):
@@ -629,6 +635,15 @@ class TextRenderer:
                 entry.modifier, entry.modifier_components,
             )
 
+        # rules/04-schools.md "Hida Bushi School: Fifth Dan": surface
+        # the counterattack-excess WC bonus on the WC line.  Principle VII
+        # requires an explicit numeric breakdown with source attribution.
+        if entry.hida_5th_dan_excess_bonus:
+            wc_str += (
+                f" [Hida 5th Dan: counterattack excess "
+                f"+{entry.hida_5th_dan_excess_bonus}]"
+            )
+
         if entry.follow_up == "keep_lw":
             return [f"{wc_str} → keeping {entry.follow_up_lw_total} light wounds"]
         if entry.follow_up == "take_sw":
@@ -723,6 +738,60 @@ class TextRenderer:
             f"spends {entry.vp_spent} VP on counter-damage, "
             f"10 LW × {entry.vp_spent} = {entry.damage} LW dealt to "
             f"{entry.target_name}"
+        ]
+
+    def _render_hida_3rd_dan_reroll(
+        self, entry: HidaThirdDanRerollEntry,
+    ) -> list[str]:
+        """Hida 3rd Dan reroll line.
+
+        Format::
+
+            <prefix> 🎲 Hida 3rd Dan: reroll 2→7, 1→6 (N=2; kept-sum 10→23)
+
+        Includes "(impaired)" when the reroll fired in crippled state
+        (the carve-out kept 10s exploding).  Per Constitution
+        Principle VII, every die change is rendered with its before
+        and after value, and the source label "Hida 3rd Dan" is
+        explicit.
+
+        Note (2026-05-28, trace-reader #1 fix): the trailing pair is
+        labeled "kept-sum" (not "total") because post-roll modifiers
+        like the Hida 2nd Dan +5 free raise on counterattack are
+        applied AFTER the reroll-derived sum and therefore appear in
+        the parent ``Roll: N`` header but NOT in this sub-line.  The
+        explicit label prevents the reader from comparing the two
+        numbers and seeing a phantom mismatch.
+        """
+        pairs = ", ".join(f"{b}→{a}" for (b, a) in entry.rerolls)
+        impaired = " (impaired)" if entry.crippled else ""
+        return [
+            f"{entry.phase_prefix} 🎲 Hida 3rd Dan: reroll {pairs} "
+            f"(N={entry.n}{impaired}; kept-sum {entry.before_total}→"
+            f"{entry.after_total})"
+        ]
+
+    def _render_hida_sw_for_lw_trade(
+        self, entry: HidaSWForLWTradeEntry,
+    ) -> list[str]:
+        """Hida 4th Dan SW-for-LW trade line.
+
+        Format::
+
+            <prefix> 🛡️ Hida 4th Dan: take 2 SW to reset LW from N → 0
+                (alternative wound check)
+
+        Per Constitution Principle VII the trade carries the explicit
+        source label "Hida 4th Dan", the numeric SW cost ("take 2 SW"),
+        and the LW value being reset ("reset LW from N").  No
+        wound-check roll is rendered because the trade replaces it.
+
+        rules/04-schools.md "Hida Bushi School: Fourth Dan".
+        """
+        return [
+            f"{entry.phase_prefix} 🛡️ Hida 4th Dan: "
+            f"take {entry.sw_taken} SW to reset LW from "
+            f"{entry.lw_reset_from} → 0 (alternative wound check)"
         ]
 
     def _render_iaijutsu_duel_header(self, lines_so_far: list[str]) -> list[str]:

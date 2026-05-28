@@ -206,47 +206,72 @@ DAIDOJI_PRIORITIES: list[tuple[str, str, int]] = [
     ("ring", "air", 5),
 ]
 
-# Hida Bushi School (school_ring: water, knacks: counterattack, iaijutsu, lunge)
+# Hida Bushi School (school_ring: water, knacks: counterattack, double attack, iaijutsu)
+# Identity-driven order (school-progression-designer, 2026-05-28):
+#   - counterattack is the keystone skill: Special Ability cheapens it to 1 AP,
+#     2nd Dan grants a free raise, 3rd Dan rerolls 2X dice (X = attack skill),
+#     5th Dan dumps excess onto the attacker's wound check. Buy first at every tier.
+#   - water is the school ring, the wound-check ring (1st Dan extra die), and
+#     gets a 4th-Dan auto-raise plus -5 XP discount. Front-load: water 3 in the
+#     Dan-3 ring slot, then push the discounted maxes early in the max-rings phase.
+#   - attack skill is a literal multiplier in the 3rd-Dan reroll formula
+#     (X dice / 2X dice). Raise ahead of parry at every Dan tier.
+#   - earth ring fuels the defender identity: more LW threshold + SW headroom
+#     for the 4th-Dan "burn 2 SW to reset LW" trade. Priority above void/air/fire.
+#   - double attack and iaijutsu are knacks-of-record only (no Hida ability
+#     specifically references them). Bought after attack/parry each tier.
 HIDA_PRIORITIES: list[tuple[str, str, int]] = [
-    # Dan 2
+    # Dan 2 — counterattack first (school identity), attack ahead of parry
+    # (3rd-Dan reroll multiplier), iaijutsu/double-attack last (knacks-of-record).
     ("skill", "counterattack", 2),
-    ("skill", "iaijutsu", 2),
-    ("skill", "lunge", 2),
     ("skill", "attack", 2),
     ("skill", "parry", 2),
-    # Dan 3
+    ("skill", "double attack", 2),
+    ("skill", "iaijutsu", 2),
+    # Dan 3 — school knacks/identity skills to 3, then water-3 (wound-check
+    # backbone; 1st Dan extra die is already live, water-3 powers the kept-dice
+    # roll). Earth-3 follows for LW threshold (defender soak).
     ("skill", "counterattack", 3),
-    ("skill", "iaijutsu", 3),
-    ("skill", "lunge", 3),
     ("skill", "attack", 3),
     ("skill", "parry", 3),
+    ("skill", "double attack", 3),
+    ("skill", "iaijutsu", 3),
+    ("ring", "water", 3),
     ("ring", "earth", 3),
-    # Dan 4
+    # Dan 4 — school knacks/identity skills to 4. Note: 4th Dan auto-raises
+    # water +1 (FREE) AND grants the -5 XP discount, so we deliberately do NOT
+    # pre-buy water-4 here. After Dan-4 unlock, earth-4 first for the SW-trade
+    # headroom (4th Dan: "spend 2 SW to clear LW" is much safer with a larger
+    # SW pool), then void/air/fire-3 for breadth.
     ("skill", "counterattack", 4),
-    ("skill", "iaijutsu", 4),
-    ("skill", "lunge", 4),
     ("skill", "attack", 4),
     ("skill", "parry", 4),
-    ("ring", "void", 3),
-    ("ring", "fire", 3),
-    ("ring", "air", 3),
+    ("skill", "double attack", 4),
+    ("skill", "iaijutsu", 4),
     ("ring", "earth", 4),
-    # Dan 5
+    ("ring", "void", 3),
+    ("ring", "air", 3),
+    ("ring", "fire", 3),
+    # Dan 5 — school knacks/identity skills to 5 (unlocks the excess-to-WC
+    # counter-damage clause).
     ("skill", "counterattack", 5),
-    ("skill", "iaijutsu", 5),
-    ("skill", "lunge", 5),
     ("skill", "attack", 5),
     ("skill", "parry", 5),
-    # Max rings — ordered by cost: 20 > 25
-    ("ring", "water", 5),      # school ring discounted: 20
-    ("ring", "void", 4),
-    ("ring", "fire", 4),
-    ("ring", "air", 4),
-    ("ring", "earth", 5),
-    ("ring", "water", 6),      # school ring discounted: 25
-    ("ring", "void", 5),
-    ("ring", "fire", 5),
-    ("ring", "air", 5),
+    ("skill", "double attack", 5),
+    ("skill", "iaijutsu", 5),
+    # Max rings — ordered by *effective* cost after the water discount.
+    # Water-5 costs 20 - 5 = 15 (cheapest available ring bump).
+    # Water-6 costs 25 - 5 = 20 (ties with rank-4 bumps).
+    # Earth-5 leads the 25-XP tier as the defender HP cap.
+    ("ring", "water", 5),      # 15 XP after discount — school ring + WC
+    ("ring", "void", 4),       # 20 XP
+    ("ring", "air", 4),        # 20 XP
+    ("ring", "fire", 4),       # 20 XP
+    ("ring", "water", 6),      # 20 XP after discount — discounted school cap
+    ("ring", "earth", 5),      # 25 XP — defender HP cap
+    ("ring", "void", 5),       # 25 XP
+    ("ring", "air", 5),        # 25 XP
+    ("ring", "fire", 5),       # 25 XP
 ]
 
 # Shiba Bushi School (school_ring: air, knacks: counterattack, double attack, iaijutsu)

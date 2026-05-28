@@ -12,6 +12,8 @@ podman run --interactive --tty --rm \
   --volume "$(pwd)":/workspace \
   --workdir /workspace \
   --publish 8502:8501 \
+  --memory 8GB \
+  --memory-swap 8G \
   docker.io/docker/sandbox-templates:claude-code \
   bash
 ```

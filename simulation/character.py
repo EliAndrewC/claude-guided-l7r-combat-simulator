@@ -84,6 +84,7 @@ class Character:
             "gain_tvp": listeners.GainTemporaryVoidPointsListener(),
             "lw_damage": listeners.LightWoundsDamageListener(),
             "new_round": listeners.NewRoundListener(),
+            "post_damage_interrupt_check": listeners.PostDamageInterruptCheckListener(),
             "remove_modifier": listeners.RemoveModifierListener(),
             "spend_action": listeners.SpendActionListener(),
             "spend_ap": listeners.SpendAdventurePointsListener(),

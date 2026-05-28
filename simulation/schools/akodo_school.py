@@ -271,9 +271,33 @@ class AkodoWoundCheckDeclaredListener(Listener):
                 roll = character.roll_wound_check(event.damage, event.vp, explode=explode)
                 if event.vp > 0:
                     yield events.SpendVoidPointsEvent(character, "wound check", event.vp)
+                # rules/04-schools.md "Hida Bushi School: Fifth Dan":
+                # "Add X to YOUR wound check on the damage from the
+                # attack you counterattacked."  Apply the bonus only
+                # when the Akodo is the counterattacker themselves
+                # (cross-trained Akodo+Hida); a non-counterattacking
+                # Akodo defended by an adjacent Hida MUST NOT receive
+                # the bonus on its own WC.  Gate on the counterattacker
+                # reference stored alongside the margin by
+                # ``HidaCounterattackSucceededListener``.
+                attack_action = getattr(event, "attack_action", None)
+                bonus = 0
+                if attack_action is not None:
+                    counterattacker = getattr(
+                        attack_action, "_counterattack_excess_counterattacker",
+                        None,
+                    )
+                    if counterattacker is character:
+                        bonus = getattr(
+                            attack_action, "_counterattack_excess_margin", 0,
+                        ) or 0
+                if bonus:
+                    roll += bonus
                 initial_roll = events.WoundCheckRolledEvent(
                     character, event.attacker, event.damage, roll, tn=event.tn,
                 )
+                if bonus:
+                    initial_roll._hida_5th_dan_excess_bonus = bonus  # type: ignore[attr-defined]
                 yield from character.wound_check_rolled_strategy().recommend(
                     character, initial_roll, context,
                 )

@@ -10,6 +10,6 @@ rings:
 skills:
   attack: 5
   counterattack: 5
+  double attack: 5
   iaijutsu: 5
-  lunge: 5
   parry: 5

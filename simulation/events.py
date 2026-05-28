@@ -134,6 +134,16 @@ class TakeAttackActionEvent(TakeActionEvent):
                 yield direct_damage
             if self.action.target().is_fighting():
                 yield self._roll_damage()
+                # rules/04-schools.md "Hida Bushi School: Fifth Dan":
+                # After the damage event resolves fully (LW added, WC
+                # fired, SW potentially inflicted), give characters
+                # whose interrupt strategy supports deferred decisions
+                # (5th-Dan Hidas via HidaCounterattackInterruptStrategy)
+                # a chance to counterattack now.  The event is a no-op
+                # for other characters.  Only fires while the target is
+                # still able to act.
+                if self.action.target().is_fighting():
+                    yield PostDamageInterruptCheckEvent(self.action)
         else:
             yield self._failed()
 
@@ -164,7 +174,10 @@ class TakeAttackActionEvent(TakeActionEvent):
 
     def _roll_damage(self) -> "LightWoundsDamageEvent":
         damage_roll = self.action.roll_damage()
-        return LightWoundsDamageEvent(self.action.subject(), self.action.target(), damage_roll)
+        return LightWoundsDamageEvent(
+            self.action.subject(), self.action.target(), damage_roll,
+            attack_action=self.action,
+        )
 
     def _succeeded(self) -> "AttackSucceededEvent":
         logger.info(f"{self.action.subject().name()} successfully attacked {self.action.target().name()} with {self.action.skill()}")
@@ -331,6 +344,13 @@ class LightWoundsDamageEvent(DamageEvent):
     LW × 3 = 30 LW dealt to <attacker>"``).  Emitters that do not set
     ``source`` get the generic primary-damage rendering.  See
     rules/04-schools.md "Akodo Bushi School: Fifth Dan".
+
+    The optional ``attack_action`` field carries the originating
+    ``AttackAction`` (or ``CounterattackAction``) reference so downstream
+    listeners can consult per-action annotations such as
+    ``_counterattack_excess_margin`` (set by the Hida 5th Dan ability)
+    on the corresponding wound check.  rules/04-schools.md
+    "Hida Bushi School: Fifth Dan".
     """
 
     def __init__(
@@ -341,6 +361,7 @@ class LightWoundsDamageEvent(DamageEvent):
         tn: int | None = None,
         duel: bool = False,
         source: str | None = None,
+        attack_action: Any = None,
     ) -> None:
         super().__init__("lw_damage", subject, target, damage)
         if tn is None:
@@ -351,6 +372,7 @@ class LightWoundsDamageEvent(DamageEvent):
             self.wound_check_tn = tn
         self.duel = duel
         self.source = source
+        self.attack_action = attack_action
 
 
 class SeriousWoundsDamageEvent(DamageEvent):
@@ -439,10 +461,25 @@ class WoundCheckEvent(Event):
 
 
 class WoundCheckDeclaredEvent(WoundCheckEvent):
-    def __init__(self, subject: Any, attacker: Any, damage: int, tn: int | None = None, vp: int = 0, duel: bool = False) -> None:
+    def __init__(
+        self,
+        subject: Any,
+        attacker: Any,
+        damage: int,
+        tn: int | None = None,
+        vp: int = 0,
+        duel: bool = False,
+        attack_action: Any = None,
+    ) -> None:
         super().__init__("wound_check_declared", subject, attacker, damage, tn=tn)
         self.vp = vp
         self.duel = duel
+        # rules/04-schools.md "Hida Bushi School: Fifth Dan": when the
+        # WC is on damage from a successfully counterattacked attack,
+        # the WC listener consults
+        # ``attack_action._counterattack_excess_margin`` to add the
+        # excess to the roll.
+        self.attack_action = attack_action
 
 
 class WoundCheckFailedEvent(WoundCheckEvent):
@@ -471,6 +508,78 @@ class KeepLightWoundsEvent(WoundCheckEvent):
 class TakeSeriousWoundEvent(WoundCheckEvent):
     def __init__(self, subject: Any, attacker: Any, damage: int, tn: int | None = None) -> None:
         super().__init__("take_sw", subject, attacker, damage, tn=tn)
+
+
+class PostDamageInterruptCheckEvent(ActionEvent):
+    """
+    rules/04-schools.md "Hida Bushi School: Fifth Dan":
+      "You may choose to counterattack after seeing an opponent's
+       damage roll, but that roll goes through even if your
+       counterattack impairs or kills the opponent."
+
+    This event fires AFTER a ``LightWoundsDamageEvent`` has been fully
+    resolved (LW added, WC fired, SW potentially inflicted) but BEFORE
+    the attack flow concludes.  It exists to give a 5th-Dan Hida — or
+    any future school with deferred-counterattack mechanics — a chance
+    to counterattack with full information about the damage taken.
+
+    The event carries the originating ``AttackAction`` so the interrupt
+    strategy can wire the counterattack back to the original attacker.
+
+    A character's ``interrupt_strategy().recommend(...)`` is consulted on
+    this event via ``PostDamageInterruptCheckListener``.  Strategies that
+    do not implement the post-damage decision (i.e., not a 5th-Dan Hida)
+    simply yield no events — the event is a no-op for them.
+    """
+
+    def __init__(self, action: Any) -> None:
+        super().__init__("post_damage_interrupt_check", action)
+
+
+class HidaSWForLWTradeEvent(Event):
+    """
+    Hida 4th Dan alternative wound check: trade 2 Serious Wounds for
+    reducing the character's Light Wounds to 0.
+
+    rules/04-schools.md "Hida Bushi School: Fourth Dan":
+      "Instead of making a wound check, you may choose to take 2
+       serious wounds to reduce your light wounds to 0.  You may not
+       do this during the iaijutsu phase of a duel."
+
+    The event FULLY REPLACES the wound check.  When the strategy
+    elects the trade, NO ``WoundCheckDeclaredEvent`` / ``...Rolled`` /
+    ``...Succeeded`` etc. is emitted on the trade path.
+
+    ``character``: the Hida taking the trade.
+    ``attacker``: the character whose damage triggered this trade (so
+                  downstream SW + status events have a consistent
+                  attacker subject — used by knowledge / observation).
+    ``lw_reset_from``: the LW value BEFORE the trade (for trace
+                  attribution per Constitution Principle VII).
+    ``sw_taken``: always 2 (per rules text).
+
+    On ``play``:
+      1. Resets the character's LW to 0 directly.
+      2. Yields a ``SeriousWoundsDamageEvent`` so the standard SW
+         listener pipeline handles ``take_sw(2)`` plus the resulting
+         crippled / unconscious / death checks.
+    """
+
+    def __init__(self, character: Any, attacker: Any, lw_reset_from: int) -> None:
+        super().__init__("hida_sw_for_lw_trade")
+        self.character = character
+        self.attacker = attacker
+        self.lw_reset_from = lw_reset_from
+        self.sw_taken = 2
+
+    def play(self, context: Any) -> Iterator["Event"]:
+        # Reset LW directly (the LW total was already updated by the
+        # LightWoundsDamageListener before the strategy was consulted).
+        self.character.reset_lw()
+        # Yield a SeriousWoundsDamageEvent so the standard SW listener
+        # adds 2 SW and runs status checks (crippled / unconscious /
+        # death) — the trade should NOT be exempt from those.
+        yield SeriousWoundsDamageEvent(self.attacker, self.character, 2)
 
 
 class GainResourcesEvent(Event):

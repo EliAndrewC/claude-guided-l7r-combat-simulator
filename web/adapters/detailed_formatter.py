@@ -40,6 +40,8 @@ from web.adapters.trace_entries import (
     DuelStrikeRolledEntry,
     GainFloatingBonusEntry,
     GainTvpEntry,
+    HidaSWForLWTradeEntry,
+    HidaThirdDanRerollEntry,
     IaijutsuDuelHeaderEntry,
     IaijutsuEntry,
     IaijutsuFocusEntry,
@@ -150,6 +152,12 @@ class DetailedEventFormatter:
         # skill so we can recognize the LightWoundsDamageEvent that
         # follows a feint and suppress it (FR-005/6/7).
         self._last_attack_skill: dict[str, str] = {}
+        # Dedupe Hida 3rd Dan reroll entries within a single
+        # ``entries()`` call.  Tracks action ``id()`` values that have
+        # already had their reroll emitted (e.g., to avoid duplicating
+        # when both the take-action and the rolled event hit the
+        # ``_maybe_append_hida_3rd_dan_reroll`` hook).
+        self._hida_3rd_dan_emitted: set[int] = set()
 
     def format_history(self, history: list[Any]) -> list[str]:
         """Main entry point — processes full history after combat.
@@ -182,6 +190,7 @@ class DetailedEventFormatter:
         self._last_wc_passed = {}
         self._last_take_sw_target = None
         self._last_attack_skill = {}
+        self._hida_3rd_dan_emitted = set()
 
         out: list[TraceEntry] = []
         shown_opening_status = False
@@ -256,8 +265,10 @@ class DetailedEventFormatter:
                             event, history[rolled_idx], vp_events, fb_events,
                         ))
                         consumed.add(rolled_idx)
+                        self._maybe_append_hida_3rd_dan_reroll(out, event.action)
                 else:
                     out.append(self._entry_take_attack(event))
+                    self._maybe_append_hida_3rd_dan_reroll(out, event.action)
                 combat_output_since_status = True
                 any_entry_emitted = True
 
@@ -277,18 +288,22 @@ class DetailedEventFormatter:
                         event, history[rolled_idx], vp_events_ca,
                     ))
                     consumed.add(rolled_idx)
+                    self._maybe_append_hida_3rd_dan_reroll(out, event.action)
                 else:
                     out.append(self._entry_take_counterattack(event))
+                    self._maybe_append_hida_3rd_dan_reroll(out, event.action)
                 combat_output_since_status = True
                 any_entry_emitted = True
 
             elif isinstance(event, CounterattackRolledEvent):
                 out.append(self._entry_counterattack_rolled(event))
+                self._maybe_append_hida_3rd_dan_reroll(out, event.action)
                 combat_output_since_status = True
                 any_entry_emitted = True
 
             elif isinstance(event, events.AttackRolledEvent):
                 out.append(self._entry_attack_rolled(event))
+                self._maybe_append_hida_3rd_dan_reroll(out, event.action)
                 combat_output_since_status = True
                 any_entry_emitted = True
 
@@ -387,6 +402,24 @@ class DetailedEventFormatter:
             elif isinstance(event, events.TakeSeriousWoundEvent):
                 self._last_take_sw_target = event.subject.name()
                 out.append(self._entry_take_sw(event))
+                combat_output_since_status = True
+                any_entry_emitted = True
+
+            elif isinstance(event, events.HidaSWForLWTradeEvent):
+                # Hida 4th Dan alternative wound check (rules/04-schools.md
+                # "Hida Bushi School: Fourth Dan").  The trade replaces
+                # the wound check entirely; the SeriousWoundsDamageEvent
+                # yielded by the trade's play() handles the 2-SW status
+                # bookkeeping (handled by the generic SW dispatch below
+                # / above).  This entry is the trade's user-visible
+                # attribution per Constitution Principle VII.
+                name = event.character.name()
+                out.append(HidaSWForLWTradeEntry(
+                    phase_prefix=self._phase_prefix(name),
+                    character_name=name,
+                    lw_reset_from=int(event.lw_reset_from),
+                    sw_taken=int(event.sw_taken),
+                ))
                 combat_output_since_status = True
                 any_entry_emitted = True
 
@@ -1268,6 +1301,15 @@ class DetailedEventFormatter:
         passed = event.roll >= event.tn
         outcome: Any = "passed" if passed else "failed"
 
+        # rules/04-schools.md "Hida Bushi School: Fifth Dan":
+        # the WC roll on damage from a counterattacked attack carries an
+        # ``_hida_5th_dan_excess_bonus`` annotation (set by
+        # ``WoundCheckDeclaredListener``).  Surface it on the entry so the
+        # renderer can attribute the bonus per Principle VII.
+        hida_5th_dan_excess_bonus = int(
+            getattr(event, "_hida_5th_dan_excess_bonus", 0) or 0,
+        )
+
         if not hasattr(event, "_detail_dice"):
             return WoundCheckEntry(
                 phase_prefix=self._phase_prefix(name),
@@ -1283,6 +1325,7 @@ class DetailedEventFormatter:
                 follow_up_sw_count=follow_up_sw_count,
                 follow_up_lw_total=follow_up_lw_total,
                 follow_up_voluntary=follow_up_voluntary,
+                hida_5th_dan_excess_bonus=hida_5th_dan_excess_bonus,
             )
 
         dice = list(event._detail_dice)
@@ -1305,6 +1348,7 @@ class DetailedEventFormatter:
             follow_up_sw_count=follow_up_sw_count,
             follow_up_lw_total=follow_up_lw_total,
             follow_up_voluntary=follow_up_voluntary,
+            hida_5th_dan_excess_bonus=hida_5th_dan_excess_bonus,
         )
 
     def _process_wound_check_entry(
@@ -1476,3 +1520,42 @@ class DetailedEventFormatter:
             damage=counter_event.damage,
             target_name=counter_event.target.name(),
         )
+
+    def _maybe_append_hida_3rd_dan_reroll(
+        self, out: list[TraceEntry], action: Any,
+    ) -> None:
+        """If the action carries a ``_hida_3rd_dan_reroll`` annotation
+        (set by ``Action.roll_skill`` when the subject is a 3rd-Dan
+        Hida), append a ``HidaThirdDanRerollEntry`` to ``out`` so the
+        renderer can surface the before→after dice with the source
+        label (Constitution Principle VII).
+
+        Idempotent within a single ``entries()`` call: tracks
+        already-emitted actions by ``id`` so the reroll isn't
+        rendered twice (e.g., both the take-action and the rolled
+        event reach this hook).  Does NOT mutate the action — re-
+        calls to ``entries(history)`` will re-emit the same entry.
+
+        Defensively gated on ``isinstance(info, dict)`` so MagicMock
+        actions in tests don't synthesize spurious entries (a bare
+        ``getattr`` would return a MagicMock).
+        """
+        info = getattr(action, "_hida_3rd_dan_reroll", None)
+        if not isinstance(info, dict):
+            return
+        action_id = id(action)
+        if action_id in self._hida_3rd_dan_emitted:  # pragma: no cover  # defensive: the formatter consumes the rolled-event index when a take_attack event has a paired rolled event, so the second hook (on AttackRolledEvent alone) is unreachable on the standard flow.  Kept to protect against future flow changes.
+            return
+        self._hida_3rd_dan_emitted.add(action_id)
+        name = action.subject().name()
+        entry = HidaThirdDanRerollEntry(
+            phase_prefix=self._phase_prefix(name),
+            actor_name=name,
+            skill=str(info["skill"]),
+            n=int(info["n"]),
+            crippled=bool(info["crippled"]),
+            rerolls=[(int(b), int(a)) for (b, a) in info["rerolls"]],
+            before_total=int(info["before_total"]),
+            after_total=int(info["after_total"]),
+        )
+        out.append(entry)

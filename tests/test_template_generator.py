@@ -141,6 +141,27 @@ class TestWriteTemplateYaml:
             os.unlink(path)
 
 
+class TestSchoolKnackLookup:
+    """Regression guards for the per-school knack lookup table in
+    ``simulation/templates/generator.py``.  Mismatches between the
+    lookup and the school class's ``school_knacks()`` cause silent
+    drift between generated templates and the rules engine.
+    """
+
+    def test_hida_knack_template_is_correct(self):
+        """rules/04-schools.md "Hida Bushi School:
+        School Knacks: counterattack, double attack, iaijutsu".
+
+        Regression guard against the pre-spec-010 entry that listed
+        ``["counterattack", "iaijutsu", "lunge"]`` (FR-004 / US4).
+        """
+        from simulation.templates.generator import SCHOOL_KNACK_LOOKUP
+
+        assert SCHOOL_KNACK_LOOKUP["Hida Bushi School"] == [
+            "counterattack", "double attack", "iaijutsu",
+        ]
+
+
 class TestGenerateAllTemplates:
     """Test bulk generation."""
 

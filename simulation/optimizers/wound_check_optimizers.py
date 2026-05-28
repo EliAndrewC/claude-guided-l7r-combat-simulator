@@ -126,7 +126,11 @@ class DefaultWoundCheckOptimizer:
         if max_sw not in self.sw_to_roll.keys():
             # if the sw_to_roll mapping doesn't contain max_sw,
             # then there is no risk of taking max_sw and no resources should be used
-            return WoundCheckDeclaredEvent(self.subject, self.event.subject, self.event.damage, vp=0, tn=self.event.wound_check_tn)
+            return WoundCheckDeclaredEvent(
+                self.subject, self.event.subject, self.event.damage,
+                vp=0, tn=self.event.wound_check_tn,
+                attack_action=getattr(self.event, "attack_action", None),
+            )
         tn = self.sw_to_roll[max_sw] - bonus
         assert self.max_vp is not None
         assert self.max_ap is not None
@@ -149,7 +153,11 @@ class DefaultWoundCheckOptimizer:
                 (vp, ap) = (result.vp, result.ap)
                 logger.debug(f"{self.subject.name()} declaring wound check with {vp} vp (planning to spend {ap} ap) to take {max_sw} SW with probability {result.p}")
                 break
-        return WoundCheckDeclaredEvent(self.subject, self.event.subject, self.event.damage, vp=vp, tn=self.event.wound_check_tn)
+        return WoundCheckDeclaredEvent(
+            self.subject, self.event.subject, self.event.damage,
+            vp=vp, tn=self.event.wound_check_tn,
+            attack_action=getattr(self.event, "attack_action", None),
+        )
 
 
 class KeepLightWoundsOptimizer(ABC):

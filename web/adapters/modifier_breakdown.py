@@ -95,6 +95,14 @@ def _is_akodo_bushi(character: Any) -> bool:
     return bool(school.name() == "Akodo Bushi School")
 
 
+def _is_hida_bushi(character: Any) -> bool:
+    """True iff the character's school is the Hida Bushi School."""
+    school = character.school() if hasattr(character, "school") else None
+    if school is None:
+        return False
+    return bool(school.name() == "Hida Bushi School")
+
+
 def explain_modifier(
     character: Any,
     skill: str,
@@ -202,6 +210,17 @@ def explain_modifier(
         if rank >= 2 and skill == "double attack":
             contributions.append(("Bayushi 2nd Dan free raise", 5))
 
+    elif _is_hida_bushi(character):
+        rank = _school_rank(character)
+
+        # Hida Bushi 2nd Dan free raise on counterattack
+        # (rules/04-schools.md "Hida Bushi School: Second Dan"; the
+        # school's ``free_raise_skills() == ["counterattack"]`` --
+        # apply_rank_two_ability installs a FreeRaise(+5) modifier on
+        # counterattack rolls).
+        if rank >= 2 and skill == "counterattack":
+            contributions.append(("Hida 2nd Dan free raise", 5))
+
     elif _is_akodo_bushi(character):
         rank = _school_rank(character)
 
@@ -246,6 +265,23 @@ def explain_modifier(
             contributions.append((
                 f"Isawa Ishi 3rd Dan ally boost from {source_name}",
                 boost_value,
+            ))
+
+    # Hida Bushi School Special Ability attribution: applies to the
+    # ATTACKER's attack roll regardless of the attacker's own school
+    # (rules/04-schools.md "Hida Bushi School: Special Ability").
+    # ``HidaTakeCounterattackActionEvent`` tags the attack action with
+    # ``_counterattack_roll_bonus`` when the Hida counterattacks as a
+    # 1-die interrupt; the engine then adds that value directly to the
+    # attacker's roll. The trace must show the +5 with a source label
+    # so the reader understands why the attack's modifier is +5
+    # higher than expected (Principle VII).
+    if action is not None:
+        ca_bonus = getattr(action, "_counterattack_roll_bonus", 0)
+        if isinstance(ca_bonus, int) and ca_bonus > 0:
+            contributions.append((
+                "Hida special ability free raise",
+                ca_bonus,
             ))
 
     # Order by descending value so the formatter renders the most

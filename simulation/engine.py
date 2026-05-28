@@ -24,6 +24,9 @@ class Engine:
         logger.debug(f"Got {event.name} event")
         self.history().append(event)
         self.context().features().observe_event(event, self.context())
+        # Notify context of duel-boundary events so the iaijutsu-phase
+        # set tracks who is currently dueling (used by HidaWoundCheckStrategy).
+        self.context().note_duel_event(event)
         # status events might end the run
         if isinstance(event, events.StatusEvent):
             logger.debug("Evaluating status event")

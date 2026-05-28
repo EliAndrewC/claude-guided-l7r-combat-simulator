@@ -104,6 +104,27 @@ class AttackRolledListener(Listener):
                 yield from character.interrupt_strategy().recommend(character, event, context)
 
 
+class PostDamageInterruptCheckListener(Listener):
+    """
+    Listener for ``PostDamageInterruptCheckEvent``.
+
+    rules/04-schools.md "Hida Bushi School: Fifth Dan":
+      "You may choose to counterattack after seeing an opponent's
+       damage roll..."
+
+    Fires AFTER ``LightWoundsDamageEvent`` has fully resolved.  Consults
+    the character's ``interrupt_strategy()`` so a 5th-Dan Hida (via
+    ``HidaCounterattackInterruptStrategy``) can fire its deferred
+    counterattack.  Non-Hida characters' interrupt strategies do not
+    handle this event and yield nothing — so it's a no-op for them.
+    """
+
+    def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
+        if isinstance(event, events.PostDamageInterruptCheckEvent):
+            if character != event.action.subject():
+                yield from character.interrupt_strategy().recommend(character, event, context)
+
+
 class FeintSucceededListener(Listener):
     def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.AttackSucceededEvent):
@@ -217,7 +238,34 @@ class WoundCheckDeclaredListener(Listener):
                 roll = character.roll_wound_check(event.damage, event.vp, explode=explode)
                 if event.vp > 0:
                     yield events.SpendVoidPointsEvent(character, "wound check", event.vp)
-                initial_roll = events.WoundCheckRolledEvent(character, event.attacker, event.damage, roll, tn=event.tn)
+                # rules/04-schools.md "Hida Bushi School: Fifth Dan":
+                # "Add X to YOUR wound check on the damage from the
+                # attack you counterattacked."  The bonus applies only
+                # to the counterattacker's OWN WC — if the Hida
+                # defended a friend, the friend's WC must NOT receive
+                # the bonus.  Gate on the counterattacker reference
+                # stored alongside the margin by
+                # ``HidaCounterattackSucceededListener``.
+                attack_action = getattr(event, "attack_action", None)
+                bonus = 0
+                if attack_action is not None:
+                    counterattacker = getattr(
+                        attack_action, "_counterattack_excess_counterattacker",
+                        None,
+                    )
+                    if counterattacker is character:
+                        bonus = getattr(
+                            attack_action, "_counterattack_excess_margin", 0,
+                        ) or 0
+                if bonus:
+                    roll += bonus
+                initial_roll = events.WoundCheckRolledEvent(
+                    character, event.attacker, event.damage, roll, tn=event.tn,
+                )
+                if bonus:
+                    # Trace attribution: surface the bonus on the WC
+                    # roll line.  Per Constitution Principle VII.
+                    initial_roll._hida_5th_dan_excess_bonus = bonus  # type: ignore[attr-defined]
                 yield from character.wound_check_rolled_strategy().recommend(character, initial_roll, context)
 
 

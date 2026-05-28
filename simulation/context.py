@@ -9,6 +9,7 @@
 from typing import Any
 
 from simulation import events
+from simulation.duel import DuelEndedEvent, DuelInitiativeRolledEvent
 from simulation.exceptions import CombatEnded
 from simulation.features import TrialFeatures
 from simulation.formation import Formation, NullFormation
@@ -38,6 +39,16 @@ class EngineContext:
         self._probability_provider = DefaultProbabilityProvider()
         self._round = round
         self._phase = phase
+        # Set of characters currently inside an iaijutsu duel's
+        # first-strike phase (between DuelInitiativeRolledEvent and
+        # DuelEndedEvent).  Used by HidaWoundCheckStrategy to gate the
+        # 4th Dan SW-for-LW trade per rules/04-schools.md "Hida Bushi
+        # School: Fourth Dan" — "You may not do this during the
+        # iaijutsu phase of a duel."  Bystanders (characters watching
+        # someone else's duel) are NOT in the set; the trade gate
+        # checks per-character membership so only the actual duelist
+        # is blocked.
+        self._iaijutsu_phase_chars: set[Any] = set()
 
     def characters(self) -> list[Any]:
         return self._characters
@@ -102,6 +113,9 @@ class EngineContext:
             character.reset()
         self._still_moving.clear()
         self._formation.reset()
+        # Clear iaijutsu-phase tracking — duels do not persist across
+        # combat-engine resets.
+        self._iaijutsu_phase_chars.clear()
 
     def reset_still_moving(self) -> None:
         self._still_moving.clear()
@@ -121,6 +135,34 @@ class EngineContext:
 
     def time(self) -> tuple[int, int]:
         return (self._round, self._phase)
+
+    def in_iaijutsu_phase(self, character: Any) -> bool:
+        """Return True iff ``character`` is currently inside an iaijutsu
+        duel's first-strike phase (between ``DuelInitiativeRolledEvent``
+        and ``DuelEndedEvent``).
+
+        rules/04-schools.md "Hida Bushi School: Fourth Dan" gates the
+        SW-for-LW trade on this state — bystanders watching someone
+        else's duel are NOT in the iaijutsu phase and so the trade is
+        available to them; only the actual duelists are blocked.
+        """
+        return character in self._iaijutsu_phase_chars
+
+    def note_duel_event(self, event: events.Event) -> None:
+        """Called by the engine after every event so the context can
+        track iaijutsu-phase membership.  A separate hook from
+        ``update_status`` because duel events are not status events.
+        """
+        if isinstance(event, DuelInitiativeRolledEvent):
+            # Idempotent: the duel loop fires DuelInitiativeRolledEvent
+            # on every contested-initiative round (multiple rolls if
+            # neither hits and they resheathe).  Adding to the set
+            # is no-op on a repeat.
+            self._iaijutsu_phase_chars.add(event.challenger)
+            self._iaijutsu_phase_chars.add(event.defender)
+        elif isinstance(event, DuelEndedEvent):
+            self._iaijutsu_phase_chars.discard(event.challenger)
+            self._iaijutsu_phase_chars.discard(event.defender)
 
     def update_status(self, event: events.Event) -> None:
         if isinstance(event, events.NotMovingEvent):

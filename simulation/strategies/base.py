@@ -680,10 +680,15 @@ class WoundCheckStrategy(Strategy):
     def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
         if isinstance(event, events.LightWoundsDamageEvent):
             if event.target == character:
+                # Propagate the originating attack action so downstream
+                # WC-listener paths can consult per-action annotations
+                # (e.g., Hida 5th Dan's _counterattack_excess_margin).
+                attack_action = getattr(event, "attack_action", None)
                 if getattr(event, 'duel', False):
                     yield events.WoundCheckDeclaredEvent(
                         character, event.subject, event.damage,
                         tn=event.wound_check_tn, vp=0, duel=True,
+                        attack_action=attack_action,
                     )
                     return
                 # calculate maximum tolerable SW
@@ -725,7 +730,11 @@ class StingyWoundCheckStrategy(Strategy):
         if isinstance(event, events.LightWoundsDamageEvent):
             if event.target == character:
                 logger.info(f"{character.name()} never spends VP on wound checks.")
-                yield events.WoundCheckDeclaredEvent(character, event.subject, event.damage, tn=event.wound_check_tn)
+                yield events.WoundCheckDeclaredEvent(
+                    character, event.subject, event.damage,
+                    tn=event.wound_check_tn,
+                    attack_action=getattr(event, "attack_action", None),
+                )
 
 
 class DefaultInterruptStrategy(Strategy):

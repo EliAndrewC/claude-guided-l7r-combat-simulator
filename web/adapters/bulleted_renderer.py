@@ -46,6 +46,8 @@ from web.adapters.trace_entries import (
     DuelStrikeRolledEntry,
     GainFloatingBonusEntry,
     GainTvpEntry,
+    HidaSWForLWTradeEntry,
+    HidaThirdDanRerollEntry,
     IaijutsuDuelHeaderEntry,
     IaijutsuEntry,
     IaijutsuFocusEntry,
@@ -275,6 +277,10 @@ class BulletedRenderer:
             return self._render_school_negated(entry)
         if isinstance(entry, AkodoFifthDanCounterEntry):
             return self._render_akodo_5th_dan_counter(entry)
+        if isinstance(entry, HidaThirdDanRerollEntry):
+            return self._render_hida_3rd_dan_reroll(entry)
+        if isinstance(entry, HidaSWForLWTradeEntry):
+            return self._render_hida_sw_for_lw_trade(entry)
         if isinstance(entry, IaijutsuDuelHeaderEntry):
             return self._render_iaijutsu_duel_header()
         if isinstance(entry, ShowMeYourStanceDeclaredEntry):
@@ -601,6 +607,16 @@ class BulletedRenderer:
                 entry.sum_of_kept, entry.total,
             )
 
+        # rules/04-schools.md "Hida Bushi School: Fifth Dan": render
+        # the counterattack-excess WC bonus as a bullet on the WC line
+        # so the reader sees the +X with explicit source attribution
+        # per Principle VII.
+        if entry.hida_5th_dan_excess_bonus:
+            lines.append(
+                f"  - Hida 5th Dan: counterattack excess "
+                f"+{entry.hida_5th_dan_excess_bonus}"
+            )
+
         if entry.follow_up == "keep_lw":
             lines.append(
                 f"  - keeping {entry.follow_up_lw_total} light wounds"
@@ -693,6 +709,44 @@ class BulletedRenderer:
             f"spends {entry.vp_spent} VP on counter-damage, "
             f"10 LW × {entry.vp_spent} = {entry.damage} LW dealt to "
             f"{entry.target_name}"
+        ]
+
+    def _render_hida_3rd_dan_reroll(
+        self, entry: HidaThirdDanRerollEntry,
+    ) -> list[str]:
+        """Hida 3rd Dan reroll line in Markdown bulleted form.
+
+        Constitution Principle VII — surface each rerolled die's
+        before/after value AND the source label "Hida 3rd Dan".
+        """
+        pairs = ", ".join(f"{b}→{a}" for (b, a) in entry.rerolls)
+        impaired = " (impaired)" if entry.crippled else ""
+        # See TextRenderer._render_hida_3rd_dan_reroll for the rationale
+        # behind "kept-sum" (vs "total"): post-roll modifiers like the
+        # Hida 2nd Dan +5 free raise on counterattack are not reflected
+        # in this sub-line, only in the parent Roll: N header.
+        return [
+            f"{entry.phase_prefix} 🎲 Hida 3rd Dan: reroll {pairs} "
+            f"(N={entry.n}{impaired}; kept-sum {entry.before_total}→"
+            f"{entry.after_total})"
+        ]
+
+    def _render_hida_sw_for_lw_trade(
+        self, entry: HidaSWForLWTradeEntry,
+    ) -> list[str]:
+        """Hida 4th Dan SW-for-LW trade line in Markdown bulleted form.
+
+        Constitution Principle VII — the trade carries the explicit
+        source label "Hida 4th Dan", the numeric SW cost, and the LW
+        value being reset.  No wound check is rendered because the
+        trade replaces it.
+
+        rules/04-schools.md "Hida Bushi School: Fourth Dan".
+        """
+        return [
+            f"{entry.phase_prefix} 🛡️ Hida 4th Dan: "
+            f"take {entry.sw_taken} SW to reset LW from "
+            f"{entry.lw_reset_from} → 0 (alternative wound check)"
         ]
 
     # ── Duel entries ────────────────────────────────────────────────────

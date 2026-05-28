@@ -70,6 +70,17 @@ class Action:
         self.set_skill_roll(self.subject().roll_skill(self.target(), self.skill(), ring=self.ring(), vp=self.vp()))
         roll = self.skill_roll()
         assert roll is not None
+        # rules/04-schools.md "Hida Bushi School: Third Dan" — if the
+        # subject's roll provider just performed a reroll on this
+        # action's skill, capture the metadata on the action so the
+        # trace formatter (Principle VII) can render the before/after
+        # dice with source attribution next to the attack entry.
+        provider = self.subject().roll_provider()
+        get_reroll = getattr(provider, "last_hida_3rd_dan_reroll", None)
+        if callable(get_reroll):
+            info = get_reroll()
+            if info is not None:
+                self._hida_3rd_dan_reroll = info
         return roll
 
     def set_skill_roll(self, roll: int) -> None:
