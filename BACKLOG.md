@@ -32,6 +32,21 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   fallback with `TVP_SATURATION_CAP = 4` for mirror non-degeneracy)
   + 4th Dan off-by-one fix + 35 new tests (2919 → 2954). One of the
   two Principle IX playability baselines.
+- **Hida Bushi School** — `specs/010-hida-bushi-school/`, merged
+  2026-05-28 as commit `b52dc08`. Identity-driven HIDA_PRIORITIES
+  (lunge → double-attack rules-fidelity fix) + new
+  `HidaAttackStrategy` (kill-shot / pressure / reserve with the
+  combat-simulator P5 gate `len(actions) >= 2`) + 3rd Dan reroll
+  provider + 4th Dan SW-for-LW trade + 5th Dan counterattack-excess
+  WC bonus and post-damage interrupt slot + 933 new tests
+  (2954 → 3887). The OOM-trigger containment pattern
+  (`_CappedCombatEngine` in playability tests) was added here and
+  should be applied to future playability tests.
+  Two deferrals documented in OPEN_QUESTIONS.md and structurally
+  enforced via `@unittest.skip`: US3 win-feasibility (Akodo-side
+  structural gap) and Principle IX 2(a) clean mirror termination
+  (Hida defensive stack absorbs damage indefinitely). Both require
+  a follow-up branch with broader scope than the school itself.
 
 ## Partial work (no full audit yet)
 
@@ -48,10 +63,6 @@ adjacent runs share rules-text patterns and review heuristics.
 
 ### Bushi schools (direct combat — closest in shape to Mirumoto)
 
-- [ ] **Hida Bushi School** (`simulation/schools/hida_school.py`).
-  The other Principle IX baseline. Currently has 3 TODO markers —
-  likely the least-complete bushi skeleton. **Critical to audit
-  early.**
 - [ ] **Matsu Bushi School** (`simulation/schools/matsu_school.py`).
   Berserker/Lion-clan offensive bushi.
 - [ ] **Bayushi Bushi School**
