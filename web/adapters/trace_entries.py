@@ -130,6 +130,14 @@ class AttackEntry:
     is_take_only: bool = False
     suppress_damage_projection: bool = False
     consumed_floating_bonuses: list[ModifierDelta] = field(default_factory=list)
+    # rules/04-schools.md "Matsu Bushi School: Fourth Dan": a
+    # ``MatsuDoubleAttackAction`` may hit on a skill_roll below TN (a
+    # "near-miss" carve-out: tn - 20 <= roll < tn).  Renderers surface
+    # the attribution "Matsu 4th Dan: near-miss (N below TN)" on the
+    # attack line, where ``N`` is this field.  Default 0 = not a
+    # near-miss (clean hit or non-Matsu double attack), no attribution
+    # rendered.  Constitution Principle VII.
+    matsu_4th_dan_near_miss_below_tn: int = 0
     kind: Literal["attack"] = "attack"
 
 
@@ -384,6 +392,25 @@ class HidaThirdDanRerollEntry:
 
 
 @dataclass(frozen=True)
+class MatsuLwFloorEntry:
+    """Matsu 5th Dan LW-floor attribution -- when a Matsu's attack
+    causes the defender's WC to fail, the defender's LW is set to 15
+    instead of 0.
+
+    Emitted alongside the resulting ``SeriousWoundsDamageEntry`` (the
+    LW-floor itself happens in the listener; this entry surfaces the
+    attribution).  Constitution Principle VII / FR-023.
+
+    rules/04-schools.md "Matsu Bushi School: Fifth Dan".
+    """
+
+    phase_prefix: str
+    defender_name: str
+    lw_set_to: int = 15
+    kind: Literal["matsu_lw_floor"] = "matsu_lw_floor"
+
+
+@dataclass(frozen=True)
 class HidaSWForLWTradeEntry:
     """Hida 4th Dan SW-for-LW trade — the alternative wound check
     that takes 2 SW to reset LW to 0.
@@ -567,6 +594,7 @@ TraceEntry = (
     | AkodoFifthDanCounterEntry
     | HidaThirdDanRerollEntry
     | HidaSWForLWTradeEntry
+    | MatsuLwFloorEntry
     | IaijutsuDuelHeaderEntry
     | ShowMeYourStanceDeclaredEntry
     | ShowMeYourStanceRolledEntry

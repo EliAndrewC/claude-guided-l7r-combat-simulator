@@ -20,6 +20,9 @@ skills:
   attack: 4
   parry: 4
   precepts: 5
+  conviction: 5
+  otherworldliness: 4
+  worldliness: 4
 template_tier: '200'
 template_earned_xp: 200
 template_school: Brotherhood of Shinsei Monk School

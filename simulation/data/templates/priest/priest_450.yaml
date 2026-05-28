@@ -20,6 +20,9 @@ skills:
   attack: 5
   parry: 5
   precepts: 5
+  conviction: 5
+  otherworldliness: 5
+  pontificate: 5
 template_tier: '450'
 template_earned_xp: 450
 template_school: Priest School

@@ -35,6 +35,7 @@ from web.adapters.trace_entries import (
     InitiativeEntry,
     KeepLightWoundsEntry,
     LightWoundsDamageEntry,
+    MatsuLwFloorEntry,
     ModifierDelta,
     ParryEntry,
     PhaseHeaderEntry,
@@ -253,6 +254,8 @@ class TextRenderer:
             return self._render_hida_3rd_dan_reroll(entry)
         if isinstance(entry, HidaSWForLWTradeEntry):
             return self._render_hida_sw_for_lw_trade(entry)
+        if isinstance(entry, MatsuLwFloorEntry):
+            return self._render_matsu_lw_floor(entry)
         if isinstance(entry, IaijutsuDuelHeaderEntry):
             return self._render_iaijutsu_duel_header(lines_so_far)
         if isinstance(entry, ShowMeYourStanceDeclaredEntry):
@@ -369,17 +372,37 @@ class TextRenderer:
             attribution = _format_modifier_breakdown(
                 entry.modifier, entry.modifier_components,
             )
+            # rules/04-schools.md "Matsu Bushi School: Fourth Dan":
+            # surface the near-miss carve-out with explicit attribution
+            # per Constitution Principle VII / FR-021.  Appended as a
+            # follow-up line (kept off the headline so the HIT! result
+            # stays readable for the playtester).
+            near_miss_lines: list[str] = []
+            if entry.matsu_4th_dan_near_miss_below_tn > 0:
+                # trace-reader #1 (2026-05-28) — explicit mechanical
+                # framing so a fresh reader doesn't see "HIT!" + "near-
+                # miss" and assume the renderer is wrong.  The 4th Dan
+                # carve-out CONVERTS a miss within 20 of TN into a hit
+                # with no extra damage, so the line states the mechanic
+                # rather than just the source label.
+                near_miss_lines.append(
+                    f"{entry.phase_prefix} Matsu 4th Dan: counts as hit "
+                    f"({entry.matsu_4th_dan_near_miss_below_tn} below TN — "
+                    f"within the near-miss carve-out)"
+                )
             result = "HIT!"
             if entry.is_combined:
                 return [
                     f"{entry.phase_prefix} {vp_infix}⚔️ attacks "
                     f"{entry.target_name} ({entry.skill}) — {roll_str} "
-                    f"vs {tn_str} — {result}{extra_str}{attribution}"
+                    f"vs {tn_str} — {result}{extra_str}{attribution}",
+                    *near_miss_lines,
                 ]
             # standalone _format_attack_rolled — uses 🎯/❌ Attack: prefix
             return [
                 f"{entry.phase_prefix} 🎯 Attack: {roll_str} vs {tn_str} "
-                f"— {result}{extra_str}{attribution}"
+                f"— {result}{extra_str}{attribution}",
+                *near_miss_lines,
             ]
         # miss
         result = "MISS"
@@ -792,6 +815,29 @@ class TextRenderer:
             f"{entry.phase_prefix} 🛡️ Hida 4th Dan: "
             f"take {entry.sw_taken} SW to reset LW from "
             f"{entry.lw_reset_from} → 0 (alternative wound check)"
+        ]
+
+    def _render_matsu_lw_floor(
+        self, entry: MatsuLwFloorEntry,
+    ) -> list[str]:
+        """Matsu 5th Dan LW-floor attribution line.
+
+        Format::
+
+            <prefix> Matsu 5th Dan: defender LW set to 15 (instead of 0)
+
+        Per Constitution Principle VII the line carries the explicit
+        source label "Matsu 5th Dan", the numeric LW value (15), and
+        the contrast clause "(instead of 0)" so the playtester sees
+        what changed relative to the standard rules-as-written
+        baseline.
+
+        rules/04-schools.md "Matsu Bushi School: Fifth Dan".
+        """
+        return [
+            f"{entry.phase_prefix} 🩸 Matsu 5th Dan: "
+            f"{entry.defender_name} LW set to {entry.lw_set_to} "
+            f"(instead of 0)"
         ]
 
     def _render_iaijutsu_duel_header(self, lines_so_far: list[str]) -> list[str]:

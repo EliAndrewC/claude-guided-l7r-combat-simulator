@@ -20,6 +20,9 @@ skills:
   attack: 4
   parry: 4
   precepts: 5
+  athletics: 5
+  conviction: 4
+  dragon tattoo: 4
 template_tier: '200'
 template_earned_xp: 200
 template_school: Togashi Ise Zumi School

@@ -21,6 +21,9 @@ skills:
   parry: 5
   acting: 5
   sincerity: 5
+  athletics: 5
+  discern honor: 5
+  pontificate: 5
 template_tier: '400'
 template_earned_xp: 400
 template_school: Shosuro Actor School

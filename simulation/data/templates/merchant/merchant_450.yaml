@@ -20,6 +20,9 @@ skills:
   attack: 5
   parry: 5
   sincerity: 5
+  discern honor: 5
+  oppose knowledge: 5
+  worldliness: 5
 template_tier: '450'
 template_earned_xp: 450
 template_school: Merchant School

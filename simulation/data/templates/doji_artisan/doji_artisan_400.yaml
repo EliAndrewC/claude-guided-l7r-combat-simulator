@@ -21,6 +21,8 @@ skills:
   parry: 5
   counterattack: 5
   culture: 5
+  oppose social: 5
+  worldliness: 5
 template_tier: '400'
 template_earned_xp: 400
 template_school: Doji Artisan School

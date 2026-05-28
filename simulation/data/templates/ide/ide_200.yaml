@@ -22,6 +22,7 @@ skills:
   double attack: 5
   feint: 4
   tact: 5
+  worldliness: 4
 template_tier: '200'
 template_earned_xp: 200
 template_school: Ide Diplomat School

@@ -20,6 +20,9 @@ skills:
   attack: 5
   parry: 5
   tact: 5
+  discern honor: 5
+  oppose social: 5
+  worldliness: 5
 template_tier: '300'
 template_earned_xp: 300
 template_school: Courtier School

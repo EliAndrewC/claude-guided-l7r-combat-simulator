@@ -20,6 +20,9 @@ skills:
   attack: 4
   parry: 4
   bragging: 5
+  discern honor: 5
+  oppose knowledge: 4
+  oppose social: 4
 template_tier: '200'
 template_earned_xp: 200
 template_school: Ikoma Bard School

@@ -43,6 +43,7 @@ from web.adapters.trace_entries import (
     InitiativeEntry,
     KeepLightWoundsEntry,
     LightWoundsDamageEntry,
+    MatsuLwFloorEntry,
     ModifierDelta,
     PhaseHeaderEntry,
     RawTextEntry,
@@ -253,6 +254,9 @@ class TestJsonRenderer:
             HidaSWForLWTradeEntry(
                 phase_prefix="A |", character_name="A",
                 lw_reset_from=40, sw_taken=2,
+            ),
+            MatsuLwFloorEntry(
+                phase_prefix="A |", defender_name="B", lw_set_to=15,
             ),
             IaijutsuDuelHeaderEntry(),
             ShowMeYourStanceDeclaredEntry(character_name="A"),

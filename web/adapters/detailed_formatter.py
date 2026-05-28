@@ -49,6 +49,7 @@ from web.adapters.trace_entries import (
     InitiativeEntry,
     KeepLightWoundsEntry,
     LightWoundsDamageEntry,
+    MatsuLwFloorEntry,
     ModifierDelta,
     ParryEntry,
     RoundHeaderEntry,
@@ -419,6 +420,21 @@ class DetailedEventFormatter:
                     character_name=name,
                     lw_reset_from=int(event.lw_reset_from),
                     sw_taken=int(event.sw_taken),
+                ))
+                combat_output_since_status = True
+                any_entry_emitted = True
+
+            elif isinstance(event, events.MatsuLightWoundsFloorEvent):
+                # Matsu 5th Dan LW-floor (rules/04-schools.md "Matsu
+                # Bushi School: Fifth Dan").  Pure observability marker:
+                # the listener already set the defender's LW to 15; this
+                # entry surfaces the attribution per Constitution
+                # Principle VII / FR-023.
+                defender_name = event.defender.name()
+                out.append(MatsuLwFloorEntry(
+                    phase_prefix=self._phase_prefix(defender_name),
+                    defender_name=defender_name,
+                    lw_set_to=int(event.lw_set_to),
                 ))
                 combat_output_since_status = True
                 any_entry_emitted = True
@@ -1014,6 +1030,24 @@ class DetailedEventFormatter:
         else:
             self._last_attack_skill.pop(subj, None)
 
+        # rules/04-schools.md "Matsu Bushi School: Fourth Dan":
+        # ``MatsuDoubleAttackAction`` may hit on skill_roll < tn (a
+        # near-miss in the carve-out tn-20 <= roll < tn).  Surface the
+        # attribution per Constitution Principle VII / FR-021.  We
+        # detect the near-miss via the action's ``_is_near_miss``
+        # property (set only by ``MatsuDoubleAttackAction``), avoiding a
+        # direct import dependency on the school module.  The check
+        # is ``is True`` so a MagicMock action in tests (whose attribute
+        # access returns a truthy MagicMock by default) does NOT
+        # accidentally enable the attribution path.  The "below TN"
+        # margin is reported relative to the action's full TN
+        # (i.e., ``base_tn + 20`` for double attack).
+        near_miss_below_tn = 0
+        if hit and getattr(action, "_is_near_miss", False) is True:
+            skill_roll_val = action.skill_roll()
+            if skill_roll_val is not None and skill_roll_val < tn:
+                near_miss_below_tn = tn - skill_roll_val
+
         return AttackEntry(
             phase_prefix=phase_prefix,
             actor_name=subj, target_name=tgt, skill=skill,
@@ -1030,6 +1064,7 @@ class DetailedEventFormatter:
             damage_projection=damage_projection,
             suppress_damage_projection=is_zero_damage_feint,
             consumed_floating_bonuses=consumed_fb,
+            matsu_4th_dan_near_miss_below_tn=near_miss_below_tn,
         )
 
     def _entry_counterattack_rolled(self, event: Any) -> CounterattackEntry:

@@ -536,6 +536,35 @@ class PostDamageInterruptCheckEvent(ActionEvent):
         super().__init__("post_damage_interrupt_check", action)
 
 
+class MatsuLightWoundsFloorEvent(Event):
+    """
+    Trace-observability event emitted by ``MatsuSeriousWoundsDamageListener``
+    when the Matsu 5th Dan LW-floor activates: instead of the standard
+    "defender LW reset to 0" after a failed wound check, the defender's
+    LW is set to 15.
+
+    rules/04-schools.md "Matsu Bushi School: Fifth Dan":
+      "When you cause a defender to take one or more serious wounds,
+       their light wound total is reset to 15 instead of 0."
+
+    The engine has NO handler for this event -- the listener already
+    set the defender's LW to 15 directly.  Its sole purpose is to
+    surface the LW-floor with explicit "Matsu 5th Dan" attribution in
+    the user-facing combat trace (Constitution Principle VII / FR-023).
+
+    ``attacker``: the Matsu whose attack caused the failed wound check.
+    ``defender``: the character whose LW was set to 15.
+    ``lw_set_to``: always 15 (per rules text), kept as a field for
+                   forward-compatibility and explicit numeric breakdown.
+    """
+
+    def __init__(self, attacker: Any, defender: Any, lw_set_to: int = 15) -> None:
+        super().__init__("matsu_lw_floor")
+        self.attacker = attacker
+        self.defender = defender
+        self.lw_set_to = lw_set_to
+
+
 class HidaSWForLWTradeEvent(Event):
     """
     Hida 4th Dan alternative wound check: trade 2 Serious Wounds for

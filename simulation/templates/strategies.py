@@ -566,46 +566,64 @@ KUNI_PRIORITIES: list[tuple[str, str, int]] = [
 ]
 
 # Matsu Bushi School (school_ring: fire, knacks: double attack, iaijutsu, lunge)
+# Offensive berserker identity: front-loaded damage via lunge / double attack /
+# iaijutsu. Per school-progression-designer (specs/011 OPEN_QUESTIONS Q9):
+#   * Parry deprioritized (capped at rank 3) — Matsu rules text never mentions
+#     defensive mechanics; parry is mandatory only as a defensive floor.
+#   * Fire (school ring) promoted to Dan 3 — drives attack rolls (which scale
+#     the 3rd Dan +3X WC bonus) and the always-10 initiative.
+#   * Void promoted to Dan 4 — required infrastructure for the 3rd Dan
+#     trigger (the WC bonus fires only on VP spends, so void 3 = 3 VP/combat
+#     is identity-critical, not generic stat-padding).
+#   * Earth + Air demoted to max-rings tier — neither has a Matsu rules-text
+#     hook; earth (max_sw) and air (parry) are pure stat-padding.
+#   * Water added at Dan 4 — supplements 1st Dan +1 WC die + attack/DA pool.
 MATSU_PRIORITIES: list[tuple[str, str, int]] = [
-    # Dan 2
+    # Dan 2 — gate via all three school knacks; attack at 2 powers 3rd-Dan +3X
     ("skill", "double attack", 2),
     ("skill", "iaijutsu", 2),
     ("skill", "lunge", 2),
     ("skill", "attack", 2),
-    ("skill", "parry", 2),
-    # Dan 3
+    ("skill", "parry", 2),       # mandatory: parry capped at attack+1
+    # Dan 3 — raise attack to 3 BEFORE 3rd Dan fires (+3X bonus = +9 WC then)
     ("skill", "double attack", 3),
     ("skill", "iaijutsu", 3),
     ("skill", "lunge", 3),
     ("skill", "attack", 3),
-    ("skill", "parry", 3),
-    ("ring", "earth", 3),
-    # Dan 4
+    ("ring", "fire", 3),         # school ring; fuels attack rolls + always-10
+    # Dan 4 — 4th Dan auto-raises fire to 4 + unlocks -5 XP discount
     ("skill", "double attack", 4),
     ("skill", "iaijutsu", 4),
     ("skill", "lunge", 4),
-    ("skill", "attack", 4),
-    ("skill", "parry", 4),
-    ("ring", "void", 3),
-    ("ring", "water", 3),
-    ("ring", "air", 3),
-    ("ring", "earth", 4),
-    # Dan 5
+    ("skill", "attack", 4),       # +3X bonus scales -> attack=4 = +12 WC
+    ("ring", "water", 3),         # 1st-Dan extra WC die + supports attack/DA pool
+    ("ring", "void", 3),          # VP supply for 3rd-Dan trigger (must spend VP)
+    # Dan 5 — gate via knacks only; max the +3X scaling
     ("skill", "double attack", 5),
     ("skill", "iaijutsu", 5),
     ("skill", "lunge", 5),
-    ("skill", "attack", 5),
-    ("skill", "parry", 5),
-    # Max rings
-    ("ring", "fire", 5),
-    ("ring", "void", 4),
+    ("skill", "attack", 5),       # +3X = +15 WC — full 5th-Dan damage engine
+    ("skill", "parry", 3),        # late floor bump; capped at attack
+    # Max rings — fire first (discount), then water/void for offensive economy
+    ("ring", "fire", 5),          # discounted: cost 20 instead of 25
+    ("ring", "fire", 6),          # discounted: cost 25 instead of 30 (school cap=6)
     ("ring", "water", 4),
+    ("ring", "void", 4),
+    ("ring", "earth", 3),         # baseline max_sw bump (school identity none)
+    ("ring", "air", 3),           # baseline air ring (school identity none)
+    # Defensive baseline padding (Batch B tuning, 2026-05-28): the
+    # original list ended at this point with ~93 XP unused at the 450-XP
+    # tier, leaving Matsu with earth 3 / parry 3 / air 3 — too thin
+    # vs a Wave-Man baseline (earth 5 / parry 5).  Combat-simulator-
+    # equivalent observation: 0/20 vs Wave-Man before this padding.
+    # The school's offensive identity is preserved (lunge / double
+    # attack / iaijutsu maxed first); these entries only fire after
+    # all offense + the school ring are saturated.
+    ("ring", "earth", 4),         # max_sw 6 -> 8
+    ("ring", "earth", 5),         # max_sw 8 -> 10 (parity with Wave-Man)
     ("ring", "air", 4),
-    ("ring", "earth", 5),
-    ("ring", "fire", 6),
-    ("ring", "void", 5),
     ("ring", "water", 5),
-    ("ring", "air", 5),
+    ("ring", "void", 5),
 ]
 
 # Mirumoto Bushi School (school_ring: void, knacks: counterattack, double attack, iaijutsu)
