@@ -16,15 +16,24 @@ You are a focused implementation agent for the L7R tabletop RPG combat simulator
 
 # Quality gates (you run these yourself before returning)
 
-Run in order; do not return until all three pass:
+Run in order; do not return until ALL pass:
 
 ```
 env/bin/ruff check .
 env/bin/mypy
-env/bin/pytest tests/test_mirumoto_school.py -v
+env/bin/pytest tests/test_<school>_school.py -v          # narrow check
+env/bin/pytest tests/ --cov                              # full coverage gate
 ```
 
-If any fails, fix it. If the *full* test suite is relevant to your change, run `env/bin/pytest tests/ -v` too; otherwise the school's test file is sufficient for one task.
+The full-suite `--cov` run is **mandatory** per Constitution Principle VI v1.3.0 — `pyproject.toml` has `fail_under = 100` set, so the run exits non-zero if any uncovered line lacks a `# pragma: no cover` with an allowed-category justification (UI entry point / defensive / abstract method / re-raise). If coverage fails:
+
+1. Identify the uncovered line(s) via `--cov-report=term-missing`.
+2. Either (a) write a test that exercises the line, or (b) add a pragma with one of the four allowed-category justification keywords.
+3. Re-run `pytest tests/ --cov` and confirm it passes.
+
+If a `# type: ignore` or `# pragma: no cover` is genuinely the right call, justify it in a one-line comment that the pragma-audit meta-test (`tests/test_coverage_pragma_audit.py`) will accept.
+
+If any gate fails, fix it before returning. **Do not return a "done" report with the coverage gate red — the orchestrator was burned once (Bayushi merged at 93% before the gate was wired in 2026-05-28); the gate now exists specifically to prevent recurrence.**
 
 # Input you'll receive
 
@@ -58,7 +67,8 @@ Return a concise structured report:
 ### Quality gates
 - ruff: PASS
 - mypy: PASS
-- pytest tests/test_mirumoto_school.py: PASS (N tests)
+- pytest tests/test_<school>_school.py: PASS (N tests)
+- pytest tests/ --cov: PASS (100% coverage; Principle VI gate)
 
 ### Notes
 - Any deviation from the task as written and why.

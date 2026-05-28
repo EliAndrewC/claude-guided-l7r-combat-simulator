@@ -41,10 +41,20 @@ omit = [
 # categories (UI entry point / defensive / abstract method / re-raise).
 # The pragma-audit meta-test at tests/test_coverage_pragma_audit.py
 # enforces the justification requirement.
+#
+# ``fail_under = 100`` (added 2026-05-28) makes the coverage report
+# itself error when overall coverage drops below 100% — automated
+# enforcement of Principle VI, no longer relying on the orchestrator
+# remembering to eyeball the report.  To run the gate explicitly:
+# ``env/bin/pytest tests/ --cov`` (exit code 2 if any non-pragma'd
+# line is uncovered).  This was added after the Bayushi run merged
+# at 93% coverage on simulation/schools/bayushi_school.py — a clear
+# Principle VI violation that no automated check caught.
 exclude_lines = [
     "pragma: no cover",
 ]
 show_missing = true
+fail_under = 100
 
 [tool.mypy]
 python_version = "3.12"

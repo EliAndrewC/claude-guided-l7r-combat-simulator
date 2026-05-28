@@ -95,15 +95,37 @@ class TestEngineAdapterDuelPaths:
         assert len(result.play_by_play) > 0
 
     def test_run_duel_batch_returns_batch_result(self):
+        """Drives coverage on both branches of ``run_duel_batch``'s
+        winner-tally (``engine_adapter.py`` lines 198-201).  The
+        original 3-trial Kakita-vs-Bayushi setup only hit the
+        ``control_victories`` branch — the new ``fail_under = 100``
+        coverage gate (2026-05-28) caught the gap.
+
+        Fix: seed the RNG + bump trials to 20 + assert BOTH branches
+        fire (``test_victories >= 1`` AND ``control_victories >= 1``).
+        At Kakita's expected ~20-50% win-rate vs Bayushi over 20
+        trials, both outcomes are overwhelmingly likely → both
+        branches covered deterministically.
+        """
+        import random
+        random.seed(1)
         configs = _load_test_configs()
         kakita = _find(configs, "Kakita")
         bayushi = _find(configs, "Bayushi")
         ctrl = GroupConfig(name="ctrl", is_control=True, character_names=["Kakita"])
         test = GroupConfig(name="test", is_control=False, character_names=["Bayushi"])
-        result = run_duel_batch([kakita, bayushi], [ctrl, test], num_trials=3)
+        result = run_duel_batch([kakita, bayushi], [ctrl, test], num_trials=20)
         assert isinstance(result, BatchResult)
-        assert result.num_trials == 3
-        assert result.control_victories + result.test_victories == 3
+        assert result.num_trials == 20
+        assert result.control_victories + result.test_victories == 20
+        # Both winner-tally branches must fire to drive coverage on
+        # engine_adapter.py lines 198-201.
+        assert result.test_victories >= 1, (
+            f"At 20 trials, Bayushi must win at least once to drive "
+            f"coverage on the ``test_victories += 1`` branch (line 199); "
+            f"got {result.test_victories} test victories."
+        )
+        assert result.control_victories >= 1
 
 
 class TestCharacterAdapterFileFilter:
