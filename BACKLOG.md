@@ -63,6 +63,30 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   450 XP, indicating the Wave-Man template at 450 XP is
   structurally over-tuned (rules-balance question for a follow-up
   branch). Matsu vs Akodo 40% PASSES (clear contrast to Hida's 0%).
+- **Bayushi Bushi School** — `specs/012-bayushi-bushi-school/`,
+  merged 2026-05-28 as commit `e36c7d3`. **Audit-and-tighten run**
+  on the most polished bushi skeleton (263 lines, 9 existing tests).
+  Rules-fidelity: PASSED (with 1 MINOR dead-code fix in
+  `BayushiAttackStrategy._count_bayushi_4th_dan_bonuses` — `source`
+  is a method, not an attribute). Principle VII fixes: added
+  `bayushi_5th_dan_halved_lw_actual` field to `WoundCheckEntry` so
+  the 5th Dan half-LW WC surfaces with explicit attribution
+  ("Bayushi 5th Dan: SW vs halved LW (N → N//2)") in both renderers;
+  relabeled "VP on attack" → "Bayushi Special Ability VP on attack"
+  in damage breakdown. Win-feasibility vs Akodo at 450 XP: ~80%
+  (combat-simulator measurement) — Bayushi's Special Ability damage
+  is so strong it dominates. + 24 new tests (3925 → 3949).
+  Two deferrals documented in OPEN_QUESTIONS.md:
+  (1) `BayushiAttackStrategy` (feint-first ladder) PROVIDED in
+  source + unit-tested but NOT installed — the engine default
+  `UniversalAttackStrategy` gates its feint branch on `vp() == 0`,
+  so under defaults the 3rd/4th Dan feint engines are functionally
+  unreachable (combat-simulator confirmed: 0/78 feints across 20
+  seeds). Installation shifts the seed=1234 calibration combat used
+  by ~10 trace tests; deferred to a follow-up branch.
+  (2) `BAYUSHI_PRIORITIES` revision (school-progression-designer's
+  identity-aligned version) also documented but not applied for the
+  same calibration-combat reason.
 
 ## Partial work (no full audit yet)
 
@@ -79,9 +103,6 @@ adjacent runs share rules-text patterns and review heuristics.
 
 ### Bushi schools (direct combat — closest in shape to Mirumoto)
 
-- [ ] **Bayushi Bushi School**
-  (`simulation/schools/bayushi_school.py`). Scorpion-clan deception
-  bushi (feint-heavy).
 - [ ] **Kakita Duelist School**
   (`simulation/schools/kakita_school.py`, 610 lines — largest
   skeleton). Iaijutsu duelist; iaijutsu-duel engine already exists
