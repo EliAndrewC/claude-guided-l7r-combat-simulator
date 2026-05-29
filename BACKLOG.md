@@ -710,8 +710,6 @@ Principle VIII their combat defaults must still be playable. Audit
 will need careful Principle IX analysis (what does "identity engine
 fires" look like for a school whose identity is social maneuvering?).
 
-- [ ] **Courtier School**
-  (`simulation/schools/courtier_school.py`).
 - [ ] **Doji Artisan School**
   (`simulation/schools/doji_artisan_school.py`). Has ad-hoc
   `_doji_artisan_*` attributes flagged by the negation refactor.

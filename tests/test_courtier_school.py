@@ -186,3 +186,91 @@ class TestCourtierFifthDan(unittest.TestCase):
         provider = courtier.roll_parameter_provider()
         _, _, modifier = provider.get_wound_check_roll_params(courtier)
         self.assertEqual(3, modifier)
+
+
+class TestCourtierFourthDanResetBetweenFights(unittest.TestCase):
+    """Spec 026 Q2 MINOR fix: rules text "once per target per
+    conversation or **fight**" requires the once-per-target set to
+    reset between fights. Implemented via ``CourtierNewRoundListener``
+    which resets the AttackSucceededListener's set on round==1
+    (start of a new combat)."""
+
+    def setUp(self):
+        self.courtier = Character("Courtier")
+        self.target = Character("Target")
+        groups = [
+            Group("Courtier", self.courtier),
+            Group("Target", self.target),
+        ]
+        self.context = EngineContext(groups)
+        school = courtier_school.CourtierSchool()
+        school.apply_rank_four_ability(self.courtier)
+
+    def test_tvp_resets_at_new_fight(self):
+        """First fight: TVP fires on first attack vs target. Second
+        fight (round==1): the once-per-target set MUST reset so TVP
+        fires again."""
+
+        class MockAction:
+            def __init__(self, subject, target):
+                self._subject = subject
+                self._target = target
+
+            def subject(self):
+                return self._subject
+
+            def target(self):
+                return self._target
+
+        action = MockAction(self.courtier, self.target)
+        attack_event = events.AttackSucceededEvent(action)
+        attack_listener = self.courtier._listeners["attack_succeeded"]
+        # First fight, first attack: TVP fires.
+        responses = list(attack_listener.handle(self.courtier, attack_event, self.context))
+        self.assertEqual(1, len(responses))
+        # First fight, second attack (same target): NO TVP.
+        responses2 = list(attack_listener.handle(self.courtier, attack_event, self.context))
+        self.assertEqual(0, len(responses2))
+        # Start of second fight: NewRoundEvent with round==1.
+        new_round_listener = self.courtier._listeners["new_round"]
+        # Stub roll_initiative to avoid needing a roll provider.
+        self.courtier.roll_initiative = lambda: None
+        list(new_round_listener.handle(
+            self.courtier, events.NewRoundEvent(1), self.context,
+        ))
+        # Second fight, first attack: TVP fires AGAIN (set was reset).
+        responses3 = list(attack_listener.handle(self.courtier, attack_event, self.context))
+        self.assertEqual(1, len(responses3))
+        # Trace attribution tag.
+        self.assertTrue(getattr(responses3[0], "_courtier_4th_dan", False))
+
+    def test_round_2_plus_does_not_reset(self):
+        """Mid-combat rounds (round > 1) MUST NOT reset the set —
+        otherwise the once-per-target gate would be once-per-target-
+        per-round which is wrong."""
+
+        class MockAction:
+            def __init__(self, subject, target):
+                self._subject = subject
+                self._target = target
+
+            def subject(self):
+                return self._subject
+
+            def target(self):
+                return self._target
+
+        action = MockAction(self.courtier, self.target)
+        attack_event = events.AttackSucceededEvent(action)
+        attack_listener = self.courtier._listeners["attack_succeeded"]
+        new_round_listener = self.courtier._listeners["new_round"]
+        self.courtier.roll_initiative = lambda: None
+        # First attack of round 1: fires.
+        list(attack_listener.handle(self.courtier, attack_event, self.context))
+        # NewRoundEvent for round 2.
+        list(new_round_listener.handle(
+            self.courtier, events.NewRoundEvent(2), self.context,
+        ))
+        # Round 2 attack on same target: must NOT fire (still gated).
+        responses = list(attack_listener.handle(self.courtier, attack_event, self.context))
+        self.assertEqual(0, len(responses))
