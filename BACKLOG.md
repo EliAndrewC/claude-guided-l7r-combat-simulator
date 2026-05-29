@@ -87,6 +87,57 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   (2) `BAYUSHI_PRIORITIES` revision (school-progression-designer's
   identity-aligned version) also documented but not applied for the
   same calibration-combat reason.
+- **Kuni Witch Hunter School** — `specs/020-kuni-witch-hunter-school/`,
+  merged 2026-05-29. **Audit-and-completion run** on an 84-line
+  skeleton with 10 existing tests.
+  Rules-fidelity (3 BLOCKING fixes):
+  - **Q1 BLOCKING**: Special Ability missing +1 rolled. Rules text:
+    "Roll an extra (X+1)k(X+1) on wound checks". Taint=0 → 1k1 =
+    +1 rolled AND +1 kept. Skeleton only added +1 kept.
+  - **Q2 BLOCKING**: 1st Dan ``extra_rolled()`` omitted
+    "interrogation" (rules text: "extra die on damage,
+    interrogation, and wound checks").
+  - **Q4 BLOCKING**: 5th Dan reflection missing "take half" backlash.
+    Rules text: "inflict that number of light wounds on the opponent
+    who dealt them AND take half that amount yourself". Skeleton
+    reflected the full amount but took NO backlash — strictly
+    over-powered. Now also emits ``LightWoundsDamageEvent(attacker,
+    kuni, damage // 2)``.
+  **ENGINE GAP fix** (FR-009): ``simulation/features.py:586``
+  previously raised ``NotImplementedError("Collecting features for
+  spend_ap events is not yet supported")`` which crashed every
+  combat where AP was spent. Confirmed empirically by Daidoji
+  round-robin pre-fix crashes against {courtier, ikoma_bard, kuni,
+  merchant, monk}. Replaced with no-op skip. Round-robin against
+  these schools should now be crash-free.
+  Mirror non-degeneracy fix: 5th Dan reflection caused infinite
+  Kuni-vs-Kuni recursion (each Kuni's WC succeeded → reflected to
+  the other Kuni → triggered WC → reflected back → ...).
+  ``_kuni_in_reflection_chain`` flag now breaks the chain after
+  one round-trip while preserving normal reflection behavior.
+  Principle VIII identity binding: ``WoundCheckStrategy04`` installed
+  at 3rd Dan (when the AP system unlocks) — the deep WC pool from
+  SA +1k1 + 1st Dan +1 die + 3rd Dan AP raises calls for an
+  aggressive 0.4 confidence threshold (Hida/Shiba/Otaku/Shinjo/
+  Daidoji precedent).
+  Trace attribution tags added (``_kuni_5th_dan_reflection``,
+  ``_kuni_5th_dan_backlash``) for future renderer work.
+  Tests: 5 new tests (4054 → 4059), 100% coverage on
+  ``kuni_school.py``. Mirror at 300 XP terminates; 5th Dan
+  reflection fires empirically vs Akodo.
+  Deferrals documented:
+  1. **Q3 4th Dan extra action die**: rules text says "may not be
+     used to attack targets without the Shadowlands Taint". Without
+     a Taint system, the extra die could only ever be used for
+     non-attack actions — implementation requires per-die usage
+     restrictions not currently modeled.
+  2. **Q5 "may choose" strategic gate**: 5th Dan reflection fires
+     unconditionally; rules text says "may". Identity-essential
+     mechanic so suppressing it would starve the identity engine.
+  3. ``KUNI_PRIORITIES`` revision — same calibration-combat cascade
+     pattern.
+  4. Trace renderer surfacing for the 5th Dan reflection / backlash
+     events.
 - **Hiruma Scout School** — `specs/019-hiruma-scout-school/`,
   merged 2026-05-29. **Audit-and-completion run** on a 115-line
   skeleton with 10 existing tests.
@@ -413,10 +464,6 @@ adjacent runs share rules-text patterns and review heuristics.
 
 ### Specialty schools (non-bushi combat)
 
-- [ ] **Kuni Witch Hunter School**
-  (`simulation/schools/kuni_school.py`). Has known engine gap —
-  `NotImplementedError: spend_ap` per prior notes. Audit may
-  surface engine work.
 - [ ] **Yogo Warden School**
   (`simulation/schools/yogo_school.py`). Scorpion-clan ward-caster
   (some abilities likely shugenja-adjacent — verify whether they

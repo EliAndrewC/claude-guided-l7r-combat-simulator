@@ -801,10 +801,18 @@ class TestTrialFeaturesObserveEvents(unittest.TestCase):
         self.assertEqual([10], self.tf.data()["control_wc_failed_margin"])
         self.assertEqual([25], self.tf.data()["control_wc_failed_lw_total"])
 
-    def test_observe_event_spend_ap_raises(self):
+    def test_observe_event_spend_ap_is_noop(self):
+        """Spec 020 FR-009 engine gap fix: ``observe_event`` for
+        ``SpendAdventurePointsEvent`` previously raised
+        ``NotImplementedError`` which crashed any combat where AP was
+        spent (Kuni 3rd+ Dan, and other AP-spending schools confirmed
+        empirically by Daidoji round-robin pre-fix crashes against
+        {courtier, ikoma_bard, kuni, merchant, monk}).  Now skips
+        observation with no error.
+        """
         event = SpendAdventurePointsEvent(self.test_char, "attack", 1)
-        with self.assertRaises(NotImplementedError):
-            self.tf.observe_event(event, self.context)
+        # MUST NOT raise.
+        self.tf.observe_event(event, self.context)
 
     def test_observe_event_attack_failed_passes(self):
         # AttackFailedEvent should not raise and just pass

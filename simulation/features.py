@@ -583,7 +583,15 @@ class TrialFeatures:
         elif isinstance(event, events.SpendActionEvent):
             self.observe_action(event, context)
         elif isinstance(event, events.SpendAdventurePointsEvent):
-            raise NotImplementedError("Collecting features for spend_ap events is not yet supported")
+            # Spec 020 engine-gap fix: previously raised
+            # ``NotImplementedError`` which crashed any combat where
+            # AP was spent (e.g., a Kuni 3rd+ Dan combat).  AP-spend
+            # features are not currently tracked by the collector;
+            # the safe behavior is to skip observation rather than
+            # crash.  Confirmed by Daidoji round-robin pre-fix
+            # crashes against {courtier, ikoma_bard, kuni, merchant,
+            # monk} — all AP-spending opponents.
+            pass
         elif isinstance(event, events.SpendVoidPointsEvent):
             self.observe_vp_spent(event, context)
         elif isinstance(event, events.TakeAttackActionEvent):
