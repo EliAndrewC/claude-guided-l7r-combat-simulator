@@ -87,6 +87,80 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   (2) `BAYUSHI_PRIORITIES` revision (school-progression-designer's
   identity-aligned version) also documented but not applied for the
   same calibration-combat reason.
+- **Daidoji Yojimbo School** — `specs/018-daidoji-yojimbo-school/`,
+  merged 2026-05-29. **Audit-and-completion run** on the
+  most-developed remaining bushi skeleton (237 lines, 34 existing
+  tests). Combat-simulator pre-fix baseline showed 10/10 wins vs
+  Akodo 450 — playability passed despite a HIGH-severity 5th Dan
+  bug, because the school still fired enough identity engine to
+  win on Special Ability + 3rd Dan WC bonus alone.
+  **NEW HIGH-severity bug surfaced by rules-auditor**: 5th Dan
+  modifier was wrong-skill + wrong-sign + wrong-holder.
+  ``Modifier(daidoji, attacker, ATTACK_SKILLS, +excess)`` buffed
+  Daidoji's OWN attack-skill rolls instead of lowering the
+  attacker's ``tn_to_hit``. Per rules text "lower the TN to hit
+  the attacker", correct is
+  ``Modifier(attacker, None, "tn to hit", -excess)`` (``tn_to_hit``
+  is read via ``character.modifier(None, "tn to hit")`` per
+  ``character.py:897``). Existing 5th Dan tests at
+  ``test_daidoji_school.py:577-678`` codified the BUGGY behavior
+  and were rewritten alongside the fix.
+  Rules-fidelity (4 BLOCKING fixes):
+  - **T-A1** (above): 5th Dan modifier rewrite.
+  - **T-A2** (Q4): 5th Dan expiry scope. Previous
+    ``ExpireAfterNextAttackByCharacterListener(daidoji)`` required
+    ``daidoji == event.target() AND daidoji == event.subject()``
+    simultaneously — never fired (only end-of-round expiry
+    triggered). Replaced with ``ExpireAfterNextAttackListener``
+    which expires after the next attack TARGETING the modifier
+    holder (= the attacker) by anyone — matches "the next time
+    they are attacked".
+  - **T-A3** (Q5): 5th Dan ally scope. Previous adjacency-gate
+    replaced with per-Daidoji ``_daidoji_counterattacked_for`` set
+    populated by ``DaidojiTakeCounterattackActionEvent.play`` —
+    matches rules-text "a character for whom you've
+    counterattacked".
+  - **Q2 (4th Dan timing)**: rules say "before damage has been
+    rolled" but listener fires on ``LightWoundsDamageEvent`` (AFTER
+    damage rolled). **DEFERRED** — fix requires intercepting on
+    ``AttackSucceededEvent`` and mutating the action's target so
+    damage rolls against the Daidoji's stats. Architecturally
+    involved (needs careful sequencing); deferred to a follow-up
+    branch.
+  - **Q3 (4th Dan "may choose")**: rules say "may choose";
+    listener redirects unconditionally. **DEFERRED** —
+    combat-simulator validated 10/10 wins vs Akodo with
+    unconditional redirect; adding a "danger-only" gate without
+    rebalancing the identity engine risks breaking playability.
+  Principle VIII identity bindings: added ``WoundCheckStrategy04``
+  in ``apply_special_ability`` (1st Dan WC die + 3rd Dan WC
+  floating bonus = above-average WC pool, 0.4 threshold matches
+  Hida/Shiba precedent).
+  Trace attribution tags added (``_daidoji_3rd_dan`` on
+  ``WoundCheckFloatingBonus`` + ``_daidoji_5th_dan_excess`` on the
+  TN modifier) for future renderer work.
+  Tests: 8 new tests (4032 → 4040), 100% coverage on
+  ``daidoji_school.py``. All 3 playability tests pass (mirror at
+  300 XP terminates; interrupt-counterattack + 5th Dan TN modifier
+  both fire empirically vs Akodo).
+  Deferrals documented:
+  1. **Q2 (4th Dan timing)** — needs ``AttackSucceededEvent``
+     intercept with target redirection.
+  2. **Q3 (4th Dan strategic choice)** — combat-simulator
+     validation needed before adding gate.
+  3. ``DAIDOJI_PRIORITIES`` revision (counterattack-first,
+     water-3 at Dan 3, earth removed, parry capped at 2) — same
+     calibration-combat cascade pattern.
+  4. **3rd Dan ad-hoc attribute** (``_daidoji_third_dan``) —
+     refactor to ``_set_school_listener`` slot for school-negation
+     reversal. Listener-level fix needed.
+  5. **Per-combat reset** of ``_daidoji_counterattacked_for`` set —
+     currently persists across combats for a character; needs
+     ``Character.reset`` hook integration.
+  6. Trace renderer surfacing for the 5th Dan TN modifier and 3rd
+     Dan WC floating bonus — tags present on events but renderer
+     doesn't yet surface school-specific attribution for these
+     paths.
 - **Shinjo Bushi School** — `specs/017-shinjo-bushi-school/`,
   merged 2026-05-29. **Audit-and-completion run** on a 152-line
   skeleton with 13 existing tests; combat-simulator's pre-fix
@@ -278,12 +352,6 @@ Listed in suggested implementation order, grouped by archetype so
 adjacent runs share rules-text patterns and review heuristics.
 
 ### Bushi schools (direct combat — closest in shape to Mirumoto)
-
-- [ ] **Daidoji Yojimbo School**
-  (`simulation/schools/daidoji_school.py`). Crane-clan bodyguard;
-  has interrupt-cost mutation that the 5th Dan negation refactor
-  flagged as not yet tracked. Treat as a candidate to extend
-  `BaseSchool` mutation-tracking helpers.
 
 ### Specialty schools (non-bushi combat)
 

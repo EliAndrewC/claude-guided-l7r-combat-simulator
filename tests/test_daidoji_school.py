@@ -575,7 +575,17 @@ class TestDaidojiFifthDan(unittest.TestCase):
         self.context.initialize()
 
     def test_modifier_after_daidoji_wound_check(self):
-        """After the Daidoji succeeds a wound check, the attacker gets a TN penalty."""
+        """rules/04-schools.md "Daidoji 5th Dan": "lower the TN to
+        hit the attacker the next time they are attacked by the
+        amount by which the wound check exceeded the damage roll".
+
+        Spec 018 T-A1 (HIGH-severity NEW BUG fix): the previous
+        skeleton emitted ``Modifier(daidoji, attacker, ATTACK_SKILLS,
+        +excess)`` which buffed Daidoji's OWN attack rolls.  Correct:
+        ``Modifier(attacker, None, "tn to hit", -excess)`` so the
+        attacker's tn_to_hit reads ``-15`` and SUBSEQUENT ATTACKS
+        against the attacker hit at lower TN.
+        """
         school = daidoji_school.DaidojiYojimboSchool()
         school.apply_rank_five_ability(self.daidoji)
 
@@ -587,10 +597,10 @@ class TestDaidojiFifthDan(unittest.TestCase):
         engine = CombatEngine(self.context)
         engine.event(wc_event)
 
-        # The Daidoji should have a modifier targeting the attacker with ATTACK_SKILLS
-        # that gives +15 to the Daidoji's attack against the attacker
-        modifier_value = self.daidoji.modifier(self.attacker, "attack")
-        self.assertEqual(15, modifier_value)
+        # The ATTACKER's tn_to_hit modifier should be -15 (NOT a buff
+        # on Daidoji's own attack skill).
+        modifier_value = self.attacker.modifier(None, "tn to hit")
+        self.assertEqual(-15, modifier_value)
 
     def test_no_modifier_when_no_excess(self):
         """If the wound check exactly meets TN, no modifier is added."""
@@ -604,28 +614,46 @@ class TestDaidojiFifthDan(unittest.TestCase):
         engine = CombatEngine(self.context)
         engine.event(wc_event)
 
-        modifier_value = self.daidoji.modifier(self.attacker, "attack")
-        self.assertEqual(0, modifier_value)
+        # No modifier added — attacker's tn_to_hit unchanged.
+        self.assertEqual(0, self.attacker.modifier(None, "tn to hit"))
 
-    def test_modifier_after_ally_wound_check(self):
-        """After an ally in the Daidoji's group succeeds a wound check,
-        the Daidoji gets the modifier (not the ally)."""
+    def test_modifier_after_ally_wound_check_only_if_counterattacked_for(self):
+        """rules/04-schools.md "Daidoji 5th Dan": "you or a character
+        for whom you've counterattacked".
+
+        Spec 018 T-A3 (Q5 fix): the 5th Dan modifier MUST fire on the
+        ally's WC ONLY if the Daidoji has counterattacked for that
+        ally (per the rules-text "for whom you've counterattacked"
+        clause).  The previous skeleton gated on bare adjacency.
+
+        Without prior counterattack-for-ally history, the ally's WC
+        does NOT trigger the 5th Dan modifier.
+        """
         school = daidoji_school.DaidojiYojimboSchool()
+        # apply_special_ability initializes the counterattack-history
+        # set; apply_rank_five_ability installs the 5th Dan listener.
+        school.apply_special_ability(self.daidoji)
         school.apply_rank_five_ability(self.daidoji)
 
-        # Ally succeeds wound check with excess
-        # roll = 25, tn = 10, excess = 15
+        # Ally succeeds WC, but Daidoji has NOT counterattacked for ally yet.
         wc_event = events.WoundCheckSucceededEvent(
             self.ally, self.attacker, 10, roll=25, tn=10,
         )
         engine = CombatEngine(self.context)
         engine.event(wc_event)
+        # No modifier — ally not in counterattacked-for set.
+        self.assertEqual(0, self.attacker.modifier(None, "tn to hit"))
 
-        # The Daidoji gets the modifier, not the ally
-        daidoji_modifier = self.daidoji.modifier(self.attacker, "attack")
-        self.assertEqual(15, daidoji_modifier)
-        ally_modifier = self.ally.modifier(self.attacker, "attack")
-        self.assertEqual(0, ally_modifier)
+        # Now mark the ally as counterattacked-for (simulates a prior
+        # counterattack action by the Daidoji on the ally's behalf).
+        self.daidoji._daidoji_counterattacked_for.add(self.ally)
+        wc_event2 = events.WoundCheckSucceededEvent(
+            self.ally, self.attacker, 10, roll=25, tn=10,
+        )
+        engine2 = CombatEngine(self.context)
+        engine2.event(wc_event2)
+        # NOW the modifier fires — attacker's tn_to_hit reduced by 15.
+        self.assertEqual(-15, self.attacker.modifier(None, "tn to hit"))
 
     def test_no_modifier_for_enemy_wound_check(self):
         """Enemy wound checks should not trigger the modifier."""
@@ -639,12 +667,18 @@ class TestDaidojiFifthDan(unittest.TestCase):
         engine = CombatEngine(self.context)
         engine.event(wc_event)
 
-        # Daidoji should have no modifier
-        modifier_value = self.daidoji.modifier(self.attacker, "attack")
-        self.assertEqual(0, modifier_value)
+        # Daidoji is not the WC subject — modifier should NOT fire.
+        # (Daidoji is the attacker in this scenario.)
+        self.assertEqual(0, self.daidoji.modifier(None, "tn to hit"))
 
-    def test_modifier_applies_to_all_attack_skills(self):
-        """The modifier should apply to all attack skills (counterattack, double attack, etc)."""
+    def test_modifier_lowers_attacker_tn_to_hit(self):
+        """The modifier MUST be on the attacker's ``tn to hit`` skill
+        (the property read by ``Character.tn_to_hit``) so that
+        SUBSEQUENT attacks against the attacker have a lower TN.
+
+        Spec 018 T-A1: replaces the previous test that asserted
+        modifier on ATTACK_SKILLS — that was the bug behavior.
+        """
         school = daidoji_school.DaidojiYojimboSchool()
         school.apply_rank_five_ability(self.daidoji)
 
@@ -654,14 +688,20 @@ class TestDaidojiFifthDan(unittest.TestCase):
         engine = CombatEngine(self.context)
         engine.event(wc_event)
 
-        # Check that it applies to multiple attack skills
-        self.assertEqual(15, self.daidoji.modifier(self.attacker, "attack"))
-        self.assertEqual(15, self.daidoji.modifier(self.attacker, "counterattack"))
-        self.assertEqual(15, self.daidoji.modifier(self.attacker, "double attack"))
-        self.assertEqual(15, self.daidoji.modifier(self.attacker, "lunge"))
+        # The modifier is on the attacker's ``tn to hit``.
+        self.assertEqual(-15, self.attacker.modifier(None, "tn to hit"))
+        # Daidoji's own attack-skill rolls are NOT buffed (this was
+        # the old bug — verify it doesn't fire).
+        self.assertEqual(0, self.daidoji.modifier(self.attacker, "attack"))
+        self.assertEqual(0, self.daidoji.modifier(self.attacker, "counterattack"))
 
     def test_modifier_does_not_apply_to_other_targets(self):
-        """The modifier should only apply when attacking the specific attacker."""
+        """The 5th Dan modifier lowers only the SPECIFIC ATTACKER's
+        TN to hit, not every character's TN.
+
+        Spec 018 T-A1: rewritten to assert against the modifier on
+        the ally character (who should NOT receive a TN reduction
+        from the Daidoji's WC against ``attacker``)."""
         school = daidoji_school.DaidojiYojimboSchool()
         school.apply_rank_five_ability(self.daidoji)
 
@@ -671,10 +711,10 @@ class TestDaidojiFifthDan(unittest.TestCase):
         engine = CombatEngine(self.context)
         engine.event(wc_event)
 
-        # Should not apply when attacking a different target
-        other_enemy = self.ally  # just use ally as a stand-in
-        modifier_value = self.daidoji.modifier(other_enemy, "attack")
-        self.assertEqual(0, modifier_value)
+        # The ally's tn_to_hit MUST NOT be modified — only the
+        # attacker's was reduced.
+        ally_modifier = self.ally.modifier(None, "tn to hit")
+        self.assertEqual(0, ally_modifier)
 
 
 class TestDaidojiTakeActionEventFactory(unittest.TestCase):

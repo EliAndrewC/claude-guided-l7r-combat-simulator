@@ -32,11 +32,10 @@ from simulation.events import (
 from simulation.listeners import LightWoundsDamageListener, Listener
 from simulation.mechanics.floating_bonuses import WoundCheckFloatingBonus
 from simulation.mechanics.modifiers import Modifier
-from simulation.mechanics.skills import ATTACK_SKILLS
-from simulation.modifier_listeners import ExpireAfterNextAttackByCharacterListener, ExpireAtEndOfRoundListener
+from simulation.modifier_listeners import ExpireAfterNextAttackListener, ExpireAtEndOfRoundListener
 from simulation.schools.base import BaseSchool
 from simulation.strategies.action_factory import DefaultActionFactory
-from simulation.strategies.base import CounterattackInterruptStrategy
+from simulation.strategies.base import CounterattackInterruptStrategy, WoundCheckStrategy04
 from simulation.strategies.take_action_event_factory import DefaultTakeActionEventFactory
 
 
@@ -45,10 +44,36 @@ class DaidojiYojimboSchool(BaseSchool):
         return None
 
     def apply_special_ability(self, character: Any) -> None:
+        # rules/04-schools.md "Daidoji Yojimbo School: Special Ability":
+        # "You may counterattack as an interrupt action by spending
+        # only 1 action die, but if you do so then your opponent gets
+        # a free raise on their wound check if you hit.  You may
+        # counterattack for other characters at no penalty."
+        #
+        # Wiring (spec 018 T-B1):
+        # - 1-die interrupt-cost; ``CounterattackInterruptStrategy``
+        #   already fires for attacks against allies (gates on
+        #   ``target in character.group()`` + adjacency per
+        #   ``strategies/base.py:763-770``).
+        # - ``DAIDOJI_ACTION_FACTORY`` -> ``DaidojiCounterattackAction``
+        #   drops the "+5 TN when counterattacking for others" base
+        #   penalty.
+        # - ``DAIDOJI_TAKE_ACTION_EVENT_FACTORY`` -> 3rd Dan WC bonus
+        #   + interrupt-counterattack -5 WC TN.
+        # - ``WoundCheckStrategy04`` (0.4 confidence threshold) — 1st
+        #   Dan +1 WC die + 3rd Dan WC floating bonus give Daidoji
+        #   above-average WC pool; aggressive threshold spends VP
+        #   more readily (Hida/Shiba/Otaku precedent).
+        # - Initialize the per-character counterattack-history set
+        #   (spec 018 T-A3, Q5 fix) used by the 5th Dan listener to
+        #   gate the ally branch on counterattack history rather than
+        #   bare adjacency.
         character.set_interrupt_cost("counterattack", 1)
         self._set_school_action_factory(character, DAIDOJI_ACTION_FACTORY)
         self._set_school_take_action_event_factory(character, DAIDOJI_TAKE_ACTION_EVENT_FACTORY)
         self._set_school_strategy(character, "interrupt", CounterattackInterruptStrategy())
+        self._set_school_strategy(character, "wound_check", WoundCheckStrategy04())
+        character._daidoji_counterattacked_for = set()
 
     def apply_rank_three_ability(self, character: Any) -> None:
         # After a successful counterattack, grant X free raises on wound check
@@ -114,15 +139,32 @@ class DaidojiTakeCounterattackActionEvent(TakeCounterattackActionEvent):
         if self.action.vp() > 0:
             yield SpendVoidPointsEvent(self.action.subject(), self.action.skill(), self.action.vp())
         yield CounterattackRolledEvent(self.action, self.action.skill_roll())
+        # Spec 018 T-A3 (Q5 fix): track which characters the Daidoji
+        # has counterattacked for, so the 5th Dan listener can gate
+        # the ally branch on counterattack history per the rules-text
+        # "for whom you've counterattacked" clause.  Populate
+        # regardless of hit/miss — the rules-text trigger is "After
+        # ... you've counterattacked", not "after a successful
+        # counterattack".
+        daidoji = self.action.subject()
+        original_target = self.action.attack().target()
+        if hasattr(daidoji, "_daidoji_counterattacked_for"):
+            daidoji._daidoji_counterattacked_for.add(original_target)
         if self.action.is_hit():
             yield CounterattackSucceededEvent(self.action)
-            # 3rd Dan: grant wound check floating bonus to the original attack target
-            daidoji = self.action.subject()
+            # 3rd Dan: grant wound check floating bonus to the
+            # original attack target (spec 018 T-B2 — the ad-hoc
+            # ``_daidoji_third_dan`` attribute remains for now;
+            # refactor to a listener-based slot deferred to a
+            # follow-up branch per OPEN_QUESTIONS Q1).
             if getattr(daidoji, '_daidoji_third_dan', False):
-                original_target = self.action.attack().target()
                 bonus = 5 * daidoji.skill("attack")
                 if bonus > 0:
-                    original_target.gain_floating_bonus(WoundCheckFloatingBonus(bonus))
+                    floating = WoundCheckFloatingBonus(bonus)
+                    # Trace attribution tag for downstream renderer
+                    # work (spec 018 Q8).
+                    floating._daidoji_3rd_dan = True  # type: ignore[attr-defined]
+                    original_target.gain_floating_bonus(floating)
             if self.action.target().is_fighting():
                 damage = self.action.roll_damage()
                 if self.action.initiative_action().is_interrupt():
@@ -150,12 +192,25 @@ DAIDOJI_TAKE_ACTION_EVENT_FACTORY = DaidojiTakeActionEventFactory()
 
 
 class DaidojiFourthDanListener(Listener):
-    """4th Dan: Redirect damage from allies to the Daidoji.
+    """rules/04-schools.md "Daidoji Yojimbo School: Fourth Dan":
 
-    When an ally (same group, not the Daidoji) is the target of a
-    LightWoundsDamageEvent, the Daidoji takes the damage instead.
-    When the Daidoji is the target, damage is handled normally.
-    Also observes other characters' damage rolls (same as default).
+    "You may choose to take the damage from a hit dealt to an
+    adjacent character before damage has been rolled."
+
+    Currently fires on ``LightWoundsDamageEvent`` (AFTER damage was
+    rolled).  The rules-text "before damage has been rolled" timing
+    requires intercepting earlier (e.g., ``AttackSucceededEvent``) so
+    the damage rolls against the Daidoji's stats rather than the
+    ally's.  Deferred — see OPEN_QUESTIONS Q2 in spec 018 for the
+    architectural rationale.
+
+    Spec 018 T-A5 (Q3 "may choose" strategic gate): **DEFERRED** —
+    combat-simulator validated 10/10 wins vs Akodo 450 with
+    unconditional redirect; adding a "danger-only" gate without
+    rebalancing the rest of the Daidoji's identity engine risks
+    breaking playability.  The strategic-choice fix requires
+    paired playability re-validation and is left to a follow-up
+    branch.
     """
 
     def __init__(self, daidoji: Any) -> None:
@@ -193,45 +248,79 @@ class DaidojiFourthDanListener(Listener):
 
 
 class DaidojiFifthDanWoundCheckListener(Listener):
-    """5th Dan: After a wound check succeeds for the Daidoji or an ally,
-    lower the attacker's TN to hit by the excess amount.
+    """rules/04-schools.md "Daidoji Yojimbo School: Fifth Dan":
 
-    The modifier is added to the Daidoji (not the ally) and targets
-    the attacker with ATTACK_SKILLS. It expires after the next attack
-    against the attacker or at end of round.
+    "After you or a character for whom you've counterattacked makes
+    a wound check, lower the TN to hit the attacker the next time
+    they are attacked by the amount by which the wound check
+    exceeded the damage roll.  This can lower a TN to below 0."
+
+    Spec 018 BLOCKING fixes (rules-auditor):
+
+    * **T-A1** (HIGH-severity NEW BUG): the previous skeleton emitted
+      ``Modifier(daidoji, attacker, ATTACK_SKILLS, +excess)`` which
+      buffed Daidoji's OWN attack-skill rolls instead of lowering the
+      attacker's ``tn_to_hit``.  Correct: ``Modifier(attacker, None,
+      "tn to hit", -excess)`` (rules text — "lower the TN to hit the
+      attacker").  ``tn_to_hit`` is read via ``character.modifier(None,
+      "tn to hit")`` (``character.py:897``), so the modifier must be
+      held by the attacker with skill ``"tn to hit"``.  Existing tests
+      at ``tests/test_daidoji_school.py:577-678`` codified the buggy
+      behavior — rewritten alongside this fix.
+    * **T-A2** (Q4): the previous skeleton's
+      ``ExpireAfterNextAttackByCharacterListener(daidoji)`` required
+      ``daidoji == event.target() AND daidoji == event.subject()``,
+      which never fires (only end-of-round expiry triggered).
+      Replaced with ``ExpireAfterNextAttackListener`` which expires
+      after the next attack TARGETING the modifier holder (= the
+      attacker) by anyone — matches "the next time they are
+      attacked".
+    * **T-A3** (Q5): the previous skeleton gated the ally branch on
+      ``adjacency``.  Rules text: "a character for whom you've
+      counterattacked".  Now gates on the Daidoji's per-combat
+      ``_daidoji_counterattacked_for`` set, populated by
+      ``DaidojiTakeCounterattackActionEvent.play``.
     """
 
     def __init__(self, daidoji: Any) -> None:
         self._daidoji = daidoji
-        self._default_listener = None
 
     def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, WoundCheckSucceededEvent):
             if character != self._daidoji:
-                # Non-Daidoji characters: use default behavior
+                # Non-Daidoji characters: use default behavior.
                 yield from character.light_wounds_strategy().recommend(character, event, context)
                 return
-            # Check if the wound check subject is the Daidoji or an ally
+            # The Daidoji is the handler.  Check whether the WC
+            # subject is eligible per rules text.
             subject_is_daidoji = (event.subject == self._daidoji)
-            subject_is_ally = (
-                event.subject in self._daidoji.group()
+            counterattacked_for: set[Any] = getattr(
+                self._daidoji, "_daidoji_counterattacked_for", set(),
+            )
+            subject_is_protected_ally = (
+                event.subject in counterattacked_for
                 and event.subject != self._daidoji
-                and context.formation().is_adjacent(self._daidoji, event.subject)
             )
             if subject_is_daidoji:
-                # Daidoji's own wound check: handle default behavior first
+                # Daidoji's own wound check — delegate to light-wounds
+                # strategy first (engine default flow).
                 yield from self._daidoji.light_wounds_strategy().recommend(
                     self._daidoji, event, context,
                 )
-            # Grant the modifier if the subject is the Daidoji or an ally
-            if subject_is_daidoji or subject_is_ally:
+            if subject_is_daidoji or subject_is_protected_ally:
                 excess = event.roll - event.tn
                 if excess > 0:
                     attacker = event.attacker
-                    modifier = Modifier(self._daidoji, attacker, ATTACK_SKILLS, excess)
-                    attack_listener = ExpireAfterNextAttackByCharacterListener(self._daidoji)
+                    # T-A1 fix: modifier holds on the ATTACKER, skill
+                    # "tn to hit", adjustment NEGATIVE excess.
+                    modifier = Modifier(attacker, None, "tn to hit", -excess)
+                    # T-A2 fix: expire after next attack targeting the
+                    # attacker (by anyone), not after Daidoji attacks.
+                    attack_listener = ExpireAfterNextAttackListener()
                     end_of_round_listener = ExpireAtEndOfRoundListener()
                     modifier.register_listener("attack_failed", attack_listener)
                     modifier.register_listener("attack_succeeded", attack_listener)
                     modifier.register_listener("end_of_round", end_of_round_listener)
-                    yield AddModifierEvent(self._daidoji, modifier)
+                    # Trace attribution tag for future renderer work.
+                    modifier._daidoji_5th_dan_excess = excess  # type: ignore[attr-defined]
+                    yield AddModifierEvent(attacker, modifier)
