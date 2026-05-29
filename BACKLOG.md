@@ -87,6 +87,60 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   (2) `BAYUSHI_PRIORITIES` revision (school-progression-designer's
   identity-aligned version) also documented but not applied for the
   same calibration-combat reason.
+- **Priest School** — `specs/025-priest-school/`,
+  merged 2026-05-29. **Audit-and-completion run** on an 84-line
+  skeleton with 11 existing tests. User direction: "this will
+  involve a lot of bonuses to other people on the same side, and
+  therefore will be a big deal to implement but take a shot at it
+  and see what you can do with our usual process". The Priest's
+  identity is heavily ally-buff-oriented; most of its rules text
+  is moot in a 1v1 simulator.
+  Rules-fidelity (1 BLOCKING + 2 MEDIUM fixes):
+  - **Q4 BLOCKING**: 3rd Dan pool dice were rolled on EVERY
+    ``NewRoundEvent`` instead of "at the beginning of combat" per
+    rules text. Combat-simulator confirmed empirically: with
+    precepts=5 the priest accumulated 5 new floating bonuses
+    every round (cumulative 5 → 10 → 15+ across 3 rounds —
+    strictly over-powered). Fixed via per-listener
+    ``_pool_rolled`` flag; pool rolls ONCE at first NewRoundEvent
+    of the combat and persists thereafter.
+  - **Q1 MEDIUM**: school_ring was hardcoded to "water"
+    contradicting rules-text "Any non-Void". Applied Monk/Ide/
+    Ise Zumi school_choices precedent.
+  - **Q2 MEDIUM**: 1st Dan hardcoded both "any one" choices to
+    initiative + wound check. Rules grant player choice. Applied
+    school_choices pattern with two new keys
+    (``first_dan_extra_skill``, ``first_dan_extra_combat``),
+    defaults preserve the previous hardcoded values for
+    backwards compatibility.
+  Trace attribution tag added (``_priest_3rd_dan_pool_die``)
+  on each pool FloatingBonus for future renderer work.
+  Tests: 13 new tests (4094 → 4107), 100% coverage on
+  ``priest_school.py``. Q4 fix verified via deterministic
+  CalvinistRollProvider — only 3 precepts rolls queued for round
+  1; subsequent rounds MUST NOT re-roll or the provider raises.
+  Deferrals documented (6):
+  1. **Q3 2nd Dan ally Honor free raise** — bragging/precepts/
+     sincerity are non-combat skills; ally version moot in 1v1.
+  2. **Q5 3rd Dan swap-vs-add semantics** — rules say "swap any
+     of these dice for any rolled die"; ``FloatingBonus`` ADDS
+     to the roll rather than REPLACES. Full swap semantics would
+     require engine-level changes.
+  3. **Q6 3rd Dan ally swap for lower die** — moot in 1v1.
+  4. **Q7 4th Dan contested-roll Honor free raise** — rare in
+     combat (typically iaijutsu duels only).
+  5. **Q8 5th Dan Conviction-on-allies + action-die lowering for
+     counterattack/parry** — entirely unimplemented in skeleton.
+     Complex ally-buff + per-round Conviction-points refresh +
+     action-die manipulation. Majority moot in 1v1.
+  6. ``PRIEST_PRIORITIES`` revision.
+  Combat-simulator empirical findings (informational):
+  - Pre-fix Q4 verified: 5 dice/round accumulated (precepts=5).
+  - Win-rate vs Akodo 450: 0/10 (non-combat identity).
+  - Mirror at 300 XP: non-degenerate but slow (60+ attacks per 18
+    rounds; 3/5 hit cap).
+  - Round-robin: 7/26 wins, 0 crashes (mostly wins against other
+    non-combat schools).
 - **Togashi Ise Zumi School** — `specs/024-ise-zumi-school/`,
   merged 2026-05-29. **Audit-and-completion run** on a 103-line
   skeleton with 17 existing tests.
@@ -648,8 +702,6 @@ adjacent runs share rules-text patterns and review heuristics.
 
 ### Mystic / monk schools
 
-- [ ] **Priest School** (`simulation/schools/priest_school.py`).
-  Has 5 TODO markers — likely a near-empty skeleton.
 
 ### Court / social schools (combat presence is indirect)
 

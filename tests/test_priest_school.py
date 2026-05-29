@@ -118,3 +118,168 @@ class TestPriestFourthDan(unittest.TestCase):
         school = priest_school.PriestSchool()
         school.apply_rank_four_ability(priest)
         self.assertEqual(4, priest.ring("water"))
+
+
+class TestPriestSchoolRingChoice(unittest.TestCase):
+    """Spec 025 Q1 MEDIUM fix: rules text "Any non-Void" — player
+    picks ring via school_choices (Monk/Ide/Ise Zumi precedent)."""
+
+    def test_school_ring_default_is_water(self) -> None:
+        school = priest_school.PriestSchool()
+        self.assertEqual("water", school.school_ring())
+
+    def test_school_ring_choice_overrides_default(self) -> None:
+        for chosen in ("air", "earth", "fire", "water"):
+            with self.subTest(chosen=chosen):
+                school = priest_school.PriestSchool()
+                school.set_choice("school_ring", chosen)
+                self.assertEqual(chosen, school.school_ring())
+
+    def test_school_ring_void_falls_back_to_default(self) -> None:
+        """Void is explicitly disallowed per rules text "Any non-Void"."""
+        school = priest_school.PriestSchool()
+        school.set_choice("school_ring", "void")
+        self.assertEqual("water", school.school_ring())
+
+    def test_school_ring_invalid_type_falls_back(self) -> None:
+        school = priest_school.PriestSchool()
+        school.set_choice("school_ring", 42)
+        self.assertEqual("water", school.school_ring())
+
+    def test_fourth_dan_raises_chosen_ring(self) -> None:
+        """Spec 025 Q1 fix: choosing a non-default school_ring
+        redirects the 4th Dan +1 ring bump."""
+        priest = Character("Priest")
+        priest.set_ring("fire", 3)
+        school = priest_school.PriestSchool()
+        school.set_choice("school_ring", "fire")
+        school.apply_rank_four_ability(priest)
+        self.assertEqual(4, priest.ring("fire"))
+
+
+class TestPriestFirstDanChoices(unittest.TestCase):
+    """Spec 025 Q2 MEDIUM fix: rules text "Roll one extra die on
+    precepts, any one skill, and any one type of combat roll" — the
+    two "any one" slots are player choices."""
+
+    def test_default_extra_rolled(self) -> None:
+        """Defaults match the previous skeleton's hardcoded list
+        for backwards compatibility."""
+        school = priest_school.PriestSchool()
+        self.assertEqual(
+            ["precepts", "initiative", "wound check"],
+            school.extra_rolled(),
+        )
+
+    def test_first_dan_extra_skill_choice(self) -> None:
+        """Player can choose any skill for the "any one skill" slot."""
+        school = priest_school.PriestSchool()
+        school.set_choice("first_dan_extra_skill", "athletics")
+        self.assertEqual(
+            ["precepts", "athletics", "wound check"],
+            school.extra_rolled(),
+        )
+
+    def test_first_dan_extra_combat_choice(self) -> None:
+        """Player can choose a different combat roll."""
+        school = priest_school.PriestSchool()
+        school.set_choice("first_dan_extra_combat", "parry")
+        self.assertEqual(
+            ["precepts", "initiative", "parry"],
+            school.extra_rolled(),
+        )
+
+    def test_first_dan_extra_combat_invalid_falls_back(self) -> None:
+        """An invalid combat roll (not in VALID_COMBAT_ROLLS) MUST
+        fall back to the default."""
+        school = priest_school.PriestSchool()
+        school.set_choice("first_dan_extra_combat", "skill-that-does-not-exist")
+        self.assertEqual(
+            ["precepts", "initiative", "wound check"],
+            school.extra_rolled(),
+        )
+
+    def test_first_dan_extra_skill_invalid_type_falls_back(self) -> None:
+        """Non-string falls back."""
+        school = priest_school.PriestSchool()
+        school.set_choice("first_dan_extra_skill", 42)
+        self.assertEqual(
+            ["precepts", "initiative", "wound check"],
+            school.extra_rolled(),
+        )
+
+
+class TestPriestThirdDanOnceperCombat(unittest.TestCase):
+    """Spec 025 Q4 BLOCKING fix: pool MUST roll ONCE per combat,
+    not per round.  Pre-fix combat-simulator measured 5 dice
+    accumulated per round at precepts=5 (over-powered).
+    """
+
+    def test_pool_does_not_re_roll_on_subsequent_rounds(self) -> None:
+        priest = Character("Priest")
+        priest.set_skill("precepts", 3)
+        rp = CalvinistRollProvider()
+        rp.put_initiative_roll([2, 5])
+        rp.put_initiative_roll([3, 6])
+        rp.put_initiative_roll([4, 7])
+        # 3 pool-roll dice for round 1 ONLY.  If round 2 or 3 tried
+        # to roll the pool, the CalvinistRollProvider would run out
+        # of queued precepts rolls and raise.
+        rp.put_skill_roll("precepts", 6)
+        rp.put_skill_roll("precepts", 7)
+        rp.put_skill_roll("precepts", 8)
+        priest.set_roll_provider(rp)
+        target = Character("Target")
+        groups = [Group("Phoenix", priest), Group("Enemy", target)]
+        context = EngineContext(groups)
+        school = priest_school.PriestSchool()
+        school.apply_rank_three_ability(priest)
+        # Round 1: rolls pool (3 dice).
+        list(priest.event(events.NewRoundEvent(1), context))
+        round1_count = len(priest.floating_bonuses("attack"))
+        self.assertEqual(3, round1_count)
+        # Round 2: MUST NOT re-roll.  If it does, the
+        # CalvinistRollProvider runs out of queued rolls and
+        # raises ValueError.
+        list(priest.event(events.NewRoundEvent(2), context))
+        round2_count = len(priest.floating_bonuses("attack"))
+        # Pool unchanged (still 3).
+        self.assertEqual(3, round2_count)
+        # Round 3: same.
+        list(priest.event(events.NewRoundEvent(3), context))
+        round3_count = len(priest.floating_bonuses("attack"))
+        self.assertEqual(3, round3_count)
+
+    def test_pool_dice_tagged_for_trace_attribution(self) -> None:
+        """The 3rd Dan pool dice carry a ``_priest_3rd_dan_pool_die``
+        attribute for future renderer work."""
+        priest = Character("Priest")
+        priest.set_skill("precepts", 2)
+        rp = CalvinistRollProvider()
+        rp.put_initiative_roll([2, 5])
+        rp.put_skill_roll("precepts", 7)
+        rp.put_skill_roll("precepts", 8)
+        priest.set_roll_provider(rp)
+        target = Character("Target")
+        groups = [Group("Phoenix", priest), Group("Enemy", target)]
+        context = EngineContext(groups)
+        school = priest_school.PriestSchool()
+        school.apply_rank_three_ability(priest)
+        list(priest.event(events.NewRoundEvent(1), context))
+        bonuses = priest.floating_bonuses("attack")
+        for b in bonuses:
+            self.assertTrue(
+                getattr(b, "_priest_3rd_dan_pool_die", False),
+            )
+
+
+class TestPriestMisc(unittest.TestCase):
+    """Coverage padding."""
+
+    def test_apply_rank_five_does_not_raise(self) -> None:
+        """Spec 025 Q8 DEFERRED: 5th Dan is intentionally a no-op
+        (ally-buff mechanics moot in 1v1 simulator).  Must not
+        raise."""
+        priest = Character("Priest")
+        school = priest_school.PriestSchool()
+        school.apply_rank_five_ability(priest)
