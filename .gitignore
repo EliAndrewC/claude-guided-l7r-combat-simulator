@@ -6,3 +6,8 @@ env/
 web/.state.json
 web/.sessions/
 .env
+
+# Claude Code harness state — per-session lock + any other transient
+# coordination files.  Project config (.claude/agents/, .claude/skills/)
+# stays committed.
+.claude/*.lock
