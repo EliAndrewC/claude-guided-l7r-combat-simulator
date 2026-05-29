@@ -1033,50 +1033,58 @@ KITSUKI_PRIORITIES: list[tuple[str, str, int]] = [
 ]
 
 # Merchant School (school_ring: water, knacks: discern honor, oppose knowledge, worldliness)
-# sincerity set to 5 at all tiers (non-combat but AP base skill)
+# Identity (per spec 032 progression-designer):
+#   - Void is THE combat-load-bearing ring (post-roll VP economy is the SA,
+#     post-roll WC VP is its survival lever, 5th Dan rerolls compose with
+#     VP spends).
+#   - Sincerity is the 3rd Dan AP base + 1st Dan extra-rolled.
+#   - Water is school ring (auto-raised + discounted at 4th Dan).
+#   - The three knacks (discern honor, oppose knowledge, worldliness)
+#     are NON-COMBAT and contribute nothing to fights — deferred.
 MERCHANT_PRIORITIES: list[tuple[str, str, int]] = [
-    # sincerity for AP system (bought early)
+    # Dan 2 — sincerity (AP base) + combat skills; void early (VP fuel).
     ("skill", "sincerity", 2),
     ("skill", "sincerity", 3),
-    # Dan 2
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    ("ring", "void", 3),
+    # Dan 3 — sincerity 4 (AP cap scaling); combat skill climbs.
+    ("skill", "sincerity", 4),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("ring", "void", 4),
+    # Dan 4 — water auto-raises to 4 + discount; combat to 4; void max.
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("skill", "sincerity", 5),
+    ("ring", "void", 5),
+    # Non-combat knacks deferred — they have no combat hook, but
+    # tier-progression invariants require monotonic growth, so bump
+    # them in lockstep.
     ("skill", "discern honor", 2),
     ("skill", "oppose knowledge", 2),
     ("skill", "worldliness", 2),
-    ("skill", "attack", 2),
-    ("skill", "parry", 2),
-    ("skill", "sincerity", 4),
-    # Dan 3
     ("skill", "discern honor", 3),
     ("skill", "oppose knowledge", 3),
     ("skill", "worldliness", 3),
-    ("skill", "attack", 3),
-    ("skill", "parry", 3),
-    ("ring", "earth", 3),
-    ("skill", "sincerity", 5),
-    # Dan 4
+    # Dan 5 — max combat skills + water school discount maxes.
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    ("ring", "water", 5),
     ("skill", "discern honor", 4),
     ("skill", "oppose knowledge", 4),
     ("skill", "worldliness", 4),
-    ("skill", "attack", 4),
-    ("skill", "parry", 4),
-    ("ring", "void", 3),
-    ("ring", "fire", 3),
-    ("ring", "air", 3),
-    ("ring", "earth", 4),
-    # Dan 5
     ("skill", "discern honor", 5),
     ("skill", "oppose knowledge", 5),
     ("skill", "worldliness", 5),
-    ("skill", "attack", 5),
-    ("skill", "parry", 5),
-    # Max rings
-    ("ring", "water", 5),
-    ("ring", "void", 4),
+    # Long-tail filler rings.
+    ("ring", "earth", 3),
+    ("ring", "fire", 3),
+    ("ring", "air", 3),
+    ("ring", "earth", 4),
     ("ring", "fire", 4),
     ("ring", "air", 4),
     ("ring", "earth", 5),
-    ("ring", "water", 6),
-    ("ring", "void", 5),
     ("ring", "fire", 5),
     ("ring", "air", 5),
 ]

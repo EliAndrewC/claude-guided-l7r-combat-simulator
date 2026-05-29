@@ -87,6 +87,80 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   (2) `BAYUSHI_PRIORITIES` revision (school-progression-designer's
   identity-aligned version) also documented but not applied for the
   same calibration-combat reason.
+- **Merchant School** — `specs/032-merchant-school/`,
+  merged 2026-05-29. **Audit-and-completion run** on the 394-line
+  Merchant skeleton (LARGEST in the audit queue) with 30+ existing
+  tests. This is the FINAL school in the audit BACKLOG queue.
+  Rules-fidelity: 1 rules-auditor BLOCKING + 1 MEDIUM deferred
+  (sub-optimal but rules-compliant heuristics; the SA still fires).
+  - **Q1 INTERPRETIVE PASS**: SA post-roll VP = flat +5 per VP.
+    Defensible — dice are already rolled; can't retroactively
+    add a +1k1 die. Conservative approximation of an exploding
+    die's EV (~5.7).
+  - **Q2 INTERPRETIVE PASS**: 5th Dan auto-rerolls when
+    beneficial. Rules say "may" — optimal-play simulator
+    semantics.
+  - **Q3 INTERPRETIVE PASS**: "Once per roll" = one
+    `_maybe_reroll` per `get_*_roll` call.
+  - **Q4 MEDIUM DEFERRED**: SA `MerchantAttackOptimizerFactory`
+    forecloses pre-roll VP spending (`max_vp=0` always). Rules
+    say "MAY spend after"; the alternative pre-roll +1k1 path is
+    permanently disabled. The single-strategy choice matches the
+    optimal-play frame but the literal rules permit either.
+    Documented; not fixed.
+  - **Q5 BLOCKING DEFERRED (rules-auditor)**: 5th Dan reroll
+    algorithm (`_find_dice_to_reroll`, `_maybe_reroll`) does not
+    distinguish kept-vs-unkept dice for XkY with X>Y; the
+    `expected_gain = x * 5.5 - reroll_sum` formula treats all
+    dice symmetrically and overweights rerolling kept dice. Sub-
+    optimal heuristic but the SA still fires when it finds a
+    beneficial reroll; literal rules ("you MAY reroll") are
+    satisfied. Algorithmic fix would require threading the
+    `kept` parameter through and computing displacement EV;
+    documented as a future refinement.
+  Identity bindings (school-strategy-designer):
+  - Verified existing bindings are CORRECT — no changes needed.
+    `MerchantAttackOptimizerFactory` + `MerchantAttackRolledStrategy`
+    + `MerchantWoundCheckStrategy` (= StingyWoundCheckStrategy)
+    + `MerchantWoundCheckRolledStrategy` directly implement the
+    post-roll VP economy.
+  - `ReluctantParryStrategy` + `DefaultInterruptStrategy` retained
+    by design — Merchant has no parry-favoring rules and no
+    counterattack knack.
+  Progression (school-progression-designer) — Principle VIII rework:
+  - Pre-fix MERCHANT_PRIORITIES bought non-combat knacks
+    (discern honor, oppose knowledge, worldliness) to 5 BEFORE
+    void was raised even once. Void buried until Dan 4 (rank 3).
+    Earth-3/4 with no rules basis. Sincerity-5 bought before
+    AP system unlocks at 3rd Dan.
+  - Post-fix: Void promoted to Dan 2 (rank 3) immediately —
+    every Merchant SA is VP-fueled. Void-4 in Dan 3 block.
+    Void-5 in Dan 4 block. Sincerity capped at 3 until 3rd Dan
+    unlocks AP. Non-combat knacks demoted to fill XP after
+    combat-critical buys. Earth/fire/air demoted to long-tail.
+    Invalid `("ring", "water", 6)` removed (engine caps at 5).
+  Tests: new playability test file.
+  - TestMerchantIdentityEngineFires PASSES (post-roll VP-spend
+    fires across 10 seeds vs Akodo).
+  - TestMerchantMirrorMatchPlayability mirror @unittest.skip per
+    Hida precedent.
+  CRITICAL combat-simulator finding (pre-fix mirror): the OLD
+  300 XP Merchant build with non-combat-knack-heavy priorities
+  produced ZERO actions across all 18 rounds in mirror —
+  a hard deadlock (Principle IX 2(a) violation). The progression
+  rework FIXED this: post-rework mirror produces 90+ attacks per
+  match (1/5 resolves cleanly, 4/5 hit cap with healthy attack
+  counts). The remaining cap pattern is true slow-resolving
+  symmetry — both Merchants survive too well via post-roll VP
+  spending + 5th Dan rerolls + high void.
+  Combat-simulator findings (pre-fix baseline):
+  - 5th Dan rerolls fire 10/10 vs-Akodo seeds (69-138 rerolls/match).
+  - Post-roll VP-spend on attack: 2/10 (matches end fast).
+  - vs Akodo 450: 0/20 wins pre-fix (Merchant dies in ~3.5 rounds).
+  - Mirror at 300 XP: 5/5 cap hits PRE-fix with ZERO actions;
+    post-fix 1/5 resolves with 90+ attacks/match.
+  - Round-robin at 300 XP: 1W/19L/4D pre-fix. Same fragility
+    concern as Ide — progression rework targets it.
 - **Ide Diplomat School** — `specs/031-ide-diplomat-school/`,
   merged 2026-05-29. **Audit-and-completion run** on a 202-line
   skeleton with 30+ existing tests. Pre-existing `school_choices`
@@ -1007,12 +1081,6 @@ These schools' identities are largely social, but per Constitution
 Principle VIII their combat defaults must still be playable. Audit
 will need careful Principle IX analysis (what does "identity engine
 fires" look like for a school whose identity is social maneuvering?).
-
-### Trade school
-
-- [ ] **Merchant School**
-  (`simulation/schools/merchant_school.py`). Combat presence is
-  unclear; audit may determine this is largely a non-combat school.
 
 ## Out of scope
 
