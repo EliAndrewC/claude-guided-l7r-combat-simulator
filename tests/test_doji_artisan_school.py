@@ -35,9 +35,45 @@ class TestDojiArtisanSchoolBasics(unittest.TestCase):
         school = doji_artisan_school.DojiArtisanSchool()
         self.assertEqual(["counterattack", "manipulation", "wound check"], school.extra_rolled())
 
-    def test_school_ring(self):
+    def test_school_ring_default_is_water(self):
+        """Spec 027 Q1 MEDIUM fix: default ring is water when no
+        ``school_ring`` choice is set."""
         school = doji_artisan_school.DojiArtisanSchool()
         self.assertEqual("water", school.school_ring())
+
+    def test_school_ring_choice_overrides_default(self):
+        """Spec 027 Q1 fix: rules text "Air or Water" — player picks
+        via ``school_choices["school_ring"]``."""
+        for chosen in ("air", "water"):
+            with self.subTest(chosen=chosen):
+                school = doji_artisan_school.DojiArtisanSchool()
+                school.set_choice("school_ring", chosen)
+                self.assertEqual(chosen, school.school_ring())
+
+    def test_school_ring_invalid_ring_falls_back(self):
+        """Rings other than Air/Water are not permitted per rules
+        text ("Air or Water" — not "any non-Void" or "any Ring").
+        Invalid choices fall back to default with a warning."""
+        for invalid in ("earth", "fire", "void"):
+            with self.subTest(invalid=invalid):
+                school = doji_artisan_school.DojiArtisanSchool()
+                school.set_choice("school_ring", invalid)
+                self.assertEqual("water", school.school_ring())
+
+    def test_school_ring_invalid_type_falls_back(self):
+        school = doji_artisan_school.DojiArtisanSchool()
+        school.set_choice("school_ring", 42)
+        self.assertEqual("water", school.school_ring())
+
+    def test_fourth_dan_raises_chosen_ring(self):
+        """Spec 027 Q1 fix: choosing 'air' redirects the 4th Dan +1
+        ring bump."""
+        doji = Character("Doji")
+        doji.set_ring("air", 3)
+        school = doji_artisan_school.DojiArtisanSchool()
+        school.set_choice("school_ring", "air")
+        school.apply_rank_four_ability(doji)
+        self.assertEqual(4, doji.ring("air"))
 
     def test_school_knacks(self):
         school = doji_artisan_school.DojiArtisanSchool()

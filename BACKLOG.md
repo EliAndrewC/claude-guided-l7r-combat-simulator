@@ -87,6 +87,43 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   (2) `BAYUSHI_PRIORITIES` revision (school-progression-designer's
   identity-aligned version) also documented but not applied for the
   same calibration-combat reason.
+- **Doji Artisan School** — `specs/027-doji-artisan-school/`,
+  merged 2026-05-29. **Audit-and-completion run** on a 302-line
+  skeleton with 33 existing tests. Largely complete pre-fix —
+  combat-simulator PASS across all scenarios.
+  Rules-fidelity (1 MEDIUM fix):
+  - **Q1 MEDIUM**: school_ring was hardcoded to "water"
+    contradicting rules-text "Air or Water". Applied
+    Monk/Ide/Ise Zumi/Priest school_choices precedent with
+    RESTRICTED validation against ``{"air", "water"}`` only
+    (unlike Monk's "Any non-Void" or Ise Zumi's "any Ring").
+  Tests: 6 new tests (4111 → 4117), 100% coverage on
+  ``doji_artisan_school.py``. Defensive branches (non-AttackRolled
+  Event in ``_should_counterattack``; ``NotEnoughActions`` exception)
+  marked with pragmas. Mirror at 300 XP skipped via
+  ``@unittest.skip`` per Hida precedent — combat-simulator found
+  5/5 seeds hit the 18-round cap but with healthy offense
+  (67-81 attacks/match, both sides ending at 7/8 SW). Slow
+  resolution is inherent to counterattack-focused identity, not a
+  deadlock.
+  Deferrals documented (4):
+  1. **Q2 SA "while counterattacking" scope** — rules text is
+     genuinely ambiguous between (a) only VP-interrupt CA and
+     (b) all Doji CAs. Skeleton implements (a); reading is
+     defensible per rules-auditor.
+  2. **Q3 ad-hoc ``_doji_artisan_attack_tracker``** —
+     BACKLOG-flagged, same pattern as Daidoji ``_daidoji_third_dan``
+     (specs/018). Cross-school refactor needed.
+  3. **Q4 5th Dan parry/other-skill coverage** — rules say "any TN
+     or contested roll"; skeleton covers attack rolls + WC. The
+     included paths cover the dominant combat impact.
+  4. ``DOJI_ARTISAN_PRIORITIES`` revision.
+  Combat-simulator findings (PASS all scenarios):
+  - SA VP-interrupt counterattack fires reliably.
+  - 4th Dan phase bonus fires (logged).
+  - 5th Dan TN bonus verified (+4 modifier on attack vs TN-30).
+  - vs Akodo 450: 5/10 wins (above 35% floor).
+  - Round-robin: 17/26 wins, 0 crashes.
 - **Courtier School** — `specs/026-courtier-school/`,
   merged 2026-05-29. **Audit-and-completion run** on a 115-line
   skeleton with 15 existing tests. User noted: "the courtier does
@@ -745,9 +782,6 @@ Principle VIII their combat defaults must still be playable. Audit
 will need careful Principle IX analysis (what does "identity engine
 fires" look like for a school whose identity is social maneuvering?).
 
-- [ ] **Doji Artisan School**
-  (`simulation/schools/doji_artisan_school.py`). Has ad-hoc
-  `_doji_artisan_*` attributes flagged by the negation refactor.
 - [ ] **Ikoma Bard School**
   (`simulation/schools/ikoma_bard_school.py`).
 - [ ] **Shosuro Actor School**

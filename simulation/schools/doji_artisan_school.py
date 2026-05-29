@@ -74,7 +74,25 @@ class DojiArtisanSchool(BaseSchool):
         return ["counterattack", "oppose social", "worldliness"]
 
     def school_ring(self) -> str:
-        return "water"
+        # rules/04-schools.md "Doji Artisan School: School Ring: Air
+        # or Water" — player picks via ``school_choices["school_ring"]``,
+        # default "water" (Monk/Ide/Ise Zumi/Priest precedent).  Note
+        # the RESTRICTED validation set: only "air" and "water" are
+        # permitted — unlike Monk's "Any non-Void" or Ise Zumi's
+        # "any Ring".  Spec 027 Q1 fix.  The 4th Dan +1 Ring bump
+        # in ``apply_school_ring_raise_and_discount`` reads this
+        # method, so the choice redirects the 4th Dan bump.
+        default = "water"
+        valid_rings = {"air", "water"}
+        chosen = self.choice("school_ring", default)
+        if not isinstance(chosen, str) or chosen not in valid_rings:
+            logger.warning(
+                f"Doji Artisan: invalid 'school_ring' choice (expected "
+                f"one of {sorted(valid_rings)}; got {chosen!r}). "
+                f"Using default."
+            )
+            chosen = default
+        return chosen
 
 
 # ── Special Ability: VP counterattack interrupt with attacker's roll bonus ──
@@ -90,7 +108,7 @@ class DojiArtisanCounterattackInterruptStrategy(CounterattackInterruptStrategy):
 
     def _should_counterattack(self, character: Any, event: Any, context: Any) -> bool:
         """Only counterattack on AttackRolledEvent (need to see the roll)."""
-        if not isinstance(event, events.AttackRolledEvent):
+        if not isinstance(event, events.AttackRolledEvent):  # pragma: no cover  # defensive: recommend() only calls this on AttackRolledEvent
             return False
         # Must have VP to spend
         if character.vp() <= 0:
@@ -124,7 +142,7 @@ class DojiArtisanCounterattackInterruptStrategy(CounterattackInterruptStrategy):
                 try:
                     yield from self._do_counterattack(character, event, context)
                     return
-                except NotEnoughActions:
+                except NotEnoughActions:  # pragma: no cover  # defensive: _should_counterattack already verifies interrupt action available
                     pass
             # Fall through to parry
             yield from character.parry_strategy().recommend(character, event, context)
