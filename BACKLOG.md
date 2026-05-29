@@ -87,6 +87,60 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   (2) `BAYUSHI_PRIORITIES` revision (school-progression-designer's
   identity-aligned version) also documented but not applied for the
   same calibration-combat reason.
+- **Shinjo Bushi School** — `specs/017-shinjo-bushi-school/`,
+  merged 2026-05-29. **Audit-and-completion run** on a 152-line
+  skeleton with 13 existing tests; combat-simulator's pre-fix
+  baseline showed 0/10 wins vs 450-XP Akodo and 0/13 round-robin
+  wins — the school was structurally broken.
+  Rules-fidelity (3 BLOCKING fixes):
+  - **Q1**: ``extra_rolled()`` returned ``["double attack",
+    "initiative", "parry"]`` instead of the rules-text
+    ``["initiative", "parry", "wound check"]`` — missing wound
+    check + included a knack not in the 1st Dan clause.
+  - **Q4 BLOCKING IDENTITY**: ``ShinjoSpendActionListener``
+    computed ``2 * hold_phases`` and wrote it to
+    ``character._shinjo_hold_bonus`` — but NOTHING in the codebase
+    read that attribute. The +2X-per-phase-held Special Ability
+    was structurally DEAD. Fixed by emitting an ``AddModifierEvent``
+    with ``Modifier(character, None, ATTACK_SKILLS, +2X)`` paired
+    with ``ExpireAfterNextAttackByCharacterListener`` +
+    ``ExpireAtEndOfRoundListener`` (Daidoji precedent).
+  - **NEW BLOCKING bug surfaced by combat-simulator**: 4th Dan
+    "highest die set to 1" failed on TIES — ``actions.index(max
+    (actions))`` only reduced the first occurrence, so
+    ``[2,3,5,5]`` initial → ``[1,2,3,5]`` instead of
+    ``[1,1,2,3]``. Fixed by reducing ALL dice tied at the max.
+  Q2 (4th Dan double-roll-initiative) and Q5 (hold-phases math)
+  pre-resolved in OPEN_QUESTIONS were both REFUTED by
+  rules-auditor: ``_set_school_listener`` REPLACES the
+  ``new_round`` slot (so the engine default doesn't fire), and
+  ``InitiativeAction.phase()`` returns the original die value for
+  non-interrupt actions (the engine constructs them with
+  ``InitiativeAction([die], die)``).
+  Principle VIII identity bindings: ``HoldOneActionStrategy``
+  (Special Ability rewards held dice), ``AlwaysParryStrategy``
+  (2nd/3rd/5th Dan all trigger on parry), ``WoundCheckStrategy04``
+  (1st Dan +1 WC die + 5th Dan margin-bonus = above-average WC
+  pool).
+  Q3 refactor: ``ShinjoFifthDanParryListener`` now subclasses
+  ``ShinjoParryListener`` and delegates the 3rd Dan
+  action-die decrease via ``super()`` instead of duplicating the
+  loop inline.
+  Tests: 14 new tests (4018 → 4032), 100% coverage on
+  ``shinjo_school.py``. Both playability tests pass (mirror at
+  300 XP terminates; hold-bonus modifier fires empirically vs
+  Akodo).
+  Deferrals documented:
+  1. ``SHINJO_PRIORITIES`` revision (parry-first / attack-second /
+     air-3 at Dan 3 / earth removed) — same calibration-combat
+     cascade as Bayushi/Kakita/Otaku/Shiba.
+  2. Trace renderer surfacing for the Special Ability hold-bonus
+     modifier — tagged via ``_shinjo_special_ability_hold_phases``
+     attribute on the modifier but the existing modifier-breakdown
+     renderer doesn't yet read school-specific source attribution
+     for transient modifiers (broader trace-infrastructure work).
+  3. 3rd Dan action-die decrease + 4th Dan highest-to-1 trace
+     surfacing — currently silent state mutations.
 - **Shiba Bushi School** — `specs/016-shiba-bushi-school/`,
   merged 2026-05-29. **Audit-and-completion run** on a 139-line
   skeleton with 6 existing tests.
@@ -225,9 +279,6 @@ adjacent runs share rules-text patterns and review heuristics.
 
 ### Bushi schools (direct combat — closest in shape to Mirumoto)
 
-- [ ] **Shinjo Bushi School**
-  (`simulation/schools/shinjo_school.py`). Unicorn-clan scout/bushi
-  hybrid.
 - [ ] **Daidoji Yojimbo School**
   (`simulation/schools/daidoji_school.py`). Crane-clan bodyguard;
   has interrupt-cost mutation that the 5th Dan negation refactor

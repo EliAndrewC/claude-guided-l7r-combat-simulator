@@ -28,8 +28,16 @@ logger.setLevel(logging.DEBUG)
 
 class TestShinjoBushiSchoolBasics(unittest.TestCase):
     def test_extra_rolled(self):
+        """Spec 017 Q1 BLOCKING fix: rules text says 1st Dan grants
+        extra die on 'initiative, parry, and wound checks'.  The
+        previous skeleton incorrectly returned
+        ``["double attack", "initiative", "parry"]``.
+        """
         school = shinjo_school.ShinjoBushiSchool()
-        self.assertEqual(["double attack", "initiative", "parry"], school.extra_rolled())
+        self.assertEqual(
+            ["initiative", "parry", "wound check"],
+            school.extra_rolled(),
+        )
 
     def test_school_ring(self):
         school = shinjo_school.ShinjoBushiSchool()
@@ -91,6 +99,39 @@ class TestShinjoNewRoundListener(unittest.TestCase):
         # After initiative roll [3, 6, 9], highest (9) set to 1 -> [1, 3, 6]
         self.assertEqual([1, 3, 6], shinjo.actions())
 
+    def test_set_highest_to_1_with_ties(self):
+        """Spec 017 NEW BLOCKING bug fix (combat-simulator surfaced):
+        when multiple dice tie at the max value, ALL of them are
+        reduced to 1, not just the first occurrence.  Pre-fix
+        ``actions.index(max(actions))`` reduced one tied die,
+        leaving the rest as a stealth speed advantage."""
+        shinjo = Character("Shinjo")
+        roll_provider = CalvinistRollProvider()
+        roll_provider.put_initiative_roll([2, 3, 5, 5])
+        shinjo.set_roll_provider(roll_provider)
+        enemy = Character("enemy")
+        groups = [Group("Unicorn", shinjo), Group("Enemy", enemy)]
+        context = EngineContext(groups)
+        listener = shinjo_school.ShinjoNewRoundListener()
+        event = events.NewRoundEvent(1)
+        list(listener.handle(shinjo, event, context))
+        # Both 5s become 1 → [2, 3, 1, 1] → sorted → [1, 1, 2, 3].
+        self.assertEqual([1, 1, 2, 3], shinjo.actions())
+
+    def test_empty_actions_no_op(self):
+        """Edge case: empty initiative roll produces no mutation."""
+        shinjo = Character("Shinjo")
+        roll_provider = CalvinistRollProvider()
+        roll_provider.put_initiative_roll([])
+        shinjo.set_roll_provider(roll_provider)
+        enemy = Character("enemy")
+        groups = [Group("Unicorn", shinjo), Group("Enemy", enemy)]
+        context = EngineContext(groups)
+        listener = shinjo_school.ShinjoNewRoundListener()
+        event = events.NewRoundEvent(1)
+        list(listener.handle(shinjo, event, context))
+        self.assertEqual([], shinjo.actions())
+
 
 class TestShinjoFifthDanParryListener(unittest.TestCase):
     def setUp(self):
@@ -128,16 +169,25 @@ class TestShinjoFifthDanParryListener(unittest.TestCase):
         bonuses = self.shinjo.floating_bonuses("wound check")
         self.assertEqual(0, len(bonuses))
 
-    def test_3rd_dan_effect_on_failed_parry(self):
+    def test_5th_dan_listener_ignores_failed_parry(self):
+        """Spec 017 T-C1 refactor: at 5th Dan, ``apply_rank_five_ability``
+        installs ``ShinjoFifthDanParryListener`` on the ``parry_succeeded``
+        slot and KEEPS ``ShinjoParryListener`` on ``parry_failed``.
+        So the 5th Dan listener never receives a ParryFailedEvent
+        in production.  Calling it directly with one is a no-op
+        (the previous skeleton's elif-branch was dead code that
+        re-implemented 3rd Dan and was already covered by the
+        ``parry_failed`` slot's listener).
+        """
         attack = actions.AttackAction(self.attacker, self.shinjo, "attack", self.initiative_action, self.context)
         parry = actions.ParryAction(self.shinjo, self.attacker, "parry", self.initiative_action, self.context, attack)
         parry.set_skill_roll(5)
         event = events.ParryFailedEvent(parry)
         listener = shinjo_school.ShinjoFifthDanParryListener()
         list(listener.handle(self.shinjo, event, self.context))
-        # 3rd Dan effect still applies on failed parry
-        self.assertEqual([-2, 2, 5], self.shinjo.actions())
-        # But no wound check bonus
+        # No mutation — 5th Dan listener does not respond to
+        # ParryFailedEvent.
+        self.assertEqual([1, 5, 8], self.shinjo.actions())
         bonuses = self.shinjo.floating_bonuses("wound check")
         self.assertEqual(0, len(bonuses))
 
@@ -151,23 +201,37 @@ class TestShinjoSpendActionListener(unittest.TestCase):
         self.context = EngineContext(groups, round=1, phase=5)
         self.context.initialize()
 
-    def test_hold_bonus_computed(self):
-        """Spending a die held since phase 3 in phase 5 gives bonus of 2*(5-3)=4."""
+    def test_hold_bonus_emits_add_modifier_event(self):
+        """Spec 017 T-A3 (Q4 BLOCKING IDENTITY fix): spending a die
+        held since phase 3 in phase 5 emits an AddModifierEvent with
+        a +2*(5-3)=+4 bonus on attack skills, instead of the previous
+        dead ``_shinjo_hold_bonus`` write.
+        """
         initiative_action = InitiativeAction([3], 3)
         event = events.SpendActionEvent(self.shinjo, "attack", initiative_action)
         listener = shinjo_school.ShinjoSpendActionListener()
-        list(listener.handle(self.shinjo, event, self.context))
-        self.assertEqual(4, self.shinjo._shinjo_hold_bonus)
+        emitted = list(listener.handle(self.shinjo, event, self.context))
+        # Exactly one AddModifierEvent for the +4 bonus.
+        add_events = [e for e in emitted if isinstance(e, events.AddModifierEvent)]
+        self.assertEqual(1, len(add_events))
+        modifier = add_events[0].modifier
+        self.assertEqual(4, modifier.adjustment())
+        # Hold-phases tag for trace observability (spec 017 T-C2).
+        self.assertEqual(
+            2, getattr(modifier, "_shinjo_special_ability_hold_phases", 0),
+        )
 
     def test_no_bonus_when_same_phase(self):
-        """Spending a die in the same phase it was rolled gives no bonus."""
-        # Die at phase 5, current phase is 5 → hold_phases = 0 → no bonus
+        """Spending a die in the same phase it was rolled gives no
+        bonus → no AddModifierEvent.
+        """
         self.shinjo.set_actions([5, 7])
         initiative_action = InitiativeAction([5], 5)
         event = events.SpendActionEvent(self.shinjo, "attack", initiative_action)
         listener = shinjo_school.ShinjoSpendActionListener()
-        list(listener.handle(self.shinjo, event, self.context))
-        self.assertFalse(hasattr(self.shinjo, "_shinjo_hold_bonus") and self.shinjo._shinjo_hold_bonus > 0)
+        emitted = list(listener.handle(self.shinjo, event, self.context))
+        add_events = [e for e in emitted if isinstance(e, events.AddModifierEvent)]
+        self.assertEqual(0, len(add_events))
 
     def test_no_bonus_for_other_character(self):
         """Listener should only affect the event's subject."""
@@ -175,5 +239,6 @@ class TestShinjoSpendActionListener(unittest.TestCase):
         initiative_action = InitiativeAction([3], 3)
         event = events.SpendActionEvent(self.enemy, "attack", initiative_action)
         listener = shinjo_school.ShinjoSpendActionListener()
-        list(listener.handle(self.shinjo, event, self.context))
-        self.assertFalse(hasattr(self.shinjo, "_shinjo_hold_bonus"))
+        emitted = list(listener.handle(self.shinjo, event, self.context))
+        # No events emitted — subject filter.
+        self.assertEqual([], emitted)
