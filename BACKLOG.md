@@ -87,6 +87,41 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   (2) `BAYUSHI_PRIORITIES` revision (school-progression-designer's
   identity-aligned version) also documented but not applied for the
   same calibration-combat reason.
+- **Courtier School** — `specs/026-courtier-school/`,
+  merged 2026-05-29. **Audit-and-completion run** on a 115-line
+  skeleton with 15 existing tests. User noted: "the courtier does
+  have several combat-relevant abilities" — combat-simulator
+  confirmed: 6/10 wins vs Akodo 450 + 14/26 round-robin + 0
+  crashes. Courtier with high Air is competent in combat.
+  Rules-fidelity (2 MINOR fixes):
+  - **Q2 MINOR**: 4th Dan ``_targets_triggered`` set persisted
+    across combats. Rules text "once per target per conversation
+    or **fight**" requires the set to reset between fights. Added
+    ``CourtierNewRoundListener`` that resets the
+    AttackSucceededListener's set on ``NewRoundEvent`` with
+    ``round == 1`` (combat start). Round > 1 does NOT reset
+    (preserving within-combat once-per-target gating).
+  - **Q3 MINOR refactor**: 5th Dan ``CourtierFifthDanRollParameter
+    Provider.get_skill_roll_params`` had an ``if skill not in
+    ATTACK_SKILLS`` / ``else`` block where both branches did
+    ``modifier += character.ring("air")``. Collapsed to a single
+    unconditional add.
+  Trace attribution tag added (``_courtier_4th_dan`` on the
+  ``GainTemporaryVoidPointsEvent``).
+  Tests: 4 new tests (4107 → 4111), 100% coverage on
+  ``courtier_school.py``. Q2 fix verified via two-fight scenario;
+  Mirror at 300 XP terminates 5/5; 4th Dan TVP fires empirically
+  vs Akodo.
+  Deferrals documented (3):
+  1. Q4 5th Dan "Add Air to all TN" interpretation —
+     TN-to-be-hit reading not implemented; defensible.
+  2. Q1 4th Dan manipulation TVP trigger (non-combat).
+  3. ``COURTIER_PRIORITIES`` revision.
+  Combat-simulator findings (PASS all scenarios): SA+Air verified;
+  4th Dan TVP fires 10/10 vs-Akodo + 24/26 round-robin; 5th Dan
+  stacking (2×Air) verified; 6/10 wins vs Akodo 450 (above 35%
+  floor); mirror 5/5 terminate in 3-8 rounds; 14/26 round-robin
+  wins; 0 crashes.
 - **Priest School** — `specs/025-priest-school/`,
   merged 2026-05-29. **Audit-and-completion run** on an 84-line
   skeleton with 11 existing tests. User direction: "this will
