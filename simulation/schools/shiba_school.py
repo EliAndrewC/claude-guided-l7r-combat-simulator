@@ -9,13 +9,18 @@
 from collections.abc import Iterator
 from typing import Any
 
+from simulation import events
 from simulation.actions import ParryAction
 from simulation.events import AddModifierEvent, LightWoundsDamageEvent, ParrySucceededEvent, TakeParryActionEvent
 from simulation.listeners import Listener
+from simulation.log import logger
+from simulation.mechanics.initiative_actions import InitiativeAction
 from simulation.mechanics.modifiers import Modifier
+from simulation.mechanics.roll_params import normalize_roll_params
 from simulation.modifier_listeners import ExpireAfterNextAttackListener
 from simulation.schools.base import BaseSchool
 from simulation.strategies.action_factory import DefaultActionFactory
+from simulation.strategies.base import Strategy, WoundCheckStrategy04
 from simulation.strategies.take_action_event_factory import DefaultTakeActionEventFactory
 
 
@@ -24,8 +29,33 @@ class ShibaBushiSchool(BaseSchool):
         pass
 
     def apply_special_ability(self, character: Any) -> None:
+        # rules/04-schools.md "Shiba Bushi School: Special Ability":
+        # "You may parry as an interrupt action by spending your
+        # lowest 1 action die, and you may parry attacks directed at
+        # other characters with no penalty."
+        #
+        # Wiring (spec 016 T-B2):
+        # 1. ``set_interrupt_cost("parry", 1)`` — interrupt costs 1 die.
+        # 2. ``SHIBA_ACTION_FACTORY`` — returns ``ShibaParryAction``
+        #    which overrides ``roll_skill`` to suppress the parry-other
+        #    penalty (T-A1 fix).
+        # 3. ``ShibaInterruptParryStrategy`` — fires interrupt-parry on
+        #    ``AttackRolledEvent`` with LOWEST-die selection (rules text
+        #    Q2 BLOCKING fix; the engine default
+        #    ``DefaultInterruptStrategy`` delegates to ``ReluctantParry``
+        #    which (a) gates on expected-SW (under-fires for Shiba
+        #    whose 3rd Dan deals damage on every parry) and (b) picks
+        #    MAX die for interrupt, contradicting the rules).
+        # 4. ``WoundCheckStrategy04`` — 0.4 confidence threshold honors
+        #    Shiba's WC-tank identity (1st Dan +1 WC die + 4th Dan
+        #    +3k1 WC = +4k1 on WC rolls).
+        # ``parry`` is already in the engine default ``_interrupt_skills``
+        # (``character.py:73``), so ``add_interrupt_skill("parry")`` is
+        # an idempotent no-op and is not required for reachability.
         character.set_interrupt_cost("parry", 1)
         self._set_school_action_factory(character, SHIBA_ACTION_FACTORY)
+        self._set_school_strategy(character, "interrupt", ShibaInterruptParryStrategy())
+        self._set_school_strategy(character, "wound_check", WoundCheckStrategy04())
 
     def apply_rank_three_ability(self, character: Any) -> None:
         self._set_school_take_action_event_factory(character, SHIBA_TAKE_ACTION_EVENT_FACTORY)
@@ -54,6 +84,98 @@ class ShibaBushiSchool(BaseSchool):
         return "air"
 
 
+class ShibaInterruptParryStrategy(Strategy):
+    """rules/04-schools.md "Shiba Bushi School: Special Ability":
+
+    "You may parry as an interrupt action by spending your **lowest**
+    1 action die, and you may parry attacks directed at other
+    characters with no penalty."
+
+    Fires on ``AttackRolledEvent`` against the Shiba OR an adjacent
+    ally — the rules-text "parry-other no penalty" clause requires us
+    to react to attacks on allies, not just on the Shiba.
+
+    Differences from the engine-default
+    ``DefaultInterruptStrategy`` + ``ReluctantParryStrategy`` chain:
+
+    * **Lowest-die selection** (rules text — strict).
+      ``BaseAttackStrategy.choose_action`` / ``BaseParryStrategy.
+      _choose_action`` both pick ``max`` for the interrupt branch.
+      For Shiba this strategy picks ``min(actions())``.
+    * **Eager** rather than damage-gated. Shiba's 3rd Dan deals
+      ``(2 × attack)k1`` damage on EVERY parry attempt
+      (succeeded OR failed). ``ReluctantParryStrategy`` declines
+      "small" attacks based on expected SW — that gate suppresses
+      the 3rd Dan damage engine for a school whose identity IS
+      damage-on-defense.
+    * **SW-saturation gate** (Principle IX): decline at
+      ``sw_remaining() <= 1``. Don't burn the interrupt die when
+      WC is the better path to surviving the killing blow.
+    """
+
+    def _should_parry(self, character: Any, event: Any, context: Any) -> bool:
+        # Must have parry skill.
+        if character.skill("parry") <= 0:
+            return False
+        # Must have an interrupt action available.
+        if not character.has_interrupt_action("parry", context):
+            return False
+        # Don't parry a miss.
+        if not event.action.is_hit():
+            return False
+        # Don't parry an attack that is already parried.  Note:
+        # ``is_hit()`` already returns False for parried attacks
+        # (see ``AttackAction.is_hit``: ``not self.parried()``), so
+        # this guard is defensive against future engine changes.
+        if event.action.parried():  # pragma: no cover  # defensive: is_hit() above already returns False when parried
+            return False
+        # SW-saturation gate (Principle IX).
+        if character.sw_remaining() <= 1:
+            return False
+        # Target must be the Shiba or an adjacent ally in the Shiba's group.
+        target = event.action.target()
+        if target not in character.group():
+            return False
+        if target != character:
+            # Parrying for an ally — must be adjacent (NullFormation
+            # default returns True; only real Formation subclasses
+            # exercise the False branch).
+            if not context.formation().is_adjacent(character, target):  # pragma: no cover  # defensive: NullFormation (engine default) returns True
+                return False
+        return True
+
+    def _choose_action(self, character: Any, context: Any) -> InitiativeAction:
+        cost = character.interrupt_cost("parry", context)
+        unspent = list(character.actions())
+        action_dice: list[int] = []
+        # rules text: "spending your **lowest** 1 action die".
+        # Standard BaseAttackStrategy / BaseParryStrategy pick max;
+        # Shiba picks min.  Q2 BLOCKING fix in spec 016.
+        while len(action_dice) < cost:
+            die = min(unspent)
+            unspent.remove(die)
+            action_dice.append(die)
+        return InitiativeAction(action_dice, context.phase(), is_interrupt=True)
+
+    def _do_parry(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
+        initiative_action = self._choose_action(character, context)
+        parry = character.action_factory().get_parry_action(
+            character, event.action.subject(), event.action,
+            "parry", initiative_action, context,
+        )
+        logger.info(
+            f"{character.name()} interrupt-parries (Shiba Special Ability) "
+            f"with lowest die {initiative_action.dice()}"
+        )
+        yield events.SpendActionEvent(character, "parry", initiative_action)
+        yield character.take_action_event_factory().get_take_parry_action_event(parry)
+
+    def recommend(self, character: Any, event: events.Event, context: Any) -> Iterator[Any]:
+        if isinstance(event, events.AttackRolledEvent):
+            if self._should_parry(character, event, context):
+                yield from self._do_parry(character, event, context)
+
+
 class ShibaActionFactory(DefaultActionFactory):
     """
     ActionFactory that returns the ShibaParryAction for parries.
@@ -67,34 +189,56 @@ SHIBA_ACTION_FACTORY = ShibaActionFactory()
 
 
 class ShibaParryAction(ParryAction):
-    """
-    Implement the Shiba Bushi School special ability that parries on
-    behalf of others do not suffer the standard -10 penalty.
+    """rules/04-schools.md "Shiba Bushi School: Special Ability":
+    "you may parry attacks directed at other characters with no
+    penalty."
+
+    Override ``roll_skill`` (the method the engine actually calls
+    during ``TakeParryActionEvent._roll_parry``) so the standard
+    ``5 * attacker.skill("attack")`` parry-other penalty (base
+    ``ParryAction.roll_skill`` at ``simulation/actions.py:327-336``)
+    is NOT applied for Shibas. Spec 016 T-A1 — the previous
+    ``roll_parry`` override was dead code (engine never calls
+    ``roll_parry``).
     """
 
-    def roll_parry(self) -> int:
-        # roll parry
-        self.set_skill_roll(self.subject().roll_skill(self.target(), self.skill(), vp=self.vp()))
+    def roll_skill(self) -> int:
+        self.set_skill_roll(self.subject().roll_skill(self.target(), self.skill(), ring=self.ring(), vp=self.vp()))
         roll = self.skill_roll()
         assert roll is not None
         return roll
 
 
 class ShibaParrySucceededListener(Listener):
-    """
-    Implement the Shiba Bushi School 5th Dan technique
-    to impose an expiring modifier on the TN to be hit
-    on the target of a successful parry.
+    """rules/04-schools.md "Shiba Bushi School: Fifth Dan":
+
+    "After you successfully parry, the TN to hit the parried opponent
+    on the next attack directed at them this combat is lowered by the
+    amount by which your parry roll exceeded its TN.  This can lower
+    the TN to a negative number."
+
+    Tags the emitted ``AddModifierEvent`` with a ``_shiba_5th_dan``
+    attribute carrying the parry margin so future trace-renderer
+    work can surface the 5th Dan attribution (spec 016 trace gap —
+    P0 but renderer-side AddModifierEvent handler does not exist
+    yet; deferred for follow-up branch).
     """
 
     def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, ParrySucceededEvent):
-            penalty = -1 * (event.action.skill_roll() - event.action.attack().skill_roll())
+            margin = event.action.skill_roll() - event.action.attack().skill_roll()
+            penalty = -1 * margin
             modifier = Modifier(event.action.target(), None, "tn to hit", penalty)
             listener = ExpireAfterNextAttackListener()
             modifier.register_listener("attack_failed", listener)
             modifier.register_listener("attack_succeeded", listener)
-            yield AddModifierEvent(event.action.target(), modifier)
+            add_event = AddModifierEvent(event.action.target(), modifier)
+            # Trace attribution tag (spec 016 T-C2 partial — renderer
+            # work deferred to a follow-up branch since no
+            # ``AddModifierEvent`` handler exists in the trace
+            # adapters yet).
+            add_event._shiba_5th_dan_margin = margin  # type: ignore[attr-defined]
+            yield add_event
 
 
 class ShibaTakeActionEventFactory(DefaultTakeActionEventFactory):
@@ -129,11 +273,20 @@ class ShibaTakeParryEvent(TakeParryActionEvent):
         yield self._roll_damage()
 
     def _roll_damage(self) -> Any:
-        """
-        _roll_damage() -> int
+        """rules/04-schools.md "Shiba Bushi School: Third Dan":
+        "Your successful or unsuccessful parry rolls deal (2X)k1
+        damage, where X is equal to your attack skill.  You don't
+        roll extra damage dice from your Fire or from exceeding
+        the TN."
 
-        Returns a damage roll for this parry.
+        The raw rolled count (2 * attack) is routed through
+        ``normalize_roll_params`` so the engine-wide invariant
+        (rolled > 10 converts excess to kept) is honored — spec 016
+        T-A2 / Q3 BLOCKING fix.  For attack=6 (rolled=12), this
+        produces 10k3 instead of the buggy raw 12k1.
         """
-        rolled = 2 * self.action.subject().skill("attack")
-        damage_roll = self.action.subject().roll_provider().get_damage_roll(rolled, 1)
+        attack_skill = self.action.subject().skill("attack")
+        raw_rolled = 2 * attack_skill
+        rolled, kept, bonus = normalize_roll_params(raw_rolled, 1, 0)
+        damage_roll = self.action.subject().roll_provider().get_damage_roll(rolled, kept) + bonus
         return LightWoundsDamageEvent(self.action.subject(), self.action.target(), damage_roll)

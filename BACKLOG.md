@@ -87,6 +87,64 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   (2) `BAYUSHI_PRIORITIES` revision (school-progression-designer's
   identity-aligned version) also documented but not applied for the
   same calibration-combat reason.
+- **Shiba Bushi School** — `specs/016-shiba-bushi-school/`,
+  merged 2026-05-29. **Audit-and-completion run** on a 139-line
+  skeleton with 6 existing tests.
+  **HIGH-severity dead-code bug surfaced by rules-auditor**:
+  ``ShibaParryAction.roll_parry`` was the wrong method name —
+  the engine calls ``roll_skill`` (see ``actions.py:327``), so the
+  Special Ability "parry attacks directed at other characters with
+  no penalty" never fired in real combat (the base
+  ``ParryAction.roll_skill`` always applied the
+  ``5 * attacker.skill("attack")`` parry-other penalty). The
+  existing ``test_no_parry_other_penalty`` masked the bug by
+  calling ``roll_parry()`` directly. Fixed by renaming to
+  ``roll_skill`` with the matching base signature (ring kwarg
+  preserved).
+  Rules-fidelity (3 BLOCKING):
+  - **T-A1** (above): ``roll_parry`` → ``roll_skill`` rename.
+  - **Q3** (3rd Dan normalization): ``ShibaTakeParryEvent._roll_damage``
+    bypassed ``normalize_roll_params``; for attack≥6 (rolled=12)
+    the buggy code rolled raw 12k1 instead of the engine-convention
+    normalized 10k3. Fixed via explicit pass through
+    ``normalize_roll_params``.
+  - **Q2** (lowest die): rules say "spending your **lowest** 1
+    action die" but standard ``BaseAttackStrategy.choose_action`` /
+    ``BaseParryStrategy._choose_action`` interrupt branch picks
+    ``max``. New ``ShibaInterruptParryStrategy._choose_action``
+    picks ``min(actions())``.
+  Principle VIII identity bug (Q1 partially refuted): ``parry`` is
+  already in the engine default ``_interrupt_skills``, so the spec's
+  initial ``add_interrupt_skill`` framing was unnecessary — but the
+  engine default ``DefaultInterruptStrategy`` delegates to
+  ``ReluctantParryStrategy`` which damage-gates parries (suppresses
+  the 3rd Dan damage engine which is supposed to fire on EVERY parry
+  attempt). New ``ShibaInterruptParryStrategy`` fires eagerly on
+  ``AttackRolledEvent`` against Shiba or adjacent allies with the
+  lowest-die selection + SW-saturation gate. Also installed
+  ``WoundCheckStrategy04`` (1st Dan WC die + 4th Dan +3k1 WC =
+  +4k1 WC, extreme tank profile).
+  Tests: 23 new tests (3995 → 4018), 100% coverage on
+  ``shiba_school.py``. Both playability tests pass (mirror at
+  300 XP terminates within 18 rounds; interrupt-parry fires
+  empirically against Akodo across a 10-seed sweep).
+  Deferrals documented:
+  1. ``SHIBA_PRIORITIES`` revision (parry-first / attack-second /
+     counterattack capped at 3 / air-3 at Dan 3 / water-3 at Dan 3 /
+     earth demoted) — same Bayushi/Kakita/Otaku-precedent
+     calibration-combat cascade pattern.
+  2. **5th Dan ``AddModifierEvent`` rendering** — trace-auditor +
+     trace-reader both flagged this as P0 (modifier invisible in
+     both renderers). Tag ``_shiba_5th_dan_margin`` added to the
+     event for downstream wiring, but no ``AddModifierEvent``
+     handler exists in the trace adapters at all (broader trace-
+     infrastructure work beyond Shiba-specific scope).
+  3. **3rd Dan parry damage attribution** in the LW-damage entry —
+     same trace-infrastructure scope; the damage line currently
+     reads as ordinary attack damage.
+  4. **combat-simulator stream timeout** — Phase 2 dispatch had an
+     API connection error; playability tests provide local
+     validation but no full round-robin baseline.
 - **Otaku Bushi School** — `specs/014-otaku-bushi-school/`,
   merged 2026-05-29. **Audit-and-completion run** on a 192-line
   skeleton with 27 existing tests. Rules-fidelity: 4 BLOCKING fixes —
@@ -167,8 +225,6 @@ adjacent runs share rules-text patterns and review heuristics.
 
 ### Bushi schools (direct combat — closest in shape to Mirumoto)
 
-- [ ] **Shiba Bushi School** (`simulation/schools/shiba_school.py`).
-  Phoenix-clan defender of shugenja (defensive bushi).
 - [ ] **Shinjo Bushi School**
   (`simulation/schools/shinjo_school.py`). Unicorn-clan scout/bushi
   hybrid.

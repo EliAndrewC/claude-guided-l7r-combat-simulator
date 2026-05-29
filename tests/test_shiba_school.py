@@ -27,6 +27,53 @@ logger.addHandler(stream_handler)
 logger.setLevel(logging.DEBUG)
 
 
+class TestShibaBushiSchoolBasics(unittest.TestCase):
+    """Spec 016 T-E1 — coverage padding for the school's trivial
+    accessors."""
+
+    def test_name(self) -> None:
+        school = shiba_school.ShibaBushiSchool()
+        self.assertEqual("Shiba Bushi School", school.name())
+
+    def test_ap_base_skill(self) -> None:
+        """``ap_base_skill`` returns None for Shiba (no AP base skill)."""
+        school = shiba_school.ShibaBushiSchool()
+        self.assertIsNone(school.ap_base_skill())
+
+    def test_school_knacks(self) -> None:
+        school = shiba_school.ShibaBushiSchool()
+        self.assertEqual(["counterattack", "double attack", "iaijutsu"], school.school_knacks())
+
+    def test_school_ring(self) -> None:
+        school = shiba_school.ShibaBushiSchool()
+        self.assertEqual("air", school.school_ring())
+
+    def test_extra_rolled(self) -> None:
+        school = shiba_school.ShibaBushiSchool()
+        self.assertEqual(["double attack", "parry", "wound check"], school.extra_rolled())
+
+    def test_free_raise_skills(self) -> None:
+        school = shiba_school.ShibaBushiSchool()
+        self.assertEqual(["parry"], school.free_raise_skills())
+
+
+class TestShibaTakeActionEventFactoryRejects(unittest.TestCase):
+    """Spec 016 T-E1 — coverage for the non-ParryAction guard in
+    ``ShibaTakeActionEventFactory.get_take_parry_action_event``."""
+
+    def test_rejects_non_parry_action(self) -> None:
+        from simulation.actions import AttackAction
+        from simulation.mechanics.initiative_actions import InitiativeAction
+        attacker = Character("Attacker")
+        target = Character("Target")
+        ia = InitiativeAction([1], 1)
+        ctx = EngineContext([Group("A", attacker), Group("T", target)])
+        attack = AttackAction(attacker, target, "attack", ia, ctx)
+        factory = shiba_school.ShibaTakeActionEventFactory()
+        with self.assertRaises(ValueError):
+            factory.get_take_parry_action_event(attack)
+
+
 class TestShibaActionFactory(unittest.TestCase):
     def test_get_parry(self):
         shiba = Character("Shiba")
@@ -45,10 +92,16 @@ class TestShibaActionFactory(unittest.TestCase):
 
 class TestShibaParryAction(unittest.TestCase):
     def test_no_parry_other_penalty(self):
+        """rules/04-schools.md Shiba Special Ability: parry-other has
+        no penalty. Calls the SAME method the engine calls
+        (``roll_skill``, not the non-existent ``roll_parry``) so the
+        test exercises the production code path.  Spec 016 T-A1 fix.
+        """
         shiba = Character("Shiba")
         shiba.set_actions([1])
         attacker = Character("attacker")
         attacker.set_actions([1])
+        attacker.set_skill("attack", 4)
         initiative_action = InitiativeAction([1], 1)
         target = Character("target")
         context = EngineContext([Group("Phoenix", shiba), Group("Target", target)])
@@ -58,8 +111,11 @@ class TestShibaParryAction(unittest.TestCase):
         roll_provider = CalvinistRollProvider()
         roll_provider.put_skill_roll("parry", 50)
         shiba.set_roll_provider(roll_provider)
-        # assert the parry action does not impose the -10 penalty
-        skill_roll = parry.roll_parry()
+        # Engine calls roll_skill (NOT roll_parry).  Without the Shiba
+        # override on the right method, the base ParryAction.roll_skill
+        # would apply a `5 * attacker.skill("attack")` = 20 penalty.
+        # The override must skip that penalty.
+        skill_roll = parry.roll_skill()
         self.assertEqual(skill_roll, 50)
 
 
@@ -187,6 +243,22 @@ class TestShibaTakeParryEvent(unittest.TestCase):
         self.context = context
         self.parry = parry
         self.take_action_event = take_action_event
+
+    def test_damage_high_attack_normalized_rolled(self):
+        """rules-fidelity: when 2 × attack > 10, the rolled count MUST
+        be normalized via normalize_roll_params (rolled > 10 converts
+        excess to kept).  Spec 016 T-A2 fix for Q3 BLOCKING."""
+        # set Shiba's attack to 6 → raw rolled = 12 → normalizes to 10k3.
+        self.shiba.set_skill("attack", 6)
+        engine = CombatEngine(self.context)
+        roll_provider = CalvinistRollProvider()
+        roll_provider.put_skill_roll("parry", 44)
+        roll_provider.put_damage_roll(15)
+        self.shiba.set_roll_provider(roll_provider)
+        engine.event(self.take_action_event)
+        observed_damage_params = roll_provider.pop_observed_params("damage")
+        # Pre-fix bug: would have been (12, 1).  Post-fix: 10k(1+2)=10k3.
+        self.assertEqual((10, 3), observed_damage_params)
 
     def test_damage_parry_failed(self):
         # set up engine
