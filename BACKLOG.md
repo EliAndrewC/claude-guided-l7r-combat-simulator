@@ -87,6 +87,33 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   (2) `BAYUSHI_PRIORITIES` revision (school-progression-designer's
   identity-aligned version) also documented but not applied for the
   same calibration-combat reason.
+- **Kakita Duelist School** — `specs/013-kakita-duelist-school/`,
+  merged 2026-05-29 as commit `c768b30`. **Audit-and-tighten run**
+  on the largest bushi skeleton (610 lines, 16 existing tests, 24
+  classes / functions, iaijutsu-duel engine already exists per
+  `5d67a78`). Rules-fidelity: PASS with 1 MINOR (5th Dan extra free
+  raise encoded as -5 on opponent instead of +5 on Kakita —
+  mechanically equivalent). **HIGH-severity Constitution Principle
+  VIII identity fix**: the default attack strategy was
+  `KakitaAttackStrategy` (doesn't check `has_interrupt_action`)
+  even though `apply_special_ability` calls `add_interrupt_skill
+  ("iaijutsu")` — the Special Ability's interrupt-iaijutsu clause
+  was structurally dead. Swapped to `KakitaInterruptAttackStrategy`.
+  Principle VII fixes: 3rd Dan tempo bonus now surfaces with
+  "Kakita 3rd Dan tempo bonus (attack X × Y phases): +N" attribution
+  (was a bare unsourced +N with broken "(see preceding line)"
+  cross-reference); 2nd Dan iaijutsu free raise also attributed.
+  Refactored 3 duplicated `skill_roll_params` blocks into a single
+  `_kakita_tempo_bonus` helper. Win-feasibility vs 450-XP Akodo:
+  ~90% (combat-simulator). + 17 new tests (3951 → 3968).
+  Four deferrals documented: (1) Q1 name discrepancy ("Kakita Bushi
+  School" vs upstream "Kakita Duelist School") — needs an atomic
+  rename branch; (2) `KAKITA_PRIORITIES` revision — cascades into
+  19 failing study tests (`web/analysis/definitions/kakita_*.py`
+  encode the OLD priorities); (3) 4th Dan iaijutsu damage free
+  raise trace observability — requires a damage-modifier breakdown
+  system that doesn't exist; (4) 5th Dan "reconciliation" label on
+  contested damage — requires plumbing through `normalize_roll_params`.
 
 ## Partial work (no full audit yet)
 
@@ -103,12 +130,6 @@ adjacent runs share rules-text patterns and review heuristics.
 
 ### Bushi schools (direct combat — closest in shape to Mirumoto)
 
-- [ ] **Kakita Duelist School**
-  (`simulation/schools/kakita_school.py`, 610 lines — largest
-  skeleton). Iaijutsu duelist; iaijutsu-duel engine already exists
-  per commit `5d67a78`. Note: factory registration name is "Kakita
-  Bushi School" but upstream rules-text title is "Kakita Duelist
-  School" — verify which is authoritative before audit.
 - [ ] **Otaku Bushi School** (`simulation/schools/otaku_school.py`).
   Unicorn-clan mounted bushi (mount mechanics may be out of scope
   for combat sim).
