@@ -604,7 +604,12 @@ class TextRenderer:
     def _render_sw_damage(self, entry: SeriousWoundsDamageEntry) -> list[str]:
         hearts = "💔" * entry.damage
         noun = "wound" if entry.damage == 1 else "wounds"
-        suffix = " (double attack penalty)" if entry.from_double_attack else ""
+        if entry.from_double_attack:
+            suffix = " (double attack penalty)"
+        elif entry.from_otaku_5th_dan:
+            suffix = " (Otaku 5th Dan: traded 10 rolled damage dice for 1 SW)"
+        else:
+            suffix = ""
         return [
             f"{entry.phase_prefix} {hearts} {entry.target_name} takes "
             f"{entry.damage} serious {noun}{suffix}"

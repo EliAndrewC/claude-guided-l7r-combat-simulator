@@ -238,6 +238,13 @@ class SeriousWoundsDamageEntry:
     target_name: str
     damage: int
     from_double_attack: bool
+    # rules/04-schools.md "Otaku Bushi School: Fifth Dan" — the SW
+    # event emitted by ``OtakuFifthDanTakeAttackActionEvent`` carries
+    # ``_from_otaku_5th_dan = True``.  Surfaced in both renderers
+    # (spec 014 T-C2) so the reader can attribute the otherwise-
+    # unexplained extra SW to the 5th Dan dice-trade ability per
+    # Principle VII.
+    from_otaku_5th_dan: bool = False
     kind: Literal["sw_damage"] = "sw_damage"
 
 

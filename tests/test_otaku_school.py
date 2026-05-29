@@ -122,6 +122,49 @@ class TestOtakuLightWoundsDamageListener(unittest.TestCase):
         # No wound check for 0 damage
         self.assertEqual(0, len(responses))
 
+    def test_only_next_X_action_dice_modified(self):
+        """3rd Dan: only the NEXT X action dice are shifted (X = Otaku's attack skill).
+
+        Per rules/04-schools.md Otaku 3rd Dan: "increase that character's
+        next X action dice this turn by (6 - that character's Fire) min 1,
+        where X is your attack skill". Fix for spec 014 Q2 BLOCKING.
+        """
+        self.otaku.set_skill("attack", 3)
+        self.target.set_ring("fire", 4)
+        self.target.set_actions([1, 2, 3, 4, 5])
+        listener = otaku_school.OtakuLightWoundsDamageListener()
+        event = events.LightWoundsDamageEvent(self.otaku, self.target, 15)
+        list(listener.handle(self.otaku, event, self.context))
+        # increase = max(1, 6 - 4) = 2
+        # Only the first 3 dice [1, 2, 3] are shifted to [3, 4, 5].
+        # The remaining [4, 5] stay. After re-sort: [3, 4, 4, 5, 5].
+        # The buggy (pre-fix) code would produce [3, 4, 5, 6, 7] (all 5 modified).
+        self.assertEqual([3, 4, 4, 5, 5], self.target.actions())
+
+    def test_attack_skill_exceeds_action_count(self):
+        """3rd Dan: when attack skill > number of action dice, modify all dice.
+
+        Edge case for Q2 fix — must not raise IndexError or skip dice.
+        """
+        self.otaku.set_skill("attack", 10)
+        self.target.set_ring("fire", 4)
+        self.target.set_actions([1, 2])
+        listener = otaku_school.OtakuLightWoundsDamageListener()
+        event = events.LightWoundsDamageEvent(self.otaku, self.target, 15)
+        list(listener.handle(self.otaku, event, self.context))
+        # increase = max(1, 6 - 4) = 2 → [1+2, 2+2] = [3, 4]
+        self.assertEqual([3, 4], self.target.actions())
+
+    def test_empty_actions_list(self):
+        """3rd Dan: empty target actions list is a no-op (no IndexError)."""
+        self.otaku.set_skill("attack", 3)
+        self.target.set_ring("fire", 4)
+        self.target.set_actions([])
+        listener = otaku_school.OtakuLightWoundsDamageListener()
+        event = events.LightWoundsDamageEvent(self.otaku, self.target, 15)
+        list(listener.handle(self.otaku, event, self.context))
+        self.assertEqual([], self.target.actions())
+
 
 class TestOtakuLungeAction(unittest.TestCase):
     def setUp(self):
@@ -198,78 +241,128 @@ class TestOtakuFifthDanTakeAttackActionEvent(unittest.TestCase):
         return action
 
     def test_roll_damage_trades_10_dice_for_auto_sw(self):
-        """When rolled damage dice >= 12, trade 10 for 1 auto SW and roll with reduced dice."""
+        """When rolled damage dice >= OTAKU_5TH_DAN_TRADE_THRESHOLD,
+        trade 10 for 1 auto SW and roll with reduced dice. Per spec 014
+        Q3 (strategic-choice fix), the threshold was raised from the
+        rules-floor of 12 to 20 to prevent over-aggressive triggering.
+        """
         action = self._make_attack_action()
-        # Set a high skill roll to get many extra damage dice
-        # TN to hit = 5 * (1 + target.parry) = 5 * (1 + 1) = 10
-        # Extra damage dice = (skill_roll - tn) // 5 = (60 - 10) // 5 = 10
-        action.set_skill_roll(60)
-        # Damage roll params: fire(5) + weapon.rolled(4) + extra(10) = 19 rolled
-        # 19 >= 12, so we trade 10 for 1 auto SW, leaving 9 rolled
+        # Set a high skill roll to get many extra damage dice.
+        # TN to hit = 5 * (1 + target.parry) = 5 * (1 + 1) = 10.
+        # Extra damage dice = (skill_roll - tn) // 5 = (80 - 10) // 5 = 14.
+        action.set_skill_roll(80)
+        # Damage roll params: fire(5) + weapon.rolled(4) + extra(14) = 23 rolled,
+        # 23 >= 20 (threshold), so we trade 10 for 1 auto SW, leaving 13
+        # rolled — which normalize_roll_params caps at 10k(2+3) = 10k5.
         self.roll_provider.put_damage_roll(25)
         take_event = otaku_school.OtakuFifthDanTakeAttackActionEvent(action)
         result_events = list(take_event._roll_damage())
-        # Should yield SeriousWoundsDamageEvent first, then LightWoundsDamageEvent
+        # Should yield SeriousWoundsDamageEvent first, then LightWoundsDamageEvent.
         self.assertEqual(2, len(result_events))
         self.assertIsInstance(result_events[0], events.SeriousWoundsDamageEvent)
         self.assertEqual(1, result_events[0].damage)
         self.assertEqual(self.otaku, result_events[0].subject)
         self.assertEqual(self.target, result_events[0].target)
+        # Trace attribution tag (spec 014 T-C2) — SW event must surface
+        # with 'Otaku 5th Dan dice trade' source attribution.
+        self.assertTrue(getattr(result_events[0], "_from_otaku_5th_dan", False))
         self.assertIsInstance(result_events[1], events.LightWoundsDamageEvent)
         self.assertEqual(25, result_events[1].damage)
-        # Verify damage was rolled with reduced dice (19 - 10 = 9 rolled)
+        # Verify damage was rolled with reduced dice. Raw 13 normalized
+        # to 10k(2+3) — observed[0] is the rolled count after normalize.
         observed = self.roll_provider.pop_observed_params("damage")
-        self.assertEqual(9, observed[0])
+        self.assertEqual(10, observed[0])
+        self.assertEqual(5, observed[1])  # weapon kept (2) + 3 excess from cap
 
     def test_roll_damage_normal_when_not_enough_dice(self):
-        """When rolled damage dice < 12, roll damage normally without trading."""
+        """When rolled damage dice < OTAKU_5TH_DAN_TRADE_THRESHOLD,
+        roll damage normally without trading.
+        """
         action = self._make_attack_action()
         # TN to hit = 10
         # Extra damage dice = (15 - 10) // 5 = 1
         action.set_skill_roll(15)
         # Damage roll params: fire(5) + weapon.rolled(4) + extra(1) = 10 rolled
-        # 10 < 12, so no trade
+        # 10 < 20, so no trade.
         self.roll_provider.put_damage_roll(18)
         take_event = otaku_school.OtakuFifthDanTakeAttackActionEvent(action)
         result_events = list(take_event._roll_damage())
-        # Should yield only LightWoundsDamageEvent
+        # Should yield only LightWoundsDamageEvent.
         self.assertEqual(1, len(result_events))
         self.assertIsInstance(result_events[0], events.LightWoundsDamageEvent)
         self.assertEqual(18, result_events[0].damage)
 
-    def test_roll_damage_exactly_12_rolled_trades(self):
-        """When rolled damage dice == 12 exactly, trading leaves 2 (the minimum)."""
+    def test_roll_damage_at_threshold_trades(self):
+        """When raw_rolled == 20 (the strategic threshold), trading
+        leaves 10 rolled — well above the rules min-2 floor."""
         action = self._make_attack_action()
-        # TN to hit = 10
-        # Extra damage dice = (25 - 10) // 5 = 3
-        action.set_skill_roll(25)
-        # Damage roll params: fire(5) + weapon.rolled(4) + extra(3) = 12 rolled
-        # 12 >= 12, so we trade 10, leaving 2 rolled
-        self.roll_provider.put_damage_roll(10)
+        # Want raw_rolled = 20. fire(5) + weapon.rolled(4) + extra = 20 → extra = 11.
+        # extra_damage_dice = (skill_roll - tn) // 5 → (65 - 10) // 5 = 11.
+        action.set_skill_roll(65)
+        self.roll_provider.put_damage_roll(20)
         take_event = otaku_school.OtakuFifthDanTakeAttackActionEvent(action)
         result_events = list(take_event._roll_damage())
         self.assertEqual(2, len(result_events))
         self.assertIsInstance(result_events[0], events.SeriousWoundsDamageEvent)
         self.assertEqual(1, result_events[0].damage)
         self.assertIsInstance(result_events[1], events.LightWoundsDamageEvent)
-        # Verify 2 rolled dice (the minimum after trading 10)
+        # Verify 10 rolled dice (20 - 10).
         observed = self.roll_provider.pop_observed_params("damage")
-        self.assertEqual(2, observed[0])
+        self.assertEqual(10, observed[0])
 
-    def test_roll_damage_11_rolled_does_not_trade(self):
-        """When rolled damage dice == 11, do not trade (would leave only 1, below minimum 2)."""
+    def test_roll_damage_below_threshold_does_not_trade(self):
+        """When raw_rolled is below the strategic threshold (e.g., at
+        the old rules-floor of 12), the trade does NOT fire — Q3 fix.
+        Also test raw_rolled = 19 (one below new threshold of 20)."""
         action = self._make_attack_action()
         # TN to hit = 10
-        # Extra damage dice = (20 - 10) // 5 = 2
-        action.set_skill_roll(20)
-        # Damage roll params: fire(5) + weapon.rolled(4) + extra(2) = 11 rolled
-        # 11 < 12, so no trade
+        # Extra damage dice = (25 - 10) // 5 = 3 → raw_rolled = 5+4+3 = 12.
+        action.set_skill_roll(25)
         self.roll_provider.put_damage_roll(15)
         take_event = otaku_school.OtakuFifthDanTakeAttackActionEvent(action)
         result_events = list(take_event._roll_damage())
+        # No trade: would have fired pre-Q3-fix, must not now.
         self.assertEqual(1, len(result_events))
         self.assertIsInstance(result_events[0], events.LightWoundsDamageEvent)
         self.assertEqual(15, result_events[0].damage)
+
+    def test_roll_damage_just_below_threshold_does_not_trade(self):
+        """When raw_rolled == 19 (one below the strategic threshold of
+        20), the trade does NOT fire."""
+        action = self._make_attack_action()
+        # Want raw_rolled = 19. fire(5) + weapon(4) + extra = 19 → extra = 10.
+        # extra_damage_dice = (skill_roll - tn) // 5 → (60 - 10) // 5 = 10.
+        action.set_skill_roll(60)
+        self.roll_provider.put_damage_roll(22)
+        take_event = otaku_school.OtakuFifthDanTakeAttackActionEvent(action)
+        result_events = list(take_event._roll_damage())
+        # Just verify no SW: trade did not fire at raw_rolled=19. The
+        # exact damage value is not load-bearing (normalize_roll_params
+        # converts excess rolled→kept→bonus).
+        self.assertEqual(1, len(result_events))
+        self.assertIsInstance(result_events[0], events.LightWoundsDamageEvent)
+        self.assertNotIsInstance(result_events[0], events.SeriousWoundsDamageEvent)
+
+    def test_roll_damage_action_tagged_when_traded(self):
+        """The action MUST be tagged with _otaku_5th_dan_traded when
+        the trade fires, so the damage-breakdown formatter can attribute
+        the rolled-dice reduction to the 5th Dan trade (spec 014 T-C2).
+        """
+        action = self._make_attack_action()
+        action.set_skill_roll(80)  # raw_rolled = 23, above threshold.
+        self.roll_provider.put_damage_roll(25)
+        take_event = otaku_school.OtakuFifthDanTakeAttackActionEvent(action)
+        list(take_event._roll_damage())
+        self.assertTrue(getattr(action, "_otaku_5th_dan_traded", False))
+
+    def test_roll_damage_action_not_tagged_when_not_traded(self):
+        """No trade → no tag on the action."""
+        action = self._make_attack_action()
+        action.set_skill_roll(15)  # raw_rolled = 10, below threshold.
+        self.roll_provider.put_damage_roll(18)
+        take_event = otaku_school.OtakuFifthDanTakeAttackActionEvent(action)
+        list(take_event._roll_damage())
+        self.assertFalse(getattr(action, "_otaku_5th_dan_traded", False))
 
 
 class TestOtakuFifthDanTakeAttackActionEventPlay(unittest.TestCase):
@@ -299,10 +392,13 @@ class TestOtakuFifthDanTakeAttackActionEventPlay(unittest.TestCase):
         )
 
     def test_play_hit_with_trade(self):
-        """Full play() flow: hit with enough dice to trigger the 5th Dan trade."""
+        """Full play() flow: hit with enough dice to trigger the 5th Dan trade.
+        Skill roll 80 → 14 extra dice → raw_rolled = 5+4+14 = 23 ≥ 22 threshold.
+        """
         action = self._make_attack_action()
-        # rig skill roll to hit (TN=10) with many extra damage dice
-        self.roll_provider.put_skill_roll("attack", 60)
+        # rig skill roll to hit (TN=10) with many extra damage dice; need
+        # raw_rolled >= 22 to trigger the strategic-threshold trade (spec 014 Q3).
+        self.roll_provider.put_skill_roll("attack", 80)
         self.roll_provider.put_damage_roll(25)
         take_event = otaku_school.OtakuFifthDanTakeAttackActionEvent(action)
         result_events = list(take_event.play(self.context))
@@ -340,6 +436,27 @@ class TestOtakuFifthDanTakeAttackActionEventPlay(unittest.TestCase):
         self.assertIn("AttackDeclaredEvent", event_types)
         self.assertIn("AttackFailedEvent", event_types)
         self.assertNotIn("AttackSucceededEvent", event_types)
+
+    def test_play_attack_parried_yields_failed_and_returns(self):
+        """When the action is parried (set via set_parried before
+        play() consults the parried() check), play() MUST yield
+        AttackFailedEvent and return without rolling damage.
+        Coverage for OtakuFifthDanTakeAttackActionEvent.play parried
+        branch (spec 014 T-E1)."""
+        action = self._make_attack_action()
+        self.roll_provider.put_skill_roll("attack", 30)
+        # Directly mark the action as parried so the play() parried
+        # check fires after the attack-roll step.
+        action.set_parried()
+        take_event = otaku_school.OtakuFifthDanTakeAttackActionEvent(action)
+        result_events = list(take_event.play(self.context))
+        event_types = [type(e).__name__ for e in result_events]
+        self.assertIn("AttackDeclaredEvent", event_types)
+        # Parried → AttackFailedEvent emitted; no SW, no LW damage.
+        self.assertIn("AttackFailedEvent", event_types)
+        self.assertNotIn("AttackSucceededEvent", event_types)
+        self.assertNotIn("SeriousWoundsDamageEvent", event_types)
+        self.assertNotIn("LightWoundsDamageEvent", event_types)
 
     def test_play_subject_not_fighting(self):
         """If subject is defeated before roll, play() should return early."""

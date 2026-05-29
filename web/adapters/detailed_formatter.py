@@ -1317,6 +1317,7 @@ class DetailedEventFormatter:
             target_name=target,
             damage=event.damage,
             from_double_attack=bool(getattr(event, "_from_double_attack", False)),
+            from_otaku_5th_dan=bool(getattr(event, "_from_otaku_5th_dan", False)),
         )
 
     def _build_wound_check_entry(

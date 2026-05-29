@@ -87,6 +87,43 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   (2) `BAYUSHI_PRIORITIES` revision (school-progression-designer's
   identity-aligned version) also documented but not applied for the
   same calibration-combat reason.
+- **Otaku Bushi School** — `specs/014-otaku-bushi-school/`,
+  merged 2026-05-29. **Audit-and-completion run** on a 192-line
+  skeleton with 27 existing tests. Rules-fidelity: 4 BLOCKING fixes —
+  (Q2) 3rd Dan listener was modifying ALL of target's action dice
+  instead of "next X" where X = Otaku's attack skill; (Q3) 5th Dan
+  "may" was unconditional — added strategic threshold (`raw_rolled
+  >= 20`) so the dice-trade fires on overflow rolls only rather
+  than every hit ≥ 12 rolled; (Q4) 5th Dan dice math left negative
+  `extra_rolled` components leaking into the user-visible trace as
+  "-Nk-M reconciliation" — algebra preserved + min-2 floor made
+  explicit; (Q1) **HIGH-severity Principle VIII identity bug** —
+  `add_interrupt_skill("lunge")` was wired but no strategy fired
+  the interrupt; combat-simulator measured 0 interrupt-lunges
+  across 23 combats pre-fix. Added new `OtakuInterruptLungeStrategy`
+  (fires on `AttackSucceededEvent`/`AttackFailedEvent` via a new
+  `OtakuAttackResolvedListener` since the engine's default listener
+  wiring doesn't dispatch interrupt_strategy on resolution events)
+  with mirror-recursion gate (decline against incoming interrupt-
+  lunge) + SW-saturation gate (decline at sw_remaining ≤ 1) +
+  WoundCheckStrategy04 install (1st Dan WC die + 2nd Dan WC free
+  raise = aggressive WC posture, matches Hida/Matsu/Bayushi).
+  Principle VII trace fix: `_from_otaku_5th_dan` flag on the SW
+  event surfaces "Otaku 5th Dan: traded 10 rolled damage dice for
+  1 SW" attribution in both renderers. + 25 new tests (3974 → 3995).
+  Deferrals documented: (1) `OTAKU_PRIORITIES` revision (school-
+  progression-designer produced lunge-first / attack-second / fire-3
+  at Dan 3 / water-3 at Dan 4 / parry-capped-at-3 revision) NOT
+  applied — same Bayushi/Kakita-precedent calibration-combat shift
+  pattern. (2) Trace observability for 3rd Dan target-action-die
+  shift, 4th Dan parry-still-+1, and Special Ability interrupt-
+  lunge label — tags present on the action events but renderer
+  surfacing limited to the 5th Dan SW (the highest-impact gap per
+  trace-auditor P0 ranking). (3) Base `LungeAction.calculate_extra_
+  damage_dice` returning `super() + 1` on parry makes the Otaku
+  4th Dan override structurally redundant for output — flagged by
+  rules-auditor as a separate rules-fidelity question (other lunge
+  users shouldn't get +1 on parry).
 - **Kakita Duelist School** — `specs/013-kakita-duelist-school/`,
   merged 2026-05-29 as commit `c768b30`. **Audit-and-tighten run**
   on the largest bushi skeleton (610 lines, 16 existing tests, 24
@@ -130,9 +167,6 @@ adjacent runs share rules-text patterns and review heuristics.
 
 ### Bushi schools (direct combat — closest in shape to Mirumoto)
 
-- [ ] **Otaku Bushi School** (`simulation/schools/otaku_school.py`).
-  Unicorn-clan mounted bushi (mount mechanics may be out of scope
-  for combat sim).
 - [ ] **Shiba Bushi School** (`simulation/schools/shiba_school.py`).
   Phoenix-clan defender of shugenja (defensive bushi).
 - [ ] **Shinjo Bushi School**
