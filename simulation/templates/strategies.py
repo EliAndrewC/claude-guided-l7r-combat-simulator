@@ -1171,50 +1171,55 @@ YOGO_PRIORITIES: list[tuple[str, str, int]] = [
 ]
 
 # Ide Diplomat School (school_ring: water, knacks: double attack, feint, worldliness)
-# tact bought early (needed for 3rd dan VP-subtract mechanic)
+# Identity (per spec 031):
+#   - Feint is the SA enabler — the school's offense hinges on it.
+#   - Tact scales the 3rd Dan Xk1 attack-roll penalty on incoming attacks.
+#   - Water is the school ring (auto-raised + discounted at 4th Dan).
+#   - Void fuels both the 3rd Dan VP-spend AND every attack's free raises.
 IDE_PRIORITIES: list[tuple[str, str, int]] = [
-    # tact for 3rd dan (bought early)
-    ("skill", "tact", 2),
-    ("skill", "tact", 3),
-    # Dan 2
-    ("skill", "double attack", 2),
+    # Dan 2 — feint first (SA enabler), then attack + tact (3rd Dan multiplier).
     ("skill", "feint", 2),
-    ("skill", "worldliness", 2),
     ("skill", "attack", 2),
+    ("skill", "tact", 2),
+    ("skill", "double attack", 2),
     ("skill", "parry", 2),
-    ("skill", "tact", 4),
-    # Dan 3
-    ("skill", "double attack", 3),
+    ("skill", "worldliness", 2),
+    # Dan 3 — tact-3 before other Dan-3 bumps (Xk1 → 3k1 once 3rd Dan unlocks);
+    # water-3 sets up the 4th Dan auto-raise + discount.
+    ("skill", "tact", 3),
+    ("ring", "water", 3),
     ("skill", "feint", 3),
-    ("skill", "worldliness", 3),
     ("skill", "attack", 3),
+    ("skill", "double attack", 3),
     ("skill", "parry", 3),
-    ("ring", "earth", 3),
-    ("skill", "tact", 5),
-    # Dan 4
-    ("skill", "double attack", 4),
-    ("skill", "feint", 4),
-    ("skill", "worldliness", 4),
-    ("skill", "attack", 4),
-    ("skill", "parry", 4),
+    # Dan 4 — tact-4 keeps Xk1 scaling; void-3 fuels VP-priced abilities;
+    # 4th Dan auto-raises water to 4.
+    ("skill", "tact", 4),
     ("ring", "void", 3),
-    ("ring", "fire", 3),
-    ("ring", "air", 3),
-    ("ring", "earth", 4),
-    # Dan 5
-    ("skill", "double attack", 5),
+    ("skill", "feint", 4),
+    ("skill", "attack", 4),
+    ("skill", "double attack", 4),
+    ("skill", "parry", 4),
+    ("skill", "worldliness", 3),
+    # Dan 5 — tact-5 (3rd Dan engine never stops scaling) + combat skills max.
+    ("skill", "tact", 5),
     ("skill", "feint", 5),
-    ("skill", "worldliness", 5),
     ("skill", "attack", 5),
+    ("skill", "double attack", 5),
     ("skill", "parry", 5),
-    # Max rings
+    ("skill", "worldliness", 4),
+    ("skill", "worldliness", 5),
+    # Max rings — water + void first (school + VP economy).
     ("ring", "water", 5),
     ("ring", "void", 4),
+    ("ring", "earth", 3),
+    ("ring", "fire", 3),
+    ("ring", "air", 3),
+    ("ring", "void", 5),
+    ("ring", "earth", 4),
     ("ring", "fire", 4),
     ("ring", "air", 4),
     ("ring", "earth", 5),
-    ("ring", "water", 6),
-    ("ring", "void", 5),
     ("ring", "fire", 5),
     ("ring", "air", 5),
 ]

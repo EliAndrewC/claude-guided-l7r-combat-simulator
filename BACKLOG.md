@@ -87,6 +87,78 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   (2) `BAYUSHI_PRIORITIES` revision (school-progression-designer's
   identity-aligned version) also documented but not applied for the
   same calibration-combat reason.
+- **Ide Diplomat School** — `specs/031-ide-diplomat-school/`,
+  merged 2026-05-29. **Audit-and-completion run** on a 202-line
+  skeleton with 30+ existing tests. Pre-existing `school_choices`
+  configurability from spec 003 (`school_ring`,
+  `first_dan_extra_rolled`, `second_dan_free_raise`) preserved.
+  Rules-fidelity (all PASS — no BLOCKING fixes needed):
+  - **Q1 INTERPRETIVE**: SA "next time they are attacked" —
+    skeleton scopes to next attack BY the Ide via
+    `ExpireAfterNextAttackByCharacterListener(character)`. In 1v1
+    (the simulator's only mode) this is observationally
+    equivalent to "next attack by anyone". Rules-auditor PASS.
+  - **Q2 INTERPRETIVE**: 3rd Dan "spend void points to subtract
+    Xk1 from rolls" — skeleton scopes to attack rolls only,
+    1 VP per use. Defensible per combat-scope precedent. PASS.
+  - **Q3 MEDIUM**: 5th Dan "TVP gain on VP not from this
+    technique" — literal exclusion requires VP-provenance
+    tracking the engine doesn't expose. Skeleton's
+    `event.skill != "tact"` check prevents the 3rd Dan auto-loop;
+    leaves the "spending 5th-Dan-gained TVP grants another TVP"
+    loop, which is self-limiting (each spend is voluntary).
+    Documented trade-off; not fixed.
+  - **Q4 VERIFIED-PASS**: rules-auditor raised concern that
+    `get_skill_roll("tact", ...)` might apply skill-modifier
+    accretion contradicting rules-text "plain Xk1". Inspected
+    `simulation/mechanics/roll_provider.py:82-87`: the method
+    only constructs `Roll(rolled, kept, ...)` — NO modifiers
+    applied at the roll-provider layer (modifiers live at the
+    parameter-provider layer, which is not called here). The
+    skeleton's call is correct.
+  Identity bindings (school-strategy-designer):
+  - `WoundCheckStrategy04` bound on `apply_rank_five_ability`.
+    The 5th Dan TVP faucet makes VP functionally cheaper for
+    this school, so 0.4 confidence threshold leverages the
+    sustained-VP economy.
+  - Strategy-designer ALSO proposed an `IdeFeintChainAttackStrategy`
+    to bypass the `UniversalAttackStrategy` feint gate
+    (`vp() == 0 and len(actions()) > 1`). Combat-simulator
+    measured 9/10 vs-Akodo seeds showing the SA chain fires
+    naturally — the 3rd Dan listener drains VP on every incoming
+    attack, satisfying the feint gate by the time the Ide gets
+    a YourMoveEvent. The proposed new strategy is therefore
+    UNNECESSARY for the existing engine flow. Documented as
+    deferred design refinement.
+  Progression (school-progression-designer) — Principle VIII rework:
+  - Pre-fix IDE_PRIORITIES front-loaded tact-5 in Dan 3 (before
+    AP unlocks) AND buried water (the school ring + 4th Dan
+    target) until max-rings. Earth-3/4 had no rules basis.
+    Feint was 4th in Dan 2 instead of FIRST (despite being the
+    SA enabler).
+  - Post-fix: Feint promoted to Dan-2 first slot. Tact-3 sits
+    above water-3 in Dan 3 (Xk1 → 3k1 scaling when 3rd Dan
+    unlocks). Water-3 sets up 4th Dan auto-raise. Void-3 in
+    Dan 4 block (VP fuel). Worldliness 4/5 kept in Dan-5 block
+    to satisfy the tier-progression invariant (each tier
+    ≥ previous tier). Earth/fire/air filler demoted to
+    max-rings phase.
+  Tests: New playability test file — mirror at 300 XP PASSES
+  cleanly (0/5 cap hits), TestIdeIdentityEngineFires PASSES
+  (feint→AddModifierEvent on Akodo across 10 seeds).
+  Combat-simulator findings (pre-fix baseline):
+  - SA chain works (9/10 vs Akodo seeds show feint→modifier
+    →follow-up attack).
+  - Mirror at 300 XP: 0/5 cap hits, 2-8 rounds, healthy
+    attack counts.
+  - vs Akodo 450: 0/20 wins pre-fix (Ide fragile, dropped in
+    ~1.8 rounds; SA fires correctly but cannot overcome the
+    template's lack of survivability rings). The progression
+    rework promotes water-3 and void-3 to mid-tier blocks
+    where they actually matter — post-fix measurement deferred
+    but expected improvement on this front.
+  - Round-robin at 300 XP: 5/24 (21%) pre-fix. Same
+    survivability concern; expected improvement post-fix.
 - **Kitsuki Magistrate School** — `specs/030-kitsuki-magistrate-school/`,
   merged 2026-05-29. **Audit-and-completion run** on a 115-line
   skeleton with 23 existing tests.
@@ -917,14 +989,6 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   system that doesn't exist; (4) 5th Dan "reconciliation" label on
   contested damage — requires plumbing through `normalize_roll_params`.
 
-## Partial work (no full audit yet)
-
-- **Ide Diplomat School** — `school_choices` Pattern B
-  (configurable `school_ring`) was added during the
-  `003-school-choices` feature, but the school has never been
-  through a full Mirumoto/Ishi-style audit. Treat as a skeleton
-  school for queue purposes; the choice infrastructure stays.
-
 ## Skeleton present — needs full audit + completion
 
 Listed in suggested implementation order, grouped by archetype so
@@ -943,9 +1007,6 @@ These schools' identities are largely social, but per Constitution
 Principle VIII their combat defaults must still be playable. Audit
 will need careful Principle IX analysis (what does "identity engine
 fires" look like for a school whose identity is social maneuvering?).
-
-- [ ] **Ide Diplomat School** — see "Partial work" above; restart
-  from full audit when picked up.
 
 ### Trade school
 

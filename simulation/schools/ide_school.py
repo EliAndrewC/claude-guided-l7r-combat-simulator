@@ -26,6 +26,7 @@ from simulation.log import logger
 from simulation.mechanics.modifiers import AnyAttackModifier
 from simulation.modifier_listeners import ExpireAfterNextAttackByCharacterListener, ExpireAtEndOfRoundListener
 from simulation.schools.base import BaseSchool
+from simulation.strategies.base import WoundCheckStrategy04
 
 
 class IdeDiplomatSchool(BaseSchool):
@@ -58,7 +59,15 @@ class IdeDiplomatSchool(BaseSchool):
         self.apply_school_ring_raise_and_discount(character)
 
     def apply_rank_five_ability(self, character: Any) -> None:
+        # 5th Dan ``IdeSpendVPListener`` grants a TVP every non-tact VP
+        # spend, sustaining VP-fueled offense + 3rd Dan interrupts.
+        #
+        # ``WoundCheckStrategy04`` (spec 031 strategy-designer) — the
+        # 5th Dan TVP faucet makes VP functionally cheaper here, so a
+        # 0.4 confidence threshold spends more aggressively on WC
+        # (vs the engine default of 0.6) to leverage the TVP economy.
         self._set_school_listener(character, "spend_vp", IdeSpendVPListener())
+        self._set_school_strategy(character, "wound_check", WoundCheckStrategy04())
 
     def extra_rolled(self) -> list[str]:
         # rules/04-schools.md "Ide Diplomat School: 1st Dan": "Roll one extra
