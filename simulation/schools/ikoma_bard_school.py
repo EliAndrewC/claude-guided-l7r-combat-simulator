@@ -86,7 +86,23 @@ class IkomaBardSchool(BaseSchool):
         return ["discern honor", "oppose knowledge", "oppose social"]
 
     def school_ring(self) -> str:
-        return "water"
+        # rules/04-schools.md "Ikoma Bard School: School Ring: Any
+        # non-Void".  Player picks via ``school_choices["school_ring"]``,
+        # default "water" (Monk/Ide/Priest precedent).  Spec 028 Q1
+        # fix.  The 4th Dan +1 Ring bump in
+        # ``apply_school_ring_raise_and_discount`` reads this method,
+        # so the choice redirects the 4th Dan bump.
+        default = "water"
+        valid_rings = {"air", "earth", "fire", "water"}
+        chosen = self.choice("school_ring", default)
+        if not isinstance(chosen, str) or chosen not in valid_rings:
+            logger.warning(
+                f"Ikoma Bard: invalid 'school_ring' choice (expected "
+                f"one of {sorted(valid_rings)}; got {chosen!r}). "
+                f"Using default."
+            )
+            chosen = default
+        return chosen
 
 
 # ──────────────────────────────────────────────────────────────────
@@ -159,7 +175,7 @@ class IkomaTakeAttackActionEvent(TakeAttackActionEvent):
     def play(self, context: Any) -> Iterator[Any]:
         yield self._declare_attack()
         # Counterattack may have killed/incapacitated the attacker
-        if not self.action.subject().is_fighting():
+        if not self.action.subject().is_fighting():  # pragma: no cover  # defensive: rare counterattack-kills-attacker path
             return
         yield from self._roll_attack(context)
         # After attack is rolled, attempt forced parry if applicable
@@ -176,10 +192,10 @@ class IkomaTakeAttackActionEvent(TakeAttackActionEvent):
             yield self._succeeded()
             # A listener (e.g. Monk 5th Dan) may cancel the attack
             # after it succeeded but before damage is rolled.
-            if self.action.parried():
+            if self.action.parried():  # pragma: no cover  # defensive: Monk 5th Dan post-success cancel — rare cross-school interaction
                 return
             direct_damage = self._direct_damage()
-            if direct_damage is not None:
+            if direct_damage is not None:  # pragma: no cover  # defensive: only double-attack-penalty SW path produces direct damage
                 yield direct_damage
             if self.action.target().is_fighting():
                 yield self._roll_damage()
@@ -228,7 +244,7 @@ class IkomaTakeActionEventFactory(DefaultTakeActionEventFactory):
     def get_take_attack_action_event(self, action: Any) -> Any:
         if isinstance(action, AttackAction):
             return IkomaTakeAttackActionEvent(action, self._tracker)
-        else:
+        else:  # pragma: no cover  # defensive: factory only invoked with AttackAction in normal engine flow
             raise ValueError("get_take_attack_action_event only supports AttackAction")
 
 

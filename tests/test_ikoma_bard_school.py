@@ -35,9 +35,41 @@ class TestIkomaBardSchoolBasics(unittest.TestCase):
         school = ikoma_bard_school.IkomaBardSchool()
         self.assertEqual(["attack", "bragging", "wound check"], school.extra_rolled())
 
-    def test_school_ring(self):
+    def test_school_ring_default_is_water(self):
+        """Spec 028 Q1 MEDIUM fix: default ring is water when no
+        ``school_ring`` choice is set."""
         school = ikoma_bard_school.IkomaBardSchool()
         self.assertEqual("water", school.school_ring())
+
+    def test_school_ring_choice_overrides_default(self):
+        """Spec 028 Q1 fix: rules text "Any non-Void" — player picks
+        via ``school_choices["school_ring"]``."""
+        for chosen in ("air", "earth", "fire", "water"):
+            with self.subTest(chosen=chosen):
+                school = ikoma_bard_school.IkomaBardSchool()
+                school.set_choice("school_ring", chosen)
+                self.assertEqual(chosen, school.school_ring())
+
+    def test_school_ring_void_falls_back(self):
+        """Void is explicitly disallowed per "Any non-Void"."""
+        school = ikoma_bard_school.IkomaBardSchool()
+        school.set_choice("school_ring", "void")
+        self.assertEqual("water", school.school_ring())
+
+    def test_school_ring_invalid_type_falls_back(self):
+        school = ikoma_bard_school.IkomaBardSchool()
+        school.set_choice("school_ring", 42)
+        self.assertEqual("water", school.school_ring())
+
+    def test_fourth_dan_raises_chosen_ring(self):
+        """Spec 028 Q1 fix: choosing a non-default school_ring
+        redirects the 4th Dan +1 ring bump."""
+        ikoma = Character("Ikoma")
+        ikoma.set_ring("fire", 3)
+        school = ikoma_bard_school.IkomaBardSchool()
+        school.set_choice("school_ring", "fire")
+        school.apply_rank_four_ability(ikoma)
+        self.assertEqual(4, ikoma.ring("fire"))
 
     def test_school_knacks(self):
         school = ikoma_bard_school.IkomaBardSchool()
