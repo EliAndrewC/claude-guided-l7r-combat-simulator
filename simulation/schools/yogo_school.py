@@ -12,9 +12,13 @@
 #
 # 1st Dan: Extra rolled on attack, damage, wound check
 # 2nd Dan: Free raise on wound check
-# 3rd Dan: SpendVoidPointsListener — on VP spend, reduce LW by 2*attack_skill
+# 3rd Dan: SpendVoidPointsListener — on VP spend, reduce LW by
+#          2*attack_skill PER VP SPENT (spec 021 Q2 BLOCKING fix —
+#          previously applied once per event regardless of amount).
 # 4th Dan: Ring+1/discount; +10 per VP on wound checks instead of +5
-# 5th Dan: TBD
+# 5th Dan: TBD per upstream rules text. Stubbed as no-op (spec 021
+#          Q3 per user direction: school must function without 5th
+#          Dan; never raise).
 #
 
 from collections.abc import Iterator
@@ -31,6 +35,19 @@ class YogoWardenSchool(BaseSchool):
         return None
 
     def apply_special_ability(self, character: Any) -> None:
+        # rules/04-schools.md "Yogo Warden School: Special Ability":
+        # "Gain a temporary void point every time you take a serious
+        # wound."  Installed via a school-owned sw_damage listener
+        # that replaces the engine default and adds TVP gain on the
+        # alive-and-fighting branch.
+        #
+        # Spec 021 Q4 identity binding: WoundCheckStrategy04
+        # (aggressive VP-spend threshold) was attempted but combined
+        # with the Q2 per-VP scaling fix it made Yogos too durable
+        # in mirror — two Yogos at 300 XP failed to terminate within
+        # the 18-round Principle IX safety bound on 2 of 5 seeds.
+        # DEFERRED to a follow-up branch that can co-tune the
+        # threshold against the post-Q2-fix damage curve.
         self._set_school_listener(character, "sw_damage", YogoSeriousWoundsDamageListener())
 
     def apply_rank_three_ability(self, character: Any) -> None:
@@ -41,7 +58,12 @@ class YogoWardenSchool(BaseSchool):
         self._set_school_roll_parameter_provider(character, YOGO_ROLL_PARAMETER_PROVIDER)
 
     def apply_rank_five_ability(self, character: Any) -> None:
-        # TBD
+        # rules/04-schools.md "Yogo Warden School: Fifth Dan": TBD.
+        # Stubbed as no-op per user direction (spec 021 Q3): "the
+        # Yogo Warden does not have a 5th Dan so that will need to be
+        # stubbed.  But we shouldn't raise NotImplemented anywhere
+        # for it, since we want the school to function, just without
+        # sa 5th Dan for now."
         pass
 
     def extra_rolled(self) -> list[str]:
@@ -74,7 +96,7 @@ class YogoSeriousWoundsDamageListener(Listener):
                     yield events.DeathEvent(character)
                 elif not character.is_conscious():
                     yield events.UnconsciousEvent(character)
-                elif not character.is_fighting():
+                elif not character.is_fighting():  # pragma: no cover  # defensive: is_fighting() == is_conscious() per character.py:369-370; this branch is dead code under the engine default but kept defensively against future is_fighting overrides
                     yield events.SurrenderEvent(character)
                 else:
                     yield events.GainTemporaryVoidPointsEvent(character, 1)
@@ -83,18 +105,31 @@ class YogoSeriousWoundsDamageListener(Listener):
 
 
 class YogoSpendVoidPointsListener(Listener):
-    """
-    Listener to implement the Yogo 3rd Dan technique
-    to reduce LW by 2*attack_skill when spending VP.
+    """rules/04-schools.md "Yogo Warden School: Third Dan":
+
+    "Whenever you spend a void point, reduce your current light
+    wound total by 2X, where X is your attack skill."
+
+    Spec 021 Q2 BLOCKING fix: rules text "Whenever you spend **a**
+    void point" implies PER-VP scaling.  The previous skeleton
+    applied the reduction once per ``SpendVoidPointsEvent``
+    regardless of ``event.amount``, so a 2-VP spend reduced LW by
+    2X instead of 4X.  Now multiplies by ``event.amount``.
     """
 
     def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, events.SpendVoidPointsEvent):
             if event.subject == character:
                 character.spend_vp(event.amount)
-                reduction = 2 * character.skill("attack")
+                # Per-VP scaling (Q2 fix).
+                reduction = 2 * character.skill("attack") * event.amount
                 new_lw = max(0, character.lw() - reduction)
                 character._lw = new_lw
+                # Trace attribution tag (spec 021 FR-005) for future
+                # renderer work.  The reduction is a silent LW
+                # mutation today; the tag lets a downstream renderer
+                # surface "Yogo 3rd Dan: LW -N (= 2 * attack * VP)".
+                character._yogo_3rd_dan_last_reduction = reduction
         yield from ()
 
 

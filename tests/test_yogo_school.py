@@ -23,6 +23,22 @@ logger.addHandler(stream_handler)
 logger.setLevel(logging.DEBUG)
 
 
+class TestYogoWardenSchoolMisc(unittest.TestCase):
+    """Coverage for trivial accessors."""
+
+    def test_name(self):
+        school = yogo_school.YogoWardenSchool()
+        self.assertEqual("Yogo Warden School", school.name())
+
+    def test_ap_base_skill_returns_none(self):
+        school = yogo_school.YogoWardenSchool()
+        self.assertIsNone(school.ap_base_skill())
+
+    def test_free_raise_skills(self):
+        school = yogo_school.YogoWardenSchool()
+        self.assertEqual(["wound check"], school.free_raise_skills())
+
+
 class TestYogoWardenSchoolExtraRolled(unittest.TestCase):
     def test_extra_rolled_returns_correct_skills(self):
         school = yogo_school.YogoWardenSchool()
@@ -75,13 +91,34 @@ class TestYogoSpendVoidPointsListener(unittest.TestCase):
         self.enemy = Character("enemy")
         self.context = EngineContext([Group("Scorpion", self.yogo), Group("Enemy", self.enemy)])
 
-    def test_reduce_lw_on_vp_spend(self):
+    def test_reduce_lw_on_single_vp_spend(self):
+        """Spec 021 Q2 BLOCKING fix: per-VP scaling.  Spending 1 VP
+        reduces LW by 2 * attack_skill * 1 = 8."""
         listener = yogo_school.YogoSpendVoidPointsListener()
         event = events.SpendVoidPointsEvent(self.yogo, "attack", 1)
         list(listener.handle(self.yogo, event, self.context))
-        # attack skill 4, so reduction = 2*4 = 8
-        # 20 - 8 = 12
+        # attack skill 4, 1 VP spent, reduction = 2 * 4 * 1 = 8.
+        # 20 - 8 = 12.
         self.assertEqual(12, self.yogo.lw())
+        # Trace attribution tag (spec 021 FR-005).
+        self.assertEqual(
+            8, getattr(self.yogo, "_yogo_3rd_dan_last_reduction", 0),
+        )
+
+    def test_reduce_lw_scales_per_vp_spent(self):
+        """Spec 021 Q2 BLOCKING fix: spending 2 VP at once MUST
+        reduce LW by 2 * attack_skill * 2 (not just 2 * attack_skill).
+        The previous skeleton applied the reduction once per event
+        regardless of amount."""
+        listener = yogo_school.YogoSpendVoidPointsListener()
+        event = events.SpendVoidPointsEvent(self.yogo, "attack", 2)
+        list(listener.handle(self.yogo, event, self.context))
+        # attack skill 4, 2 VP spent, reduction = 2 * 4 * 2 = 16.
+        # 20 - 16 = 4.
+        self.assertEqual(4, self.yogo.lw())
+        self.assertEqual(
+            16, getattr(self.yogo, "_yogo_3rd_dan_last_reduction", 0),
+        )
 
 
 class TestYogoRollParameterProvider(unittest.TestCase):
