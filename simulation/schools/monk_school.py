@@ -29,6 +29,24 @@ from simulation.strategies.action_factory import DefaultActionFactory
 
 
 class BrotherhoodOfShinseMonkSchool(BaseSchool):
+    """rules/04-schools.md "Brotherhood of Shinsei Monk School".
+
+    Accepted school_choices (overrideable via YAML, per
+    specs/003-school-choices, Ide Diplomat precedent at
+    ``ide_school.py:107-125``):
+
+    * ``school_ring`` — str, any non-Void ring ("air", "earth",
+      "fire", "water").  Defaults to "water" if unset.  The 4th Dan
+      Ring+1/discount in ``apply_school_ring_raise_and_discount``
+      reads ``school_ring()``, so the choice also redirects the 4th
+      Dan bump.
+
+    Spec 023 Q1 BLOCKING fix: rules text says "School Ring: Any
+    non-Void"; the previous skeleton hardcoded "water", forcing
+    every Monk into the same ring identity regardless of player
+    intent.
+    """
+
     def ap_base_skill(self) -> str | None:
         return "precepts"
 
@@ -78,7 +96,24 @@ class BrotherhoodOfShinseMonkSchool(BaseSchool):
         return ["conviction", "otherworldliness", "worldliness"]
 
     def school_ring(self) -> str:
-        return "water"
+        # rules/04-schools.md "Brotherhood of Shinsei Monk School:
+        # School Ring: Any non-Void".  The ``school_ring`` choice
+        # overrides the default ``water`` per spec 023 Q1 BLOCKING
+        # fix.  The 4th Dan Ring+1/discount in
+        # ``apply_school_ring_raise_and_discount`` reads this method,
+        # so choosing a non-default ring redirects the 4th Dan bump
+        # (Ide Diplomat precedent at ``ide_school.py:107-125``).
+        default = "water"
+        valid_rings = {"air", "earth", "fire", "water"}
+        chosen = self.choice("school_ring", default)
+        if not isinstance(chosen, str) or chosen not in valid_rings:
+            logger.warning(
+                f"Brotherhood of Shinsei Monk: invalid 'school_ring' "
+                f"choice (expected one of {sorted(valid_rings)}; got "
+                f"{chosen!r}). Using default."
+            )
+            chosen = default
+        return chosen
 
 
 # ──────────────────────────────────────────────────────────────────

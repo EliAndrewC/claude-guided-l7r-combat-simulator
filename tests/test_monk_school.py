@@ -35,9 +35,45 @@ class TestMonkSchoolBasics(unittest.TestCase):
         school = monk_school.BrotherhoodOfShinseMonkSchool()
         self.assertEqual(["attack", "damage", "wound check"], school.extra_rolled())
 
-    def test_school_ring(self):
+    def test_school_ring_default_is_water(self):
+        """Spec 023 Q1 fix: default ring is water when no choice set."""
         school = monk_school.BrotherhoodOfShinseMonkSchool()
         self.assertEqual("water", school.school_ring())
+
+    def test_school_ring_choice_overrides_default(self):
+        """Spec 023 Q1 BLOCKING fix: rules text says "Any non-Void";
+        player can choose air / earth / fire / water via the
+        ``school_ring`` school_choices key (Ide Diplomat precedent)."""
+        for chosen in ("air", "earth", "fire", "water"):
+            with self.subTest(chosen=chosen):
+                school = monk_school.BrotherhoodOfShinseMonkSchool()
+                school.set_choice("school_ring", chosen)
+                self.assertEqual(chosen, school.school_ring())
+
+    def test_school_ring_invalid_choice_falls_back_to_default(self):
+        """Invalid (non-string or void) choice MUST log a warning and
+        fall back to the default water — never crash the build."""
+        school = monk_school.BrotherhoodOfShinseMonkSchool()
+        # "void" is a valid ring but explicitly disallowed.
+        school.set_choice("school_ring", "void")
+        self.assertEqual("water", school.school_ring())
+        # Non-string also falls back.
+        school2 = monk_school.BrotherhoodOfShinseMonkSchool()
+        school2.set_choice("school_ring", 42)
+        self.assertEqual("water", school2.school_ring())
+
+    def test_fourth_dan_raises_chosen_ring(self):
+        """Spec 023 Q1 + FR-006: choosing a non-default school_ring
+        redirects the 4th Dan +1 ring bump.  Identical to the Ide
+        Diplomat precedent (specs/003-school-choices)."""
+        from simulation.character import Character
+        monk = Character("Monk")
+        monk.set_ring("fire", 3)
+        school = monk_school.BrotherhoodOfShinseMonkSchool()
+        school.set_choice("school_ring", "fire")
+        school.apply_rank_four_ability(monk)
+        # 4th Dan +1 should land on fire, not water.
+        self.assertEqual(4, monk.ring("fire"))
 
     def test_school_knacks(self):
         school = monk_school.BrotherhoodOfShinseMonkSchool()

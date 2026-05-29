@@ -87,6 +87,38 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   (2) `BAYUSHI_PRIORITIES` revision (school-progression-designer's
   identity-aligned version) also documented but not applied for the
   same calibration-combat reason.
+- **Brotherhood of Shinsei Monk School** —
+  `specs/023-monk-school/`, merged 2026-05-29. **Audit-and-
+  completion run** on a 262-line skeleton with 35 existing tests.
+  Skeleton was largely correct — combat-simulator pre-fix audit
+  PASS across all scenarios: 5/5 mirror matches terminate in 3-4
+  rounds, 9/10 wins vs Akodo 450, 0/25 crashes in round-robin
+  (confirms spec 020 ``features.py:586`` fix held), all 4 ability
+  clauses fire empirically.
+  Rules-fidelity (1 BLOCKING fix):
+  - **Q1 BLOCKING**: ``school_ring`` was hardcoded to "water"
+    contradicting rules-text "Any non-Void". Applied Ide Diplomat
+    precedent (``ide_school.py:107-125``) — reads
+    ``school_choices["school_ring"]``, defaults to "water",
+    validates against ``{"air", "earth", "fire", "water"}``,
+    warns + falls back on invalid input. The 4th Dan +1 Ring
+    bump automatically follows the chosen ring through
+    ``apply_school_ring_raise_and_discount``.
+  Tests: 8 new tests (4081 → 4089), 100% coverage on
+  ``monk_school.py``. 5th Dan counter-attack fires empirically
+  vs Akodo across the 10-seed sweep; mirror at 300 XP terminates
+  cleanly within 18-round bound.
+  Deferrals documented (3):
+  1. **Q3 5th Dan damage check** — rules say "your attack
+     continues and you hit/miss and roll damage as normal" but
+     skeleton always rolls damage when counter cancels. In
+     practice the attacker's attack roll usually exceeds their
+     own tn_to_hit so the gap is theoretical. Fix can come with
+     broader 5th Dan refactor.
+  2. **Q2 3rd Dan eager AP-spend** — rules say "at any time" but
+     skeleton spends eagerly at start-of-round. Strategic-choice
+     optimization is a follow-up.
+  3. ``MONK_PRIORITIES`` revision — same calibration cascade.
 - **Isawa Duelist School** — `specs/022-isawa-duelist-school/`,
   merged 2026-05-29. **Audit-and-completion run** on a 196-line
   skeleton with 19 existing tests. NOTE: NOT the same as Isawa Ishi
@@ -565,8 +597,6 @@ adjacent runs share rules-text patterns and review heuristics.
 
 ### Mystic / monk schools
 
-- [ ] **Brotherhood of Shinsei Monk School**
-  (`simulation/schools/monk_school.py`). Unarmed monk.
 - [ ] **Togashi Ise Zumi School**
   (`simulation/schools/ise_zumi_school.py`). Dragon-clan tattooed
   monk.
