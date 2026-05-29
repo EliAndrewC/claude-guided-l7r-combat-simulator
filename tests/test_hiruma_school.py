@@ -15,7 +15,6 @@ from simulation.character import Character
 from simulation.context import EngineContext
 from simulation.groups import Group
 from simulation.log import logger
-from simulation.mechanics.floating_bonuses import AnyAttackFloatingBonus
 from simulation.mechanics.initiative_actions import InitiativeAction
 from simulation.mechanics.modifiers import Modifier
 from simulation.modifier_listeners import ExpireAfterNDamageRollsListener
@@ -56,46 +55,89 @@ class TestHirumaParryListener(unittest.TestCase):
         self.context = EngineContext(groups)
         self.initiative_action = InitiativeAction([1], 1)
 
-    def test_gain_floating_bonus_on_parry_succeeded(self):
+    def test_emit_3rd_dan_modifier_on_parry_succeeded(self):
+        """Spec 019 T-A2 + T-A3 (Q2 + Q3 BLOCKING fixes): the 3rd
+        Dan effect emits a target-scoped Modifier with skills
+        ATTACK_SKILLS + ["damage"] and target=attacker, NOT the
+        previous AnyAttackFloatingBonus."""
         attack = actions.AttackAction(self.attacker, self.hiruma, "attack", self.initiative_action, self.context)
         parry = actions.ParryAction(self.hiruma, self.attacker, "parry", self.initiative_action, self.context, attack)
         parry.set_skill_roll(50)
         event = events.ParrySucceededEvent(parry)
         listener = hiruma_school.HirumaParryListener()
-        list(listener.handle(self.hiruma, event, self.context))
-        bonuses = self.hiruma.floating_bonuses("attack")
-        self.assertEqual(1, len(bonuses))
-        self.assertEqual(8, bonuses[0].bonus())  # 2 * 4 = 8
-        self.assertTrue(isinstance(bonuses[0], AnyAttackFloatingBonus))
+        emitted = list(listener.handle(self.hiruma, event, self.context))
+        # One AddModifierEvent emitted.
+        add_mod_events = [e for e in emitted if isinstance(e, events.AddModifierEvent)]
+        self.assertEqual(1, len(add_mod_events))
+        modifier = add_mod_events[0].modifier
+        self.assertEqual(8, modifier.adjustment())  # 2 * attack=4 = 8
+        # Target-scoped to the attacker.
+        self.assertEqual(self.attacker, modifier.target())
+        # Skills include ATTACK_SKILLS + "damage".
+        self.assertIn("attack", modifier.skills())
+        self.assertIn("damage", modifier.skills())
+        # Trace attribution tag.
+        self.assertTrue(getattr(modifier, "_hiruma_3rd_dan", False))
 
-    def test_gain_floating_bonus_on_parry_failed(self):
+    def test_no_modifier_when_attack_skill_is_zero(self):
+        """If the Hiruma has 0 attack skill, bonus = 0 → no modifier.
+
+        Coverage for the ``if bonus <= 0: return`` guard."""
+        self.hiruma.set_skill("attack", 0)
+        attack = actions.AttackAction(self.attacker, self.hiruma, "attack", self.initiative_action, self.context)
+        parry = actions.ParryAction(self.hiruma, self.attacker, "parry", self.initiative_action, self.context, attack)
+        parry.set_skill_roll(50)
+        event = events.ParrySucceededEvent(parry)
+        listener = hiruma_school.HirumaParryListener()
+        emitted = list(listener.handle(self.hiruma, event, self.context))
+        add_mod_events = [e for e in emitted if isinstance(e, events.AddModifierEvent)]
+        self.assertEqual(0, len(add_mod_events))
+
+    def test_emit_3rd_dan_modifier_on_parry_failed(self):
+        """3rd Dan modifier MUST fire on FAILED parries too (rules
+        text — "successful or unsuccessful")."""
         attack = actions.AttackAction(self.attacker, self.hiruma, "attack", self.initiative_action, self.context)
         parry = actions.ParryAction(self.hiruma, self.attacker, "parry", self.initiative_action, self.context, attack)
         parry.set_skill_roll(20)
         event = events.ParryFailedEvent(parry)
         listener = hiruma_school.HirumaParryListener()
-        list(listener.handle(self.hiruma, event, self.context))
-        bonuses = self.hiruma.floating_bonuses("attack")
-        self.assertEqual(1, len(bonuses))
-        self.assertEqual(8, bonuses[0].bonus())
+        emitted = list(listener.handle(self.hiruma, event, self.context))
+        add_mod_events = [e for e in emitted if isinstance(e, events.AddModifierEvent)]
+        self.assertEqual(1, len(add_mod_events))
+        self.assertEqual(8, add_mod_events[0].modifier.adjustment())
 
 
 class TestHirumaNewRoundListener(unittest.TestCase):
     def test_subtract_2_from_action_dice(self):
+        from simulation.mechanics.roll_provider import CalvinistRollProvider
         hiruma = Character("Hiruma")
-        hiruma.set_actions([3, 5, 8])
         enemy = Character("enemy")
         groups = [Group("Crab", hiruma), Group("Enemy", enemy)]
         context = EngineContext(groups)
-        listener = hiruma_school.HirumaNewRoundListener()
+        roll_provider = CalvinistRollProvider()
+        roll_provider.put_initiative_roll([3, 5, 8])
+        hiruma.set_roll_provider(roll_provider)
+        listener = hiruma_school.HirumaNewRoundListener(hiruma)
         event = events.NewRoundEvent(1)
         list(listener.handle(hiruma, event, context))
-        # Actions should be reduced by 2, min 1
-        # Note: roll_initiative will generate new actions, then subtract 2
-        # For this unit test, we verify the subtraction logic directly
-        actions = hiruma.actions()
-        for action in actions:
-            self.assertGreaterEqual(action, 1)
+        # After init roll [3,5,8] -> minus 2 with min 1 -> [1, 3, 6].
+        self.assertEqual([1, 3, 6], hiruma.actions())
+
+    def test_min_floor_on_action_dice(self):
+        """When dice would go below 1 after -2, they're floored at 1."""
+        from simulation.mechanics.roll_provider import CalvinistRollProvider
+        hiruma = Character("Hiruma")
+        enemy = Character("enemy")
+        groups = [Group("Crab", hiruma), Group("Enemy", enemy)]
+        context = EngineContext(groups)
+        roll_provider = CalvinistRollProvider()
+        roll_provider.put_initiative_roll([1, 2, 8])
+        hiruma.set_roll_provider(roll_provider)
+        listener = hiruma_school.HirumaNewRoundListener(hiruma)
+        event = events.NewRoundEvent(1)
+        list(listener.handle(hiruma, event, context))
+        # After [1, 2, 8] -> [max(1, -1), max(1, 0), 6] = [1, 1, 6].
+        self.assertEqual([1, 1, 6], hiruma.actions())
 
 
 class TestHirumaFifthDanParryListener(unittest.TestCase):
@@ -110,20 +152,31 @@ class TestHirumaFifthDanParryListener(unittest.TestCase):
         self.initiative_action = InitiativeAction([1], 1)
 
     def test_add_damage_modifier_on_parry(self):
+        """Spec 019 T-A5: the 5th Dan listener subclasses
+        HirumaParryListener and delegates the 3rd Dan effect via
+        super(), then adds its own 5th Dan -10 damage modifier on
+        the attacker.  Result: TWO AddModifierEvents — the 3rd Dan
+        attack+damage bonus on the Hiruma + the 5th Dan -10 damage
+        debuff on the attacker."""
         attack = actions.AttackAction(self.attacker, self.hiruma, "attack", self.initiative_action, self.context)
         parry = actions.ParryAction(self.hiruma, self.attacker, "parry", self.initiative_action, self.context, attack)
         parry.set_skill_roll(50)
         event = events.ParrySucceededEvent(parry)
         listener = hiruma_school.HirumaFifthDanParryListener()
-        responses = list(listener.handle(self.hiruma, event, self.context))
-        # Should get AddModifierEvent
-        add_mod_events = [r for r in responses if isinstance(r, events.AddModifierEvent)]
-        self.assertEqual(1, len(add_mod_events))
-        modifier = add_mod_events[0].modifier
-        self.assertEqual(-10, modifier.adjustment())
-        # Should also get floating bonus from 3rd Dan
-        bonuses = self.hiruma.floating_bonuses("attack")
-        self.assertEqual(1, len(bonuses))
+        emitted = list(listener.handle(self.hiruma, event, self.context))
+        add_mod_events = [e for e in emitted if isinstance(e, events.AddModifierEvent)]
+        self.assertEqual(2, len(add_mod_events))
+        # First emitted is 3rd Dan (super delegation): +8 on Hiruma
+        # targeting attacker.
+        third_dan = add_mod_events[0]
+        self.assertEqual(self.hiruma, third_dan.subject)
+        self.assertEqual(8, third_dan.modifier.adjustment())
+        self.assertTrue(getattr(third_dan.modifier, "_hiruma_3rd_dan", False))
+        # Second emitted is 5th Dan: -10 on attacker.
+        fifth_dan = add_mod_events[1]
+        self.assertEqual(self.attacker, fifth_dan.subject)
+        self.assertEqual(-10, fifth_dan.modifier.adjustment())
+        self.assertTrue(getattr(fifth_dan.modifier, "_hiruma_5th_dan", False))
 
 
 class TestExpireAfterNDamageRollsListener(unittest.TestCase):

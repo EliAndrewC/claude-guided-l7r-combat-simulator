@@ -87,6 +87,64 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   (2) `BAYUSHI_PRIORITIES` revision (school-progression-designer's
   identity-aligned version) also documented but not applied for the
   same calibration-combat reason.
+- **Hiruma Scout School** — `specs/019-hiruma-scout-school/`,
+  merged 2026-05-29. **Audit-and-completion run** on a 115-line
+  skeleton with 10 existing tests.
+  Rules-fidelity (3 BLOCKING fixes):
+  - **Q1 BLOCKING IDENTITY**: Special Ability was a TODO ``pass``
+    (left/right ally TN +5 entirely unimplemented). Fixed via new
+    ``HirumaSpecialAbilityNewRoundListener`` that fires on
+    ``NewRoundEvent``, walks ``context.formation().neighbors
+    (hiruma)`` to identify current left/right neighbors, and
+    installs +5 ``tn to hit`` modifiers on each. Old modifiers
+    are removed each round so the Special Ability tracks
+    formation changes mid-combat (and lifts entirely when the
+    Hiruma is defeated).
+  - **Q2 BLOCKING**: 3rd Dan bonus had wrong scope —
+    ``AnyAttackFloatingBonus`` applied to ANY attack (no target
+    gating). Rules text: "against the attacker or someone adjacent
+    to them". Fixed via target-scoped
+    ``Modifier(hiruma, attacker, ATTACK_SKILLS + ["damage"],
+    +2X)`` — applies only when the roll target matches the
+    attacker. Note: "or someone adjacent" scope DEFERRED (handled
+    by the attacker-only case in 1v1).
+  - **Q3 BLOCKING**: 3rd Dan applied only to attack-skill rolls,
+    not damage rolls. Rules text: "next attack AND damage roll".
+    Fixed by including ``"damage"`` in the modifier's skills list.
+  Principle VIII identity bindings: ``AlwaysParryStrategy`` (4 of
+  5 Dan-rank abilities key on parry; ``ReluctantParryStrategy``
+  starved the identity engine) + ``WoundCheckStrategy04`` (1st Dan
+  WC die + 5th Dan -10 damage debuff = above-average WC pool).
+  Q4 refactor: ``HirumaFifthDanParryListener`` now subclasses
+  ``HirumaParryListener`` and delegates the 3rd Dan effect via
+  ``super()``. ``HirumaNewRoundListener`` (4th Dan) subclasses
+  ``HirumaSpecialAbilityNewRoundListener`` and chains the
+  Special Ability refresh.
+  Trace attribution tags added (``_hiruma_special_ability``,
+  ``_hiruma_3rd_dan``, ``_hiruma_5th_dan``) for future renderer
+  work.
+  Tests: 14 new tests (4040 → 4054), 100% coverage on
+  ``hiruma_school.py``. Both playability tests pass (mirror at
+  300 XP terminates; 3rd Dan target-scoped modifier fires
+  empirically vs Akodo).
+  Deferrals documented:
+  1. **3rd Dan "or someone adjacent" scope** — attacker-only
+     scope handled in this branch; full formation-adjacency
+     scoping needs a multi-target modifier mechanism.
+  2. **rules-auditor + combat-simulator** had API connection
+     errors mid-run — playability validated locally via the new
+     test files, but no full empirical baseline from
+     combat-simulator.
+  3. ``HIRUMA_PRIORITIES`` revision (parry-first / attack-second
+     / air-3 at Dan 3 / water-3 at Dan 3 / earth removed) — same
+     calibration-combat cascade pattern.
+  4. Trace renderer surfacing for the Special Ability +5 TN
+     modifier and 3rd/5th Dan effects.
+  5. **3rd Dan modifier expiry edge case**: uses
+     ``ExpireAfterNDamageRollsListener(hiruma, 1)`` which expires
+     after the Hiruma's next damage roll regardless of target. If
+     the Hiruma attacks someone OTHER than the attacker first
+     (rare in 1v1), the modifier expires unused.
 - **Daidoji Yojimbo School** — `specs/018-daidoji-yojimbo-school/`,
   merged 2026-05-29. **Audit-and-completion run** on the
   most-developed remaining bushi skeleton (237 lines, 34 existing
@@ -355,9 +413,6 @@ adjacent runs share rules-text patterns and review heuristics.
 
 ### Specialty schools (non-bushi combat)
 
-- [ ] **Hiruma Scout School**
-  (`simulation/schools/hiruma_school.py`). Crab-clan
-  scout/skirmisher.
 - [ ] **Kuni Witch Hunter School**
   (`simulation/schools/kuni_school.py`). Has known engine gap —
   `NotImplementedError: spend_ap` per prior notes. Audit may
