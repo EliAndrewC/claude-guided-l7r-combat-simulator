@@ -173,14 +173,38 @@ class TestShosuroFifthDan(unittest.TestCase):
         # Expected: 24 + (2 + 4 + 6) = 36
         self.assertEqual(36, result)
 
-    def test_shosuro_5th_dan_no_bonus_on_damage(self):
-        """5th Dan does NOT add lowest dice to damage rolls."""
+    def test_shosuro_5th_dan_adds_lowest_3_to_damage(self):
+        """5th Dan adds lowest 3 dice to damage rolls.
+
+        Spec 029 Q1 BLOCKING fix: rules-text says "After making any
+        non-initiative roll, add your lowest three dice to the result."
+        Damage rolls are non-initiative; previously the wrapper
+        excluded them, contradicting the rules.
+        """
         provider = CalvinistRollProvider()
-        provider.put_damage_roll_with_dice(15, [8, 7])
+        # 4 damage dice: [9, 7, 5, 2] — lowest 3 = 2+5+7 = 14.
+        provider.put_damage_roll_with_dice(21, [9, 7, 5, 2])
         wrapped = ShosuroActorRollProvider(provider)
-        result = wrapped.get_damage_roll(2, 2)
-        # Damage should be unmodified
-        self.assertEqual(15, result)
+        result = wrapped.get_damage_roll(4, 2)
+        # Expected: 21 + (2 + 5 + 7) = 35
+        self.assertEqual(35, result)
+
+    def test_shosuro_5th_dan_adds_lowest_3_to_damage_reduction(self):
+        """5th Dan also applies to damage reduction rolls.
+
+        Rules-auditor catch on spec 029 — "any non-initiative roll"
+        includes damage reduction. The reduction roll is itself a
+        non-initiative roll and is therefore bonused.
+        """
+        provider = CalvinistRollProvider()
+        # CalvinistRollProvider uses put_damage_roll_with_dice for both
+        # damage AND damage-reduction; the reduction path reads
+        # last_damage_info().
+        provider.put_damage_roll_with_dice(8, [5, 3])
+        wrapped = ShosuroActorRollProvider(provider)
+        # 2 dice -> pad lowest (3) up to 3 entries -> bonus 3 + 3 + 5 = 11
+        result = wrapped.get_damage_reduction_roll(2, 1, reduction=0)
+        self.assertEqual(8 + 11, result)
 
     def test_shosuro_5th_dan_no_bonus_on_initiative(self):
         """5th Dan does NOT add lowest dice to initiative rolls."""
@@ -191,16 +215,32 @@ class TestShosuroFifthDan(unittest.TestCase):
         # Initiative should be unmodified
         self.assertEqual([3, 7], result)
 
-    def test_shosuro_5th_dan_fewer_than_3_dice(self):
-        """If fewer than 3 dice, add all available dice."""
+    def test_shosuro_5th_dan_fewer_than_3_dice_pads_with_lowest(self):
+        """If fewer than 3 dice, repeat lowest die ("counted twice").
+
+        Rules text: "(Some dice may be counted twice.)" — when only 2
+        (or fewer) dice were rolled, the lowest must be re-counted to
+        reach a 3-die bonus. Spec 029 rules-auditor MEDIUM catch.
+        """
         provider = CalvinistRollProvider()
-        # Only 2 dice: [8, 3]
-        # Lowest 2 are [3, 8] = 11
+        # Only 2 dice: [8, 3]; lowest = 3 padded once -> 3 + 3 + 8 = 14
         provider.put_skill_roll_with_dice("attack", 11, [8, 3])
         wrapped = ShosuroActorRollProvider(provider)
         result = wrapped.get_skill_roll("attack", 2, 2)
-        # Expected: 11 + (3 + 8) = 22
-        self.assertEqual(22, result)
+        self.assertEqual(11 + 14, result)
+
+    def test_shosuro_5th_dan_single_die_repeats_three_times(self):
+        """One die padded to 3 — counted three times.
+
+        Edge case of the "some dice may be counted twice" clause:
+        with one die rolled, that die is the bonus thrice.
+        """
+        provider = CalvinistRollProvider()
+        provider.put_skill_roll_with_dice("attack", 7, [7])
+        wrapped = ShosuroActorRollProvider(provider)
+        result = wrapped.get_skill_roll("attack", 1, 1)
+        # 7 + (7 + 7 + 7) = 28
+        self.assertEqual(28, result)
 
     def test_shosuro_5th_dan_no_dice_info_no_bonus(self):
         """If no dice info available (plain int roll), no bonus added."""

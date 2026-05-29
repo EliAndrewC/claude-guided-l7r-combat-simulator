@@ -22,6 +22,7 @@ from simulation.mechanics.roll_params import DefaultRollParameterProvider, norma
 from simulation.mechanics.roll_provider import RollProvider
 from simulation.mechanics.skills import ATTACK_SKILLS
 from simulation.schools.base import BaseSchool
+from simulation.strategies.base import AlwaysParryStrategy, WoundCheckStrategy04
 
 
 class ShosuroActorSchool(BaseSchool):
@@ -32,10 +33,23 @@ class ShosuroActorSchool(BaseSchool):
         return ["acting", "heraldry", "sincerity", "sneaking", "attack", "wound check"]
 
     def apply_special_ability(self, character: Any) -> None:
-        # Extra rolled dice equal to acting skill on attack, parry, and wound check.
-        # Applied dynamically via a custom RollParameterProvider since acting
-        # skill may increase during character building.
+        # rules/04-schools.md "Shosuro Actor School: Special Ability":
+        # "Roll extra dice equal to your acting on attack, parry, and
+        # wound checks."  Implemented via a custom RollParameterProvider
+        # so that increases to ``acting`` during character building feed
+        # back into the rolled-dice count.
+        #
+        # Identity bindings (spec 029, strategy-designer):
+        # - ``AlwaysParryStrategy`` — every parry receives +acting rolled
+        #   dice, so declining "small" attacks (the engine default) wastes
+        #   the school's chief defensive buff.
+        # - ``WoundCheckStrategy04`` — the SA buffs WC by +acting rolled
+        #   AND 5th Dan adds the lowest-3 dice; the resulting WC pool is
+        #   structurally larger than baseline, so VP spending can lean
+        #   more aggressive (threshold 0.4 vs the default 0.6).
         self._set_school_roll_parameter_provider(character, ShosuroRollParameterProvider())
+        self._set_school_strategy(character, "parry", AlwaysParryStrategy())
+        self._set_school_strategy(character, "wound_check", WoundCheckStrategy04())
 
     def apply_rank_three_ability(self, character: Any) -> None:
         self.apply_ap(character)
@@ -65,14 +79,16 @@ class ShosuroActorSchool(BaseSchool):
 
 
 class ShosuroActorRollProvider(RollProvider):
-    """Wrap an existing roll provider to add lowest 3 dice to skill and wound check results.
+    """Wrap an existing roll provider to add lowest 3 dice to non-initiative rolls.
 
     Implements the Shosuro Actor School 5th Dan ability:
-    "After making any TN or contested roll, add your lowest three dice to the result.
-    (Some dice may be counted twice.)"
+    "After making any non-initiative roll, add your lowest three dice to
+    the result. (Some dice may be counted twice.)"
 
-    TN/contested rolls are skill rolls and wound checks.
-    Damage rolls and initiative rolls are NOT modified.
+    Applies to skill rolls, wound checks, damage rolls, and damage-reduction
+    rolls. Initiative rolls are the sole exclusion per rules text.
+    When fewer than 3 dice were rolled, the lowest die is repeated to pad
+    to 3 ("some dice may be counted twice").
     """
 
     def __init__(self, inner: Any) -> None:
@@ -84,11 +100,13 @@ class ShosuroActorRollProvider(RollProvider):
 
     def get_damage_reduction_roll(self, rolled: int, kept: int, reduction: int) -> int:
         result: int = self._inner.get_damage_reduction_roll(rolled, kept, reduction)
-        return result
+        bonus = self._lowest_three_bonus(self._inner.last_damage_info())
+        return result + bonus
 
     def get_damage_roll(self, rolled: int, kept: int) -> int:
         result: int = self._inner.get_damage_roll(rolled, kept)
-        return result
+        bonus = self._lowest_three_bonus(self._inner.last_damage_info())
+        return result + bonus
 
     def get_initiative_roll(self, rolled: int, kept: int) -> list[int]:
         result: list[int] = self._inner.get_initiative_roll(rolled, kept)
@@ -118,14 +136,23 @@ class ShosuroActorRollProvider(RollProvider):
 
     @staticmethod
     def _lowest_three_bonus(info: Any) -> int:
-        """Return the sum of the lowest 3 dice from roll info, or 0 if unavailable."""
+        """Sum the lowest 3 dice; pad by repeating the lowest if <3 dice.
+
+        Returns 0 only when no dice information is available — that case is
+        defensive for plain-int test fixtures and never occurs in normal play.
+        """
         if info is None:
             return 0
         dice = info.get("dice")
         if dice is None:
             return 0
+        if not dice:  # pragma: no cover  # defensive: an empty dice list never reaches here in play
+            return 0
         sorted_dice = sorted(dice)
-        return sum(sorted_dice[:3])
+        padded = sorted_dice[:3]
+        while len(padded) < 3:
+            padded.append(sorted_dice[0])
+        return sum(padded)
 
 
 class ShosuroRollParameterProvider(DefaultRollParameterProvider):

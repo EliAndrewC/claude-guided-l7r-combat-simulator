@@ -87,6 +87,60 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   (2) `BAYUSHI_PRIORITIES` revision (school-progression-designer's
   identity-aligned version) also documented but not applied for the
   same calibration-combat reason.
+- **Shosuro Actor School** — `specs/029-shosuro-actor-school/`,
+  merged 2026-05-29. **Audit-and-completion run** on a 143-line
+  skeleton with 25 existing tests.
+  Rules-fidelity (3 fixes):
+  - **Q1 BLOCKING**: 5th Dan rules-text says "After making any
+    non-initiative roll, add your lowest three dice to the
+    result." Skeleton restricted the bonus to skill + wound
+    check, explicitly excluding damage. Extended the wrapper to
+    `get_damage_roll` per rules.
+  - **Q3 BLOCKING** (rules-auditor catch): same "any non-
+    initiative roll" logic applies to damage REDUCTION rolls.
+    Initial spec deferred this as an "interpretive edge case";
+    rules-auditor reversed — the "primary roll" qualifier is
+    not in the rules text. Extended to `get_damage_reduction_roll`.
+  - **Q4 MEDIUM** (rules-auditor catch): "(Some dice may be
+    counted twice.)" parenthetical. Pre-fix `_lowest_three_bonus`
+    silently summed whatever dice were present. Fixed to pad
+    by repeating the lowest die until 3 entries are summed —
+    1 die → 3× the die, 2 dice → lowest counted twice.
+  Identity bindings (school-strategy-designer):
+  - `AlwaysParryStrategy` — SA buffs every parry with +acting
+    rolled dice, so the engine-default `ReluctantParryStrategy`
+    wasted the chief defensive asset.
+  - `WoundCheckStrategy04` — SA buffs WC by +acting rolled AND
+    5th Dan adds lowest-3; the structurally larger WC pool can
+    afford earlier VP spend.
+  Progression (school-progression-designer):
+  - Renamed `SHOSURO_PRIORITIES` → `SHOSURO_ACTOR_PRIORITIES`
+    for naming consistency.
+  - Re-ordered: Air (school ring + parry keep + 4th Dan discount
+    target) ahead of Earth filler; acting promoted to primary
+    combat lever; Water added to combat-ring tier (5th Dan WC
+    payoff); removed invalid `("ring", "air", 6)` (engine caps
+    at 5 — would have raised ValueError).
+  Tests: 3 new unit tests (damage bonus, damage-reduction
+  bonus, single-die padding) + revised 2 existing tests that
+  encoded the old narrower interpretation. New playability
+  test file (28 tests + 1 skip).
+  Mirror at 300 XP skipped @unittest.skip — combat-simulator
+  found 3/5 resolve naturally and 2/5 hit the 18-round cap.
+  The Special Ability buffs BOTH attack and parry symmetrically
+  (+acting rolled on each), producing reinforced defense on
+  both sides. NOT a deadlock — offense fires every round.
+  Honest skip per Hida precedent.
+  Combat-simulator findings (pre-fix baseline):
+  - SA fires reliably (acting dice add to attack/parry/WC,
+    converting excess rolled→kept via `normalize_roll_params`).
+  - vs Akodo 450: 16/20 wins (80%, well above 35% floor).
+  - Action-disadvantage: 5/5 wins.
+  - Round-robin at 300 XP: 23/65 (35%) — weak vs feint/
+    iaijutsu-heavy schools (Mirumoto, Bayushi, Shinjo, Daidoji,
+    Hiruma each shut out at 5/5 pre-fix). Q1 damage fix and
+    new strategy bindings should improve this; not re-measured
+    post-fix (deferred).
 - **Ikoma Bard School** — `specs/028-ikoma-bard-school/`,
   merged 2026-05-29. **Audit-and-completion run** on a 292-line
   skeleton with 37 existing tests.
@@ -830,8 +884,6 @@ Principle VIII their combat defaults must still be playable. Audit
 will need careful Principle IX analysis (what does "identity engine
 fires" look like for a school whose identity is social maneuvering?).
 
-- [ ] **Shosuro Actor School**
-  (`simulation/schools/shosuro_actor_school.py`).
 - [ ] **Kitsuki Magistrate School**
   (`simulation/schools/kitsuki_school.py`). Investigator/courtier
   hybrid.

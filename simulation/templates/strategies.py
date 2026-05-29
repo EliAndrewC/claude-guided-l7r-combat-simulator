@@ -1083,58 +1083,49 @@ MERCHANT_PRIORITIES: list[tuple[str, str, int]] = [
 ]
 
 # Shosuro Actor School (school_ring: air, knacks: athletics, discern honor, pontificate)
-# sincerity set to 5 at all tiers (non-combat but AP base skill)
-# acting bought early (combat-relevant: extra rolled dice on attack/parry/wound check)
-SHOSURO_PRIORITIES: list[tuple[str, str, int]] = [
-    # sincerity for AP system (bought early)
+# acting is the school's signature combat lever — Special Ability adds
+# +acting rolled dice on attack, parry, AND wound check. Air is school ring
+# (parry-keep, 4th Dan discount). 5th Dan adds lowest-3 dice to all
+# non-initiative rolls, rewarding kept-dice ring ranks (water for WC).
+SHOSURO_ACTOR_PRIORITIES: list[tuple[str, str, int]] = [
+    # Dan 2 — combat skills + acting (Special Ability lever) early.
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    ("skill", "acting", 2),
+    ("skill", "acting", 3),
     ("skill", "sincerity", 2),
     ("skill", "sincerity", 3),
-    # acting is combat-relevant (extra rolled dice from special ability)
-    ("skill", "acting", 2),
-    # Dan 2
     ("skill", "athletics", 2),
     ("skill", "discern honor", 2),
     ("skill", "pontificate", 2),
-    ("skill", "attack", 2),
-    ("skill", "parry", 2),
+    # Dan 3 — first ring bump (air = school ring + parry keep).
+    ("ring", "air", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("skill", "acting", 4),
     ("skill", "sincerity", 4),
-    ("skill", "acting", 3),
-    # Dan 3
+    # Dan 4 — air auto-raised to 4; water for WC kept dice (5th Dan).
+    ("ring", "water", 3),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("skill", "acting", 5),
+    ("skill", "sincerity", 5),
     ("skill", "athletics", 3),
     ("skill", "discern honor", 3),
     ("skill", "pontificate", 3),
-    ("skill", "attack", 3),
-    ("skill", "parry", 3),
-    ("ring", "earth", 3),
-    ("skill", "sincerity", 5),
-    ("skill", "acting", 4),
-    # Dan 4
-    ("skill", "athletics", 4),
-    ("skill", "discern honor", 4),
-    ("skill", "pontificate", 4),
-    ("skill", "attack", 4),
-    ("skill", "parry", 4),
-    ("ring", "void", 3),
-    ("ring", "fire", 3),
-    ("ring", "water", 3),
-    ("ring", "earth", 4),
-    ("skill", "acting", 5),
-    # Dan 5
-    ("skill", "athletics", 5),
-    ("skill", "discern honor", 5),
-    ("skill", "pontificate", 5),
+    # Dan 5 — max combat; air discounted via school discount.
     ("skill", "attack", 5),
     ("skill", "parry", 5),
-    # Max rings
     ("ring", "air", 5),
-    ("ring", "void", 4),
-    ("ring", "fire", 4),
     ("ring", "water", 4),
-    ("ring", "earth", 5),
-    ("ring", "air", 6),
-    ("ring", "void", 5),
-    ("ring", "fire", 5),
+    # Long tail filler rings.
+    ("ring", "fire", 3),
+    ("ring", "earth", 3),
+    ("ring", "void", 3),
     ("ring", "water", 5),
+    ("ring", "fire", 4),
+    ("ring", "earth", 4),
+    ("ring", "void", 4),
 ]
 
 # Yogo Warden School (school_ring: earth, knacks: double attack, feint, iaijutsu)
@@ -1407,7 +1398,7 @@ SCHOOL_PRIORITIES: dict[str, list[tuple[str, str, int]]] = {
     "Priest School": PRIEST_PRIORITIES,
     "Shiba Bushi School": SHIBA_PRIORITIES,
     "Shinjo Bushi School": SHINJO_PRIORITIES,
-    "Shosuro Actor School": SHOSURO_PRIORITIES,
+    "Shosuro Actor School": SHOSURO_ACTOR_PRIORITIES,
     "Togashi Ise Zumi School": ISE_ZUMI_PRIORITIES,
     "Ninja": NINJA_PRIORITIES,
     "Wave Man": WAVE_MAN_PRIORITIES,
