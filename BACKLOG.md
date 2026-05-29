@@ -87,6 +87,58 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   (2) `BAYUSHI_PRIORITIES` revision (school-progression-designer's
   identity-aligned version) also documented but not applied for the
   same calibration-combat reason.
+- **Isawa Duelist School** — `specs/022-isawa-duelist-school/`,
+  merged 2026-05-29. **Audit-and-completion run** on a 196-line
+  skeleton with 19 existing tests. NOTE: NOT the same as Isawa Ishi
+  School — this is the Phoenix-clan duelist with water-for-damage.
+  Rules-fidelity (3 BLOCKING fixes):
+  - **Q4 BLOCKING IDENTITY**: 3rd Dan TN penalty listener was
+    DEFINED but never INSTALLED. ``apply_rank_three_ability`` only
+    wired the action factory (which applied the +3X bonus). The
+    listener was dead code. Result: +3X attack bonus had NO
+    downside. Combat-simulator confirmed empirically: 0 TN
+    modifier AddModifierEvents across 25 fights. Renamed listener
+    to ``IsawaAttackResolvedListener`` and installed on
+    ``attack_succeeded`` + ``attack_failed`` slots.
+  - **Q3 BLOCKING**: 3rd Dan parry-cancels-penalty unimplemented.
+    Rules: "If a successful or unsuccessful parry is made against
+    your attack, you do not suffer the TN penalty." Listener now
+    gates on ``not event.action.parry_attempted()``.
+  - **Q6 BLOCKING IDENTITY**: 4th Dan interrupt-lunge had no
+    strategy to fire it. ``apply_rank_four_ability`` wired
+    ``set_interrupt_cost("lunge", 1)`` + ``add_interrupt_skill
+    ("lunge")`` but no strategy was installed — same shape as
+    Kakita/Otaku/Shiba Q1 identity bugs. Combat-simulator
+    confirmed empirically: 0 interrupt-lunges across 25 fights.
+    Added ``IsawaInterruptLungeStrategy`` (fires on
+    ``AttackDeclaredEvent``) with once-per-round gate (Q5),
+    SW-saturation gate, mirror anti-recursion gate, lunge-skill
+    gate, and adjacency check.
+  Identity binding: ``WoundCheckStrategy04`` installed (1st Dan
+  WC die + 2nd Dan free raise + 5th Dan floating bonus = deep
+  WC pool).
+  Trace attribution tags added (``_isawa_3rd_dan_tn_penalty``,
+  ``_isawa_4th_dan_interrupt_lunge``) for future renderer work.
+  Tests: 17 new tests (4064 → 4081), 100% coverage on
+  ``isawa_school.py``. 3rd Dan TN penalty fires empirically vs
+  Akodo across the 10-seed sweep.
+  Deferrals documented:
+  1. **Principle IX 2(a) mirror termination at 300 XP**: skipped
+     via ``@unittest.skip``. Combat-simulator pre-fix audit found
+     5/5 mirror seeds hit the 18-round cap with ZERO offensive
+     actions — both Isawas with ``HoldOneActionStrategy`` default
+     refuse to attack each other. Not caused by Q4/Q6 bugs; a
+     strategy-binding deadlock requiring broader review. Hida
+     precedent applies.
+  2. **Q1 ``_skill_rings["damage"]`` direct mutation tracking**:
+     BACKLOG-flagged. Not tracked in ``_school_owned_*`` so
+     school-negation (Isawa Ishi 5th Dan) doesn't revert it.
+     Cross-school refactor — DEFERRED.
+  3. **Q2 3rd Dan "may" strategic gate** — bonus is unconditional;
+     rules text says "may". Net-positive bonus so kept
+     unconditional.
+  4. ``ISAWA_PRIORITIES`` revision.
+  5. Trace renderer surfacing.
 - **Yogo Warden School** — `specs/021-yogo-warden-school/`,
   merged 2026-05-29. **Audit-and-completion run** on a 116-line
   skeleton with 8 existing tests. Skeleton was largely correct.
@@ -510,11 +562,6 @@ adjacent runs share rules-text patterns and review heuristics.
 ### Bushi schools (direct combat — closest in shape to Mirumoto)
 
 ### Specialty schools (non-bushi combat)
-
-- [ ] **Isawa Duelist School**
-  (`simulation/schools/isawa_school.py`). Phoenix-clan duelist (NOT
-  the same as Isawa Ishi). Has the water-damage skill_ring mutation
-  flagged by the negation refactor.
 
 ### Mystic / monk schools
 

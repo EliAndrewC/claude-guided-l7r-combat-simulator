@@ -192,7 +192,16 @@ class TestIsawaLungeAction(unittest.TestCase):
         self.assertEqual(9, modifier)
 
 
-class TestIsawaAttackDeclaredListener(unittest.TestCase):
+class TestIsawaAttackResolvedListener(unittest.TestCase):
+    """Spec 022 Q3 + Q4 BLOCKING fixes: the 3rd Dan TN penalty
+    listener was renamed from IsawaAttackDeclaredListener to
+    IsawaAttackResolvedListener and now fires on
+    AttackSucceededEvent / AttackFailedEvent (post-resolution) with
+    a parry-attempted gate (rules text: "If a successful or
+    unsuccessful parry is made against your attack, you do not
+    suffer the TN penalty").
+    """
+
     def setUp(self):
         self.isawa = Character("Isawa")
         self.isawa.set_skill("attack", 4)
@@ -203,24 +212,48 @@ class TestIsawaAttackDeclaredListener(unittest.TestCase):
         self.context = EngineContext(groups)
         self.initiative_action = InitiativeAction([1], 1)
 
-    def test_lowers_own_tn_after_attack(self):
+    def test_lowers_own_tn_after_attack_succeeds_unparried(self):
         from simulation.actions import AttackAction
         attack = AttackAction(self.isawa, self.target, "attack", self.initiative_action, self.context)
-        event = events.AttackDeclaredEvent(attack)
-        listener = isawa_school.IsawaAttackDeclaredListener()
+        event = events.AttackSucceededEvent(attack)
+        listener = isawa_school.IsawaAttackResolvedListener()
         responses = list(listener.handle(self.isawa, event, self.context))
-        # Should yield an AddModifierEvent with -5 TN modifier
         self.assertEqual(1, len(responses))
         self.assertTrue(isinstance(responses[0], events.AddModifierEvent))
         modifier = responses[0].modifier
         self.assertEqual(["tn to hit"], modifier.skills())
         self.assertEqual(-5, modifier.adjustment())
+        # Trace attribution tag.
+        self.assertTrue(getattr(modifier, "_isawa_3rd_dan_tn_penalty", False))
+
+    def test_lowers_own_tn_after_attack_fails_unparried(self):
+        """Q3: TN penalty applies on both succeed AND fail (no parry)."""
+        from simulation.actions import AttackAction
+        attack = AttackAction(self.isawa, self.target, "attack", self.initiative_action, self.context)
+        event = events.AttackFailedEvent(attack)
+        listener = isawa_school.IsawaAttackResolvedListener()
+        responses = list(listener.handle(self.isawa, event, self.context))
+        self.assertEqual(1, len(responses))
+
+    def test_no_tn_penalty_when_attack_was_parried(self):
+        """Spec 022 Q3 BLOCKING fix: rules text "If a successful or
+        unsuccessful parry is made against your attack, you do not
+        suffer the TN penalty" — listener MUST skip the modifier
+        when ``parry_attempted()`` is True."""
+        from simulation.actions import AttackAction
+        attack = AttackAction(self.isawa, self.target, "attack", self.initiative_action, self.context)
+        attack.set_parry_attempted()
+        event = events.AttackFailedEvent(attack)
+        listener = isawa_school.IsawaAttackResolvedListener()
+        responses = list(listener.handle(self.isawa, event, self.context))
+        # Q3 fix: no AddModifierEvent when parry was attempted.
+        self.assertEqual(0, len(responses))
 
     def test_no_event_when_not_subject(self):
         from simulation.actions import AttackAction
         attack = AttackAction(self.target, self.isawa, "attack", self.initiative_action, self.context)
-        event = events.AttackDeclaredEvent(attack)
-        listener = isawa_school.IsawaAttackDeclaredListener()
+        event = events.AttackSucceededEvent(attack)
+        listener = isawa_school.IsawaAttackResolvedListener()
         responses = list(listener.handle(self.isawa, event, self.context))
         self.assertEqual(0, len(responses))
 
