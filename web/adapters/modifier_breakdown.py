@@ -103,6 +103,19 @@ def _is_hida_bushi(character: Any) -> bool:
     return bool(school.name() == "Hida Bushi School")
 
 
+def _is_kakita_bushi(character: Any) -> bool:
+    """True iff the character's school is the Kakita Bushi School.
+
+    Note: the rules-text title is "Kakita Duelist School" but the
+    skeleton registers as "Kakita Bushi School" (specs/013
+    OPEN_QUESTIONS Q1; deferred rename).
+    """
+    school = character.school() if hasattr(character, "school") else None
+    if school is None:
+        return False
+    return bool(school.name() == "Kakita Bushi School")
+
+
 def explain_modifier(
     character: Any,
     skill: str,
@@ -271,6 +284,33 @@ def explain_modifier(
     # ATTACKER's attack roll regardless of the attacker's own school
     # (rules/04-schools.md "Hida Bushi School: Special Ability").
     # ``HidaTakeCounterattackActionEvent`` tags the attack action with
+    # Kakita 2nd Dan free raise on iaijutsu rolls + Kakita 3rd Dan
+    # tempo bonus on all attack-class rolls (trace-auditor + trace-
+    # reader fixes 2026-05-29).  rules/04-schools.md "Kakita Duelist
+    # School: Second Dan" + "Third Dan".  The tempo bonus is tagged
+    # on the action by ``_kakita_tempo_bonus`` in
+    # ``simulation/schools/kakita_school.py`` with the per-source
+    # breakdown ``(bonus, tempo_diff, attack_skill)``.
+    if _is_kakita_bushi(character):
+        rank = _school_rank(character)
+        if rank >= 2 and skill == "iaijutsu":
+            contributions.append(("Kakita 2nd Dan free raise", 5))
+        if action is not None and rank >= 3:
+            tempo_tag = getattr(action, "_kakita_3rd_dan_tempo", None)
+            if isinstance(tempo_tag, tuple) and len(tempo_tag) == 3:
+                tempo_bonus, tempo_diff, attack_skill = tempo_tag
+                if (
+                    isinstance(tempo_bonus, int)
+                    and isinstance(tempo_diff, int)
+                    and isinstance(attack_skill, int)
+                    and tempo_bonus > 0
+                ):
+                    contributions.append((
+                        f"Kakita 3rd Dan tempo bonus "
+                        f"(attack {attack_skill} × {tempo_diff} phases)",
+                        tempo_bonus,
+                    ))
+
     # ``_counterattack_roll_bonus`` when the Hida counterattacks as a
     # 1-die interrupt; the engine then adds that value directly to the
     # attacker's roll. The trace must show the +5 with a source label

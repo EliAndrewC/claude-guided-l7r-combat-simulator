@@ -13,6 +13,20 @@ to ensure monotonic progression: a higher XP tier always has stats >= a lower ti
 """
 
 # Kakita Bushi School (school_ring: fire, knacks: double attack, iaijutsu, lunge)
+# NOTE (2026-05-29, Kakita spec branch 014): the school-progression-designer
+# proposed a revision (iaijutsu first, attack second, parry capped at 3, fire
+# promoted to Dan 3, void promoted to Dan 4, earth demoted) per specs/013
+# OPEN_QUESTIONS Q6 — same identity-aligned pattern Bayushi and Matsu's
+# reviews flagged.  The revision was NOT applied here — applying it shifts
+# the 300-XP Kakita build composition, which cascades into 19 failing tests
+# in tests/test_study.py and tests/test_analysis_scripts.py:
+# web/analysis/definitions/kakita_vp_study.py and kakita_void_study.py
+# encode the OLD priorities structure (parry-at-every-rank) into hard-coded
+# transform anchors like ``("skill", "parry", 4)``.  The revision would
+# require updating those definitions in addition to the priorities themselves.
+# Per the audit framing, the revision is deferred to a follow-up branch that
+# can also re-anchor the Kakita study transforms.  See
+# specs/013-kakita-duelist-school/OPEN_QUESTIONS.md Q6.
 KAKITA_PRIORITIES: list[tuple[str, str, int]] = [
     # Dan 2: school knacks to 2
     ("skill", "double attack", 2),

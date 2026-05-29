@@ -41,8 +41,27 @@ class KakitaBushiSchool(BaseSchool):
         self._set_school_action_factory(character, KAKITA_ACTION_FACTORY)
 
     def apply_special_ability(self, character: Any) -> None:
+        # rules/04-schools.md "Kakita Duelist School: Special Ability":
+        # "Your 10s on initiative rolls are considered to be in a
+        #  special Phase 0.  You may use interrupt actions to attack
+        #  using iaijutsu, and any Phase 0 attacks use iaijutsu."
+        #
+        # Wiring per school-strategy-designer (specs/013 OPEN_QUESTIONS Q3):
+        # The default attack strategy MUST be ``KakitaInterruptAttackStrategy``
+        # (NOT ``KakitaAttackStrategy``).  The Special Ability grants
+        # iaijutsu as an interrupt skill (via ``add_interrupt_skill``
+        # below), but the base ``KakitaAttackStrategy`` only handles
+        # current-action attacks — it does NOT check
+        # ``has_interrupt_action`` and so never fires an interrupt
+        # iaijutsu when the Kakita has no current action but does have
+        # future action dice.  Net effect of the prior default: the
+        # Special Ability's interrupt-iaijutsu clause was structurally
+        # dead — a Constitution Principle VIII identity bug.
+        # ``KakitaInterruptAttackStrategy`` extends the base and adds
+        # the interrupt-iaijutsu branch, making the wired
+        # ``add_interrupt_skill("iaijutsu")`` actually produce behavior.
         self._set_school_roll_provider(character, KAKITA_ROLL_PROVIDER)
-        self._set_school_strategy(character, "attack", KAKITA_ATTACK_STRATEGY)
+        self._set_school_strategy(character, "attack", KAKITA_INTERRUPT_ATTACK_STRATEGY)
         self._set_school_strategy(character, "parry", KAKITA_PARRY_STRATEGY)
         character.add_interrupt_skill("iaijutsu")
 
@@ -287,6 +306,36 @@ class ContestedIaijutsuAttackDeclaredStrategy(Listener):
         yield from ()
 
 
+def _kakita_tempo_bonus(action: Any) -> tuple[int, int, int]:
+    """Compute the Kakita 3rd Dan tempo bonus for ``action``.
+
+    Returns ``(tempo_bonus, tempo_diff, attack_skill)``.  Also tags
+    the action with ``_kakita_3rd_dan_tempo`` so the trace formatter
+    can attribute the bonus per Principle VII (trace-auditor P0 /
+    trace-reader Wrong #1 fix, 2026-05-29).
+
+    rules/04-schools.md "Kakita Duelist School: Third Dan":
+      "Your attacks get a bonus of X for each phase before the
+       defender's next action they occur, where X is equal to your
+       attack skill.  If a defender does not have an action
+       remaining in this round, they are considered to act in phase
+       11.  This applies to all types of attacks, and you know the
+       next action of everyone within striking range."
+    """
+    subject_tempo = action.context().phase()
+    target_tempo = 11
+    if len(action.target().actions()) > 0:
+        target_tempo = min(action.target().actions())
+    tempo_diff = max(0, target_tempo - subject_tempo)
+    attack_skill = action.subject().skill("attack")
+    tempo_bonus = attack_skill * tempo_diff
+    # Tag the action so the trace formatter can surface the bonus
+    # with explicit source attribution per Principle VII.  Reads:
+    # ``("Kakita 3rd Dan: tempo bonus (attack {skill} × {diff} phases)", bonus)``.
+    action._kakita_3rd_dan_tempo = (tempo_bonus, tempo_diff, attack_skill)
+    return (tempo_bonus, tempo_diff, attack_skill)
+
+
 class KakitaAttackAction(AttackAction):
     """
     AttackAction to implement the Kakita Bushi School Third Dan
@@ -302,13 +351,7 @@ class KakitaAttackAction(AttackAction):
 
     def skill_roll_params(self) -> tuple[int, int, int]:
         (rolled, kept, modifier) = self.subject().get_skill_roll_params(self.target(), self.skill(), vp=self.vp())
-        # calculate tempo bonus
-        subject_tempo = self.context().phase()
-        target_tempo = 11
-        if len(self.target().actions()) > 0:
-            target_tempo = min(self.target().actions())
-        tempo_diff = max(0, target_tempo - subject_tempo)
-        tempo_bonus = self.subject().skill("attack") * tempo_diff
+        tempo_bonus, _, _ = _kakita_tempo_bonus(self)
         return (rolled, kept, modifier + tempo_bonus)
 
 
@@ -320,13 +363,7 @@ class KakitaDoubleAttackAction(DoubleAttackAction):
 
     def skill_roll_params(self) -> tuple[int, int, int]:
         (rolled, kept, modifier) = self.subject().get_skill_roll_params(self.target(), self.skill(), vp=self.vp())
-        # calculate tempo bonus
-        subject_tempo = self.context().phase()
-        target_tempo = 11
-        if len(self.target().actions()) > 0:
-            target_tempo = min(self.target().actions())
-        tempo_diff = max(0, target_tempo - subject_tempo)
-        tempo_bonus = self.subject().skill("attack") * tempo_diff
+        tempo_bonus, _, _ = _kakita_tempo_bonus(self)
         return (rolled, kept, modifier + tempo_bonus)
 
 
@@ -338,13 +375,7 @@ class KakitaLungeAction(LungeAction):
 
     def skill_roll_params(self) -> tuple[int, int, int]:
         (rolled, kept, modifier) = self.subject().get_skill_roll_params(self.target(), self.skill(), vp=self.vp())
-        # calculate tempo bonus
-        subject_tempo = self.context().phase()
-        target_tempo = 11
-        if len(self.target().actions()) > 0:
-            target_tempo = min(self.target().actions())
-        tempo_diff = max(0, target_tempo - subject_tempo)
-        tempo_bonus = self.subject().skill("attack") * tempo_diff
+        tempo_bonus, _, _ = _kakita_tempo_bonus(self)
         return (rolled, kept, modifier + tempo_bonus)
 
 
@@ -482,6 +513,10 @@ class KakitaParryStrategy(BaseParryStrategy):
 
 # singleton instances
 KAKITA_ATTACK_STRATEGY = KakitaAttackStrategy()
+# Per strategy-designer's HIGH-severity fix (specs/013 OPEN_QUESTIONS Q3):
+# the school default is the interrupt-aware variant so the Special Ability's
+# interrupt-iaijutsu clause actually produces behavior.
+KAKITA_INTERRUPT_ATTACK_STRATEGY = KakitaInterruptAttackStrategy()
 KAKITA_PARRY_STRATEGY = KakitaParryStrategy()
 
 
