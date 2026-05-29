@@ -30,12 +30,53 @@ class TestIseZumiSchoolBasics(unittest.TestCase):
         self.assertEqual("Togashi Ise Zumi School", school.name())
 
     def test_extra_rolled(self):
+        """Spec 024 Q3 BLOCKING fix: rules text "Roll one extra die
+        on athletics, initiative, and wound checks." The previous
+        skeleton returned ["attack", "parry", "athletics"] which
+        omitted initiative + wound check and added attack/parry
+        (NOT in the rules clause)."""
         school = ise_zumi_school.TogashiIseZumiSchool()
-        self.assertEqual(["attack", "parry", "athletics"], school.extra_rolled())
+        self.assertEqual(
+            ["athletics", "initiative", "wound check"],
+            school.extra_rolled(),
+        )
 
-    def test_school_ring(self):
+    def test_school_ring_default_is_void(self):
+        """Spec 024 Q4 fix: base school ring is Void, but the 4th
+        Dan ability permits player choice of any Ring including Void."""
         school = ise_zumi_school.TogashiIseZumiSchool()
         self.assertEqual("void", school.school_ring())
+
+    def test_school_ring_choice_overrides_default(self):
+        """Spec 024 Q4 fix: player can choose any Ring via the
+        ``school_ring`` school_choices key (Monk/Ide precedent).
+        Per rules text "any Ring", Void is also a valid choice."""
+        for chosen in ("air", "earth", "fire", "water", "void"):
+            with self.subTest(chosen=chosen):
+                school = ise_zumi_school.TogashiIseZumiSchool()
+                school.set_choice("school_ring", chosen)
+                self.assertEqual(chosen, school.school_ring())
+
+    def test_school_ring_invalid_choice_falls_back_to_default(self):
+        """Invalid choice MUST log a warning and fall back to the
+        default void — never crash the build."""
+        school = ise_zumi_school.TogashiIseZumiSchool()
+        school.set_choice("school_ring", "earth-water-fire-air")
+        self.assertEqual("void", school.school_ring())
+        school2 = ise_zumi_school.TogashiIseZumiSchool()
+        school2.set_choice("school_ring", 42)
+        self.assertEqual("void", school2.school_ring())
+
+    def test_fourth_dan_raises_chosen_ring(self):
+        """Spec 024 Q4 fix: choosing a non-default school_ring
+        redirects the 4th Dan +1 ring bump (Monk/Ide precedent)."""
+        zumi = Character("Zumi")
+        zumi.set_ring("fire", 3)
+        school = ise_zumi_school.TogashiIseZumiSchool()
+        school.set_choice("school_ring", "fire")
+        school.apply_rank_four_ability(zumi)
+        # 4th Dan +1 should land on fire, not the default void.
+        self.assertEqual(4, zumi.ring("fire"))
 
     def test_school_knacks(self):
         school = ise_zumi_school.TogashiIseZumiSchool()

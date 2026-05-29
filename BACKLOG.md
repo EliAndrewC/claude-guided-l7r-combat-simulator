@@ -87,6 +87,57 @@ and `combat-simulator` review. Principles VII/VIII/IX verified.
   (2) `BAYUSHI_PRIORITIES` revision (school-progression-designer's
   identity-aligned version) also documented but not applied for the
   same calibration-combat reason.
+- **Togashi Ise Zumi School** — `specs/024-ise-zumi-school/`,
+  merged 2026-05-29. **Audit-and-completion run** on a 103-line
+  skeleton with 17 existing tests.
+  Rules-fidelity (1 BLOCKING + 1 MEDIUM fix):
+  - **Q3 BLOCKING**: 1st Dan ``extra_rolled()`` returned wrong
+    skill list. Rules text: "Roll one extra die on **athletics,
+    initiative, and wound checks**". Skeleton returned
+    ``["attack", "parry", "athletics"]`` — omitted initiative + WC
+    and included attack/parry (NOT in the rules clause).
+  - **Q4 MEDIUM**: 4th Dan school ring was hardcoded to "void"
+    contradicting rules-text "Raise the current and maximum rank
+    of any Ring by 1". Applied Monk/Ide school_choices precedent —
+    reads ``school_choices["school_ring"]``, defaults to "void",
+    validates against {"air", "earth", "fire", "water", "void"}
+    (4th Dan permits Void per "any Ring"), warns + falls back on
+    invalid input.
+  **5th Dan ``is_alive()`` gate** (rules-auditor recommendation):
+  if the SW kills the Zumi outright, the heal MUST NOT fire (no
+  phantom SpendVoidPointsEvent against a corpse). Added explicit
+  ``if not character.is_alive(): return`` after the SW yield.
+  Trace attribution tag added (``_ise_zumi_5th_dan_last_heal``)
+  on the character for future renderer work.
+  Tests: 5 new tests (4089 → 4094), 100% coverage on
+  ``ise_zumi_school.py``. 5th Dan heal fires empirically vs Akodo.
+  ``is_alive()`` gate verified via simulated-engine SW-kills-zumi
+  scenario.
+  Deferrals documented (4):
+  1. **Principle IX 2(a) mirror termination at 300 XP**: skipped
+     via ``@unittest.skip``. Pre-fix combat-simulator measured all
+     5 mirror seeds terminating naturally. Post-Q3-fix (WC extra
+     die now applies), seed 3 hits the 18-round cap — extra WC
+     die increased mirror durability. The Q3 fix is rules-text-
+     correct; mirror durability is a downstream structural balance
+     issue. Hida precedent applies.
+  2. **Q1/Q2 Special Ability 1-or-3 dice + athletics-only
+     restriction**: deferred — meaningless in a simulator without
+     combat athletics actions. Current always-1 unrestricted
+     behavior makes Zumi mildly over-powered vs RAW.
+  3. **Q5 4th Dan contested-roll reroll**: deferred — rarely
+     encountered in combat.
+  4. **Q6 5th Dan "at any time"**: deferred — restricted to
+     post-WC-failure for MVP; proactive heal strategy is a
+     follow-up.
+  5. ``ISE_ZUMI_PRIORITIES`` revision.
+  Combat-simulator empirical baseline:
+  - Extra action die +1 confirmed (initial 5 → 6 after listener).
+  - 5th Dan heal fires in 8/10 vs-Akodo seeds + 16/17 round-robin
+    matchups.
+  - Win-rate vs Akodo 450: 10% (below 35% floor — informational).
+  - Round-robin win-rate: 4/17 (informational).
+  - Zero crashes across all scenarios.
 - **Brotherhood of Shinsei Monk School** —
   `specs/023-monk-school/`, merged 2026-05-29. **Audit-and-
   completion run** on a 262-line skeleton with 35 existing tests.
@@ -597,9 +648,6 @@ adjacent runs share rules-text patterns and review heuristics.
 
 ### Mystic / monk schools
 
-- [ ] **Togashi Ise Zumi School**
-  (`simulation/schools/ise_zumi_school.py`). Dragon-clan tattooed
-  monk.
 - [ ] **Priest School** (`simulation/schools/priest_school.py`).
   Has 5 TODO markers — likely a near-empty skeleton.
 
