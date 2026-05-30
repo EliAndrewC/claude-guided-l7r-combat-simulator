@@ -1,6 +1,6 @@
 ---
 name: trace-reader
-description: Read-only fresh-reader reviewer for combat trace UX intuitiveness. Where `trace-auditor` checks Principle VII compliance ("every value has source attribution"), `trace-reader` checks whether the trace looks coherent, well-structured, and intuitive to a rules-literate playtester reading it for the first time. Reads BOTH TextRenderer and BulletedRenderer output from a scripted probe combat. Catches: events run together without separators, projection-vs-actual mismatches, zero-value rendering noise, misapplied labels, redundant information, special-action rendering (feints showing damage breakdowns, void-negated abilities still rendering, etc.), AND state-consistency violations across adjacent events (a status block showing Actions:[] immediately followed by that character attacking, or LW shown as N then the next line treats them as LW 0, etc.). Reports issues with severity Confusing / Misleading / Wrong.
+description: Read-only fresh-reader reviewer for combat trace UX intuitiveness. Where `trace-auditor` checks Principle VII compliance ("every value has source attribution"), `trace-reader` checks whether the trace looks coherent, well-structured, and intuitive to a rules-literate playtester reading it for the first time. Reads BOTH TextRenderer and BulletedRenderer output from a scripted probe combat. Catches: events run together without separators, projection-vs-actual mismatches, zero-value rendering noise, misapplied labels, redundant information, special-action rendering (feints showing damage breakdowns, void-negated abilities still rendering, etc.), state-consistency violations across adjacent events (a status block showing Actions:[] immediately followed by that character attacking, or LW shown as N then the next line treats them as LW 0, etc.), AND school-override visibility on "looks-like-rules-violation" events (e.g., auto-SW after a failed parry without Mirumoto 4th Dan attribution — engine-correct but reader-confusing). Reports issues with severity Confusing / Misleading / Wrong.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -153,6 +153,84 @@ This split matches the two repair vectors (move the snapshot
 earlier in the engine-event sequence, or later) so the agent
 report points the implementer at the right fix axis.
 
+## 10. School-override visibility on "looks-like-rules-violation" events
+
+L7R schools layer SCHOOL-SPECIFIC OVERRIDES onto general combat
+rules. When the trace shows mechanically-correct behavior that
+contradicts the GENERAL rule (because a school override fires),
+the school attribution MUST be visible on the line. Without that
+attribution a rules-literate reader concludes the engine has a
+bug — and a sufficiently confident reader files it as one.
+
+The pattern is distinct from category #4 (label-appropriateness)
+because the existing label is TECHNICALLY accurate at the
+general-mechanic level (e.g., "double attack penalty" is the
+general-rule name for the auto-SW); it's just hiding the
+school override that actually fired. Distinct from
+trace-auditor's Principle VII scope because the value's source
+IS technically attributed at the mechanic level — what's missing
+is the SCHOOL attribution that explains why the mechanic fires
+at all in this context.
+
+**Example failure** (real, 2026-05-30 user-reported as a "clear
+rules violation"):
+```
+Courtier | 🛡️ parries Mirumoto — 8k3 → 23 vs TN 47 — FAILED
+Courtier | 💔 Courtier takes 1 serious wound (double attack penalty)
+```
+General rule (rules/05-school_knacks "Double Attack"): "On an
+unsuccessful parry, this extra serious wound becomes 2 extra
+rolled damage dice". So a failed parry should NEGATE the auto-SW,
+not produce it. The engine correctly applies a MIRUMOTO 4TH DAN
+OVERRIDE ("Failed parries against your double attacks do not
+prevent the automatic serious wound") — but the rendered line
+just says "(double attack penalty)", indistinguishable from the
+generic no-parry-attempted case. A reader with the rules in hand
+files it as a violation. **Severity: Misleading.**
+
+Patterns to scan for:
+
+- An auto-SW lands after a **failed** parry without "Mirumoto
+  4th Dan" or similar school-override label.
+- A "double attack penalty" SW fires AND a parry was attempted
+  on the previous line — the suffix should explain why the
+  general rule (auto-SW negated) didn't apply.
+- Damage dice are FULLY zeroed (not just reduced) after a failed
+  parry without explicit school attribution — possible engine
+  drift from the rules-text reduction-by-parry-skill formula.
+- A character voluntarily takes SW in a context the generic
+  "voluntary SW to clear LW after passed WC" mechanic does NOT
+  cover — e.g., MORE THAN ONE SW taken voluntarily in a single
+  decision, voluntary SW without a preceding passed WC, or
+  voluntary SW that doesn't reset LW to 0. These suggest a
+  school-specific extension (Akodo 3rd Dan, Hida 4th Dan SW-for-LW
+  trade) that needs explicit attribution. The standard
+  ``chooses to take 1 serious wound (LW N → 0)`` line on a
+  non-Akodo character is the GENERIC mechanic and needs no
+  school label.
+- A character spends VP on a roll BEFORE the roll fires
+  (unusual — most VP spending is post-roll), without a school
+  label explaining the pre-commit (Akodo 4th Dan / Bayushi
+  4th Dan / Ide 3rd Dan style).
+- A character's ring/stat changes mid-combat with no rendered
+  event (Kitsuki 5th Dan ring debuff, etc.).
+- A character's max-VP cap is exceeded in a status block
+  without attribution (Akodo TVP — already handled by category
+  #9, but worth cross-checking that the attribution surfaces).
+
+When you flag a #10 issue, name the SUSPECTED override (school
++ Dan level) so the implementer can grep the engine for the
+existing tag mechanism. The fix is almost always to plumb a new
+boolean / source string from the school's event-emission site
+through to the trace entry and renderer.
+
+**Note**: a #10 finding is NOT a rules-fidelity claim against
+the engine — it's a TRACE-CLARITY claim. The engine usually
+implements the override correctly; the rendered trace just
+doesn't explain it. The fix lives in the school file (add a
+marker), the trace entry (carry the marker), and the renderer
+(emit a suffix conditional on the marker).
+
 # What you DON'T check
 
 - **Engine behavior correctness**: that's `combat-simulator`.
@@ -253,6 +331,7 @@ Block merge on Wrong and Misleading. Flag Confusing and Noisy as recommendations
 - Special-action rendering: ...
 - Cross-renderer consistency: ...
 - State consistency across adjacent events: ...
+- School-override visibility on looks-like-rules-violation events: ...
 
 ### Issues found
 
