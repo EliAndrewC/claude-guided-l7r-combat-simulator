@@ -1,6 +1,6 @@
 ---
 name: trace-reader
-description: Read-only fresh-reader reviewer for combat trace UX intuitiveness. Where `trace-auditor` checks Principle VII compliance ("every value has source attribution"), `trace-reader` checks whether the trace looks coherent, well-structured, and intuitive to a rules-literate playtester reading it for the first time. Reads BOTH TextRenderer and BulletedRenderer output from a scripted probe combat. Catches: events run together without separators, projection-vs-actual mismatches, zero-value rendering noise, misapplied labels, redundant information, special-action rendering (feints showing damage breakdowns, void-negated abilities still rendering, etc.). Reports issues with severity Confusing / Misleading / Wrong.
+description: Read-only fresh-reader reviewer for combat trace UX intuitiveness. Where `trace-auditor` checks Principle VII compliance ("every value has source attribution"), `trace-reader` checks whether the trace looks coherent, well-structured, and intuitive to a rules-literate playtester reading it for the first time. Reads BOTH TextRenderer and BulletedRenderer output from a scripted probe combat. Catches: events run together without separators, projection-vs-actual mismatches, zero-value rendering noise, misapplied labels, redundant information, special-action rendering (feints showing damage breakdowns, void-negated abilities still rendering, etc.), AND state-consistency violations across adjacent events (a status block showing Actions:[] immediately followed by that character attacking, or LW shown as N then the next line treats them as LW 0, etc.). Reports issues with severity Confusing / Misleading / Wrong.
 tools: Read, Grep, Glob, Bash
 ---
 
@@ -96,6 +96,62 @@ Other cross-renderer concerns:
 - Same label for the same source ("Bayushi 2nd Dan free raise" vs. "Bayushi 2nd Dan" — even small variations are confusing).
 - Same numeric format (e.g., `(base TN 30 + 4 raises × +5 for double attack)` vs `(base TN 30, +20 from 4 raises for double attack)`).
 - Same event-ordering invariants (an event that fires after the attack outcome in TextRenderer should also fire after in BulletedRenderer).
+
+## 9. State consistency across adjacent events
+
+Status snapshots (`**Status:**` blocks, initiative listings, etc.)
+show character state at a moment in time. The events rendered
+immediately AFTER a status snapshot must be plausible given that
+snapshot — a reader who reads top-to-bottom should never see a
+character do something the just-shown state says they can't.
+
+This is distinct from category #2 (projection-vs-actual): #2 is
+about a single event's promise contradicting its result; #9 is
+about a snapshot's state contradicting the very next action.
+
+**Example failure** (real, 2026-05-30 user report):
+```
+**Status:**
+- **Courtier**: Light 0 | Serious 4/8 | Void 1/4 | Actions: [] | CRIPPLED
+- **Mirumoto**: Light 0 | Serious 0/8 | Void 2/4 | Actions: []
+
+Phase 5 | Mirumoto | ⚔️ attacks Courtier (double attack) — ...
+```
+The Status block shows Mirumoto with **`Actions: []`**, yet the
+very next event has Mirumoto declaring an attack. The reader is
+left wondering "wait, how can Mirumoto attack with no actions?"
+The data is technically correct (the snapshot was taken just
+AFTER the action die was spent), but the rendering implies an
+illegal action. **Severity: Misleading.**
+
+Patterns to watch for in this category:
+- Status: `Actions: []` → next line: that character attacks /
+  parries / counters.
+- Status: `Light: N` (with N > 0) → next line: that character at
+  LW 0 without a preceding wound check or LW-reset event.
+- Status: `Void: 0/M` → next line: that character spends VP.
+- Status: `Crippled` flag set → next line shows the character
+  performing an action a crippled character cannot take, with no
+  intervening status update.
+- Initiative listing: all dice unused → next line shows a
+  character mid-action without consuming a die.
+- A status block shown right BEFORE a damage event already
+  reflects the post-damage SW count — snapshot taken too LATE
+  (showing state after an effect that hasn't been rendered yet).
+- A status block shown right AFTER a damage event still shows
+  the pre-damage SW count — snapshot taken too EARLY (showing
+  state from before an effect the reader has already seen
+  applied).
+
+When you flag a #9 issue, identify the timing skew direction:
+- **Too early** — snapshot reflects pre-effect state but is
+  rendered after the effect has already landed in the trace.
+- **Too late** — snapshot reflects post-effect state but is
+  rendered before the effect has been shown to the reader.
+
+This split matches the two repair vectors (move the snapshot
+earlier in the engine-event sequence, or later) so the agent
+report points the implementer at the right fix axis.
 
 # What you DON'T check
 
@@ -196,6 +252,7 @@ Block merge on Wrong and Misleading. Flag Confusing and Noisy as recommendations
 - Visual hierarchy: ...
 - Special-action rendering: ...
 - Cross-renderer consistency: ...
+- State consistency across adjacent events: ...
 
 ### Issues found
 
