@@ -21,13 +21,41 @@
 
 from __future__ import annotations
 
+import importlib
 import re
 import sys
 from typing import Any
 
-import streamlit.web.server.server_util as _server_util
+# Locate ``make_url_path_regex`` across Streamlit versions. As of
+# 1.54 it lives in ``streamlit.web.server.server_util``; older /
+# newer versions may relocate it. We search candidate locations
+# rather than hard-coding one, so a Streamlit upgrade that moves
+# the function gives a clear "couldn't find it" error instead of
+# a silent attribute miss during patch application.
+_CANDIDATE_MODULES: tuple[str, ...] = (
+    "streamlit.web.server.server_util",
+    "streamlit.web.server.routes",
+    "streamlit.web.server.server",
+)
 
-_ORIG_MAKE_URL_PATH_REGEX = _server_util.make_url_path_regex
+
+def _find_make_url_path_regex() -> tuple[Any, str]:
+    for module_name in _CANDIDATE_MODULES:
+        try:
+            mod = importlib.import_module(module_name)
+        except ImportError:  # pragma: no cover  # defensive: candidate modules are version-specific
+            continue
+        if hasattr(mod, "make_url_path_regex"):
+            return mod, module_name
+    raise RuntimeError(  # pragma: no cover  # defensive: would only fire after a Streamlit refactor that relocates the function
+        f"Streamlit launcher patch FAILED: ``make_url_path_regex`` "
+        f"not found in any of {_CANDIDATE_MODULES}. The Streamlit "
+        f"framework may have relocated it; re-audit web/launcher.py."
+    )
+
+
+_OWNER_MODULE, _OWNER_NAME = _find_make_url_path_regex()
+_ORIG_MAKE_URL_PATH_REGEX = _OWNER_MODULE.make_url_path_regex
 
 
 def _patched_make_url_path_regex(*path: str, **kwargs: Any) -> str:
@@ -38,7 +66,7 @@ def _patched_make_url_path_regex(*path: str, **kwargs: Any) -> str:
     unchanged — those are registered separately by Streamlit and
     already work for multi-page navigation.
     """
-    pattern = _ORIG_MAKE_URL_PATH_REGEX(*path, **kwargs)
+    pattern: str = _ORIG_MAKE_URL_PATH_REGEX(*path, **kwargs)
     if "_stcore" in pattern and pattern.startswith("^/"):
         # Insert ``(?:/[^/]+)*`` between the leading ``^`` and ``/``
         # so the regex tolerates zero-or-more leading path segments
@@ -47,21 +75,28 @@ def _patched_make_url_path_regex(*path: str, **kwargs: Any) -> str:
     return pattern
 
 
-# Also patch already-imported references — server.py captures the
-# function at module-import time via ``from server_util import
-# make_url_path_regex``, so the rebound module attribute alone won't
-# affect the already-bound name in server.py.
-_server_util.make_url_path_regex = _patched_make_url_path_regex
-try:
-    import streamlit.web.server.server as _server_mod
-    # mypy: server.py does ``from server_util import make_url_path_regex``
-    # which is a re-import, not a re-export. The attribute is present at
-    # runtime (we rely on it to monkey-patch the function reference the
-    # Server class uses) but mypy refuses to acknowledge it. Suppressed
-    # with an inline justification per CLAUDE.md's mypy policy.
-    _server_mod.make_url_path_regex = _patched_make_url_path_regex  # type: ignore[attr-defined]
-except ImportError:  # pragma: no cover  # defensive: server module is always importable here
-    pass
+# Patch the owning module AND every module that re-imported the
+# function via ``from … import make_url_path_regex`` (Python rebinds
+# the name in the importing module's namespace, so patching the
+# owner alone leaves stale references in re-importers).
+_OWNER_MODULE.make_url_path_regex = _patched_make_url_path_regex
+for _candidate in _CANDIDATE_MODULES:
+    try:
+        _mod = importlib.import_module(_candidate)
+    except ImportError:  # pragma: no cover  # defensive: candidate may not exist in older/newer Streamlit
+        continue
+    # ``getattr`` + identity check rebinds the patched function only on
+    # modules that re-imported the original from elsewhere. Using
+    # ``getattr`` with default avoids mypy attr-defined on candidates
+    # that don't expose the symbol at all.
+    _bound = getattr(_mod, "make_url_path_regex", None)
+    if _bound is not None and _bound is _ORIG_MAKE_URL_PATH_REGEX:
+        # mypy: ``_mod`` is statically typed as a module without the
+        # symbol because the candidate list spans Streamlit versions;
+        # the runtime ``hasattr`` guard above proves the attribute
+        # exists here. Suppressed with inline justification per
+        # CLAUDE.md's mypy policy.
+        _mod.make_url_path_regex = _patched_make_url_path_regex  # type: ignore[attr-defined]
 
 
 def _assert_patch_active() -> None:
@@ -70,7 +105,7 @@ def _assert_patch_active() -> None:
     changes the regex shape produces a clear error rather than a
     silent regression to the 404 behavior we're fixing.
     """
-    sample = _server_util.make_url_path_regex("", "_stcore/health")
+    sample = _OWNER_MODULE.make_url_path_regex("", "_stcore/health")
     if not re.match(sample, "/Run_Simulation/_stcore/health"):
         raise RuntimeError(
             f"Streamlit launcher patch FAILED: regex {sample!r} does "

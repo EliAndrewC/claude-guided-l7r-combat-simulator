@@ -1,7 +1,7 @@
 FROM python:3.10-slim
 WORKDIR /app
 COPY requirements.in .
-RUN pip install --no-cache-dir streamlit pyyaml
+RUN pip install --no-cache-dir streamlit==1.54.0 pyyaml
 COPY simulation/ simulation/
 COPY web/ web/
 COPY .streamlit/ .streamlit/
