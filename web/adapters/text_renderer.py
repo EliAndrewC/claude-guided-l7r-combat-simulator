@@ -19,6 +19,7 @@ from web.adapters.trace_entries import (
     AttackEntry,
     ComponentDelta,
     CounterattackEntry,
+    CounterDamageDealtEntry,
     DeathEntry,
     DuelEndedEntry,
     DuelInitiativeRolledEntry,
@@ -34,8 +35,10 @@ from web.adapters.trace_entries import (
     IaijutsuStrikeEntry,
     InitiativeEntry,
     KeepLightWoundsEntry,
+    KitsukiRingReductionEntry,
     LightWoundsDamageEntry,
     MatsuLwFloorEntry,
+    MerchantRerollEntry,
     ModifierDelta,
     ParryEntry,
     PhaseHeaderEntry,
@@ -268,6 +271,12 @@ class TextRenderer:
             return self._render_school_negated(entry)
         if isinstance(entry, AkodoFifthDanCounterEntry):
             return self._render_akodo_5th_dan_counter(entry)
+        if isinstance(entry, CounterDamageDealtEntry):
+            return self._render_counter_damage_dealt(entry)
+        if isinstance(entry, KitsukiRingReductionEntry):
+            return self._render_kitsuki_ring_reduction(entry)
+        if isinstance(entry, MerchantRerollEntry):
+            return self._render_merchant_reroll(entry)
         if isinstance(entry, HidaThirdDanRerollEntry):
             return self._render_hida_3rd_dan_reroll(entry)
         if isinstance(entry, HidaSWForLWTradeEntry):
@@ -718,6 +727,10 @@ class TextRenderer:
                 )
             else:
                 sw_str = f"takes {entry.follow_up_sw_count} serious {noun}"
+            # Surface the silent LW reset so the next status block's
+            # ``Light 0`` makes sense (trace-reader sweep 2026-05-30).
+            if entry.lw_before_check > 0:
+                sw_str = f"{sw_str} (LW {entry.lw_before_check} → 0)"
             return [f"{wc_str} → {sw_str}"]
         return [wc_str]
 
@@ -795,6 +808,37 @@ class TextRenderer:
             f"{entry.phase_prefix} ⛔ negates {entry.target_name}'s "
             f"{entry.target_school_name} "
             f"({entry.vp_cost} VP — Isawa Ishi 5th Dan)"
+        ]
+
+    def _render_counter_damage_dealt(
+        self, entry: CounterDamageDealtEntry,
+    ) -> list[str]:
+        # Mirror standard ``💥 takes N light wounds (total: K)`` so
+        # the counter-damaged character's LW total surfaces inline.
+        return [
+            f"{entry.phase_prefix} 💥 takes {entry.damage} light wounds "
+            f"(total: {entry.lw_after})"
+        ]
+
+    def _render_kitsuki_ring_reduction(
+        self, entry: KitsukiRingReductionEntry,
+    ) -> list[str]:
+        deltas = ", ".join(
+            f"{r.title()} {v}→{max(1, v - 1)}"
+            for r, v in entry.ring_values_before.items()
+        )
+        return [
+            f"{entry.phase_prefix} 🔻 Kitsuki 5th Dan: reduces "
+            f"{entry.target_name}'s rings — {deltas}"
+        ]
+
+    def _render_merchant_reroll(
+        self, entry: MerchantRerollEntry,
+    ) -> list[str]:
+        pairs = ", ".join(f"{b}→{a}" for (b, a) in entry.rerolled_pairs)
+        return [
+            f"{entry.phase_prefix} 🎲 Merchant 5th Dan: rerolled "
+            f"{pairs} (on {entry.roll_type} roll)"
         ]
 
     def _render_akodo_5th_dan_counter(

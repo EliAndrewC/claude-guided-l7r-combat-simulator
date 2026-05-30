@@ -479,6 +479,15 @@ class TestEntriesSchoolNegated(unittest.TestCase):
 
 class TestEntriesAkodo5thDanCounter(unittest.TestCase):
     def test_akodo_5th_dan_counter_composes_spend_plus_lw_damage(self):
+        """2026-05-30: formatter now emits TWO entries for an Akodo
+        5th Dan counter-damage event: (1) the combined source
+        ``AkodoFifthDanCounterEntry`` (the formula line), and (2) a
+        discrete ``CounterDamageDealtEntry`` mirroring the standard
+        ``💥 takes N LW (total: K)`` pattern. Pre-fix the reader had
+        to infer the counter-damaged character's new LW from the
+        next wound check's TN.
+        """
+        from web.adapters.trace_entries import CounterDamageDealtEntry
         fmt = DetailedEventFormatter()
         akodo = MagicMock()
         akodo.name.return_value = "Akodo"
@@ -491,12 +500,15 @@ class TestEntriesAkodo5thDanCounter(unittest.TestCase):
             akodo, bayushi, 30, source="Akodo 5th Dan",
         )
         entries = fmt.entries([spend, lw])
-        assert len(entries) == 1
-        e = entries[0]
-        assert isinstance(e, AkodoFifthDanCounterEntry)
-        assert e.vp_spent == 3
-        assert e.damage == 30
-        assert e.target_name == "Bayushi"
+        assert len(entries) == 2
+        akodo_entry, dmg_entry = entries
+        assert isinstance(akodo_entry, AkodoFifthDanCounterEntry)
+        assert akodo_entry.vp_spent == 3
+        assert akodo_entry.damage == 30
+        assert akodo_entry.target_name == "Bayushi"
+        assert isinstance(dmg_entry, CounterDamageDealtEntry)
+        assert dmg_entry.subject_name == "Bayushi"
+        assert dmg_entry.damage == 30
 
 
 class TestEntriesKeepLw(unittest.TestCase):

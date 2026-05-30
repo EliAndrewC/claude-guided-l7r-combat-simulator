@@ -795,3 +795,107 @@ class SchoolNegatedEvent(Event):
         if not isinstance(target_school_name, str):
             raise ValueError("target_school_name parameter must be str")
         self.target_school_name = target_school_name
+
+
+class KitsukiRingReductionEvent(Event):
+    """Event emitted when the Kitsuki 5th Dan ability reduces a
+    target's Air, Fire, and Water rings by 1 each at the start of
+    combat (rules/04-schools.md "Kitsuki Magistrate School: 5th
+    Dan").
+
+    Surfaced as its own event so the trace observer/formatter can
+    render an explicit line — pre-2026-05-30 the ability fired via a
+    bare ``logger.info`` that observers never saw, making the most
+    important Kitsuki ability invisible in the trace (trace-reader
+    sweep finding).
+
+    The ``subject`` is the Kitsuki character. The ``target`` is the
+    chosen opponent. ``ring_values_before`` is a dict mapping the
+    three affected ring names to their pre-reduction value so the
+    reader can see what changed.
+    """
+
+    def __init__(
+        self,
+        subject: Any,
+        target: Any,
+        ring_values_before: dict[str, int],
+    ) -> None:
+        super().__init__("kitsuki_ring_reduction")
+        self.subject = subject
+        self.target = target
+        if not isinstance(ring_values_before, dict):
+            raise ValueError("ring_values_before must be a dict")
+        self.ring_values_before = dict(ring_values_before)
+
+
+class MerchantRerollEvent(Event):
+    """Event emitted when the Merchant 5th Dan ability rerolls dice
+    (rules/04-schools.md "Merchant School: 5th Dan": after any
+    non-initiative roll, may reroll some dice so long as the rerolled
+    dice sum to at least 5×(X-1) where X is the number being
+    rerolled).
+
+    Surfaced as its own event so the trace can show which dice were
+    rerolled and what they became — pre-2026-05-30 the reroll fired
+    via ``logger.debug`` inside the roll provider and was invisible
+    in the trace (trace-reader sweep finding).
+
+    ``subject`` is the Merchant. ``roll_type`` is a short label for
+    which roll the reroll applied to (``"skill"``, ``"wound_check"``,
+    ``"damage"``). ``rerolled_pairs`` is a list of ``(before, after)``
+    tuples — one per rerolled die.
+    """
+
+    def __init__(
+        self,
+        subject: Any,
+        roll_type: str,
+        rerolled_pairs: list[tuple[int, int]],
+    ) -> None:
+        super().__init__("merchant_reroll")
+        self.subject = subject
+        if not isinstance(roll_type, str):
+            raise ValueError("roll_type must be a str")
+        self.roll_type = roll_type
+        if not isinstance(rerolled_pairs, list):
+            raise ValueError("rerolled_pairs must be a list")
+        self.rerolled_pairs = list(rerolled_pairs)
+
+
+class CounterDamageDealtEvent(Event):
+    """Event emitted when the Akodo 5th Dan ability deals
+    counter-damage as raw LW to the original attacker
+    (rules/04-schools.md "Akodo Bushi School: 5th Dan").
+
+    Companion to the ``Akodo 5th Dan: spends N VP on counter-damage``
+    line — emitted right after so the trace shows a discrete
+    ``💥 takes M LW (total: K)`` event with running total, matching
+    the rendering pattern of normal damage events. Pre-2026-05-30
+    the counter-damage was asserted inline (``10 LW × N = M LW
+    dealt to <target>``) but no follow-up LW-applied event fired,
+    forcing the reader to infer the target's new LW total from the
+    next wound check's TN (trace-reader sweep finding).
+
+    ``subject`` is the counter-damaged character (the one taking
+    LW). ``source`` is the Akodo dealing the damage. ``damage`` is
+    the LW count. ``lw_after`` is the target's LW total AFTER the
+    damage lands, for inline rendering as ``(total: K)``.
+    """
+
+    def __init__(
+        self,
+        subject: Any,
+        source: Any,
+        damage: int,
+        lw_after: int,
+    ) -> None:
+        super().__init__("counter_damage_dealt")
+        self.subject = subject
+        self.source = source
+        if not isinstance(damage, int):
+            raise ValueError("damage must be int")
+        self.damage = damage
+        if not isinstance(lw_after, int):
+            raise ValueError("lw_after must be int")
+        self.lw_after = lw_after

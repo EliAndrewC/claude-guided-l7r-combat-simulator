@@ -136,12 +136,24 @@ class KitsukiFifthDanNewRoundListener(Listener):
             if target is None:  # pragma: no cover  # defensive: combat always has at least one opponent
                 return
             target._kitsuki_5th_dan_applied = True
+            ring_values_before: dict[str, int] = {}
             for ring_name in ("air", "fire", "water"):
                 current = target.ring(ring_name)
+                ring_values_before[ring_name] = current
                 target.set_ring(ring_name, max(1, current - 1))
             logger.info(
                 f"{character.name()} (Kitsuki 5th Dan) reduces "
                 f"{target.name()}'s Air, Fire, and Water by 1"
+            )
+            # Emit a proper event so the trace observer/formatter can
+            # surface this ability in the user-visible trace (pre-
+            # 2026-05-30 the bare ``logger.info`` above was the only
+            # signal, invisible to observers; trace-reader sweep
+            # flagged the school's marquee ability as invisible).
+            yield events.KitsukiRingReductionEvent(
+                subject=character,
+                target=target,
+                ring_values_before=ring_values_before,
             )
 
     @staticmethod

@@ -40,6 +40,29 @@ from simulation.strategies.base import (
 # Special Ability: VP spending after initial roll
 # ---------------------------------------------------------------
 
+def _drain_merchant_rerolls(character: Any) -> Iterator[Any]:
+    """Yield a :class:`MerchantRerollEvent` if the character's roll
+    provider stored any pending rerolls since the last drain.
+
+    Called from the merchant's attack-rolled and wound-check-rolled
+    strategies so the 5th Dan rerolls surface in the trace right
+    after the roll that triggered them. Returns silently when the
+    provider isn't the Merchant wrapper or has no pending rerolls
+    (e.g., the school hasn't reached 5th Dan yet).
+    """
+    provider = character.roll_provider()
+    if not isinstance(provider, MerchantRollProvider):
+        return
+    roll_type, pairs = provider.pop_pending_rerolls()
+    if not pairs:
+        return
+    yield events.MerchantRerollEvent(
+        subject=character,
+        roll_type=roll_type or "roll",
+        rerolled_pairs=pairs,
+    )
+
+
 class MerchantAttackOptimizerFactory(AttackOptimizerFactory):
     """Attack optimizer factory that never pre-allocates VP.
 
@@ -75,6 +98,11 @@ class MerchantAttackRolledStrategy(AttackRolledStrategy):
     """
 
     def recommend(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
+        # Surface any 5th Dan rerolls performed by the roll provider
+        # during this attack-roll. Drained BEFORE running the base
+        # strategy so the reroll line precedes any post-roll
+        # VP-spend/AP/conviction events in the trace.
+        yield from _drain_merchant_rerolls(character)
         # Let the base strategy handle AP, floating bonuses, conviction first
         result_events = list(super().recommend(character, event, context))
         # Find the (possibly updated) AttackRolledEvent from the results
@@ -126,6 +154,8 @@ class MerchantWoundCheckRolledStrategy(WoundCheckRolledStrategy):
     """
 
     def recommend(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
+        # Surface any 5th Dan rerolls on this wound check.
+        yield from _drain_merchant_rerolls(character)
         # Let the base strategy handle floating bonuses, AP, conviction first
         result_events = list(super().recommend(character, event, context))
         # Find the (possibly updated) WoundCheckRolledEvent
@@ -252,6 +282,23 @@ class MerchantRollProvider(RollProvider):
             self._reroll_die_provider = reroll_die_provider
         else:
             self._reroll_die_provider = DEFAULT_DIE_PROVIDER
+        # Per-roll reroll log so a listener (or other observer-side
+        # consumer) can drain the most recent reroll's before→after
+        # pairs and emit a ``MerchantRerollEvent`` for the trace.
+        # Pre-2026-05-30 the rerolls were only ``logger.debug`` and
+        # never surfaced in the user-visible trace.
+        self._pending_rerolls: list[tuple[int, int]] = []
+        self._pending_reroll_type: str | None = None
+
+    def pop_pending_rerolls(self) -> tuple[str | None, list[tuple[int, int]]]:
+        """Drain the most recent reroll's (roll_type, [(before, after),
+        ...]) tuple, clearing the internal buffer. Returns
+        ``(None, [])`` when no rerolls are pending."""
+        roll_type = self._pending_reroll_type
+        pairs = list(self._pending_rerolls)
+        self._pending_rerolls = []
+        self._pending_reroll_type = None
+        return roll_type, pairs
 
     def die_provider(self) -> Any:
         result: Any = self._inner.die_provider()
@@ -326,13 +373,17 @@ class MerchantRollProvider(RollProvider):
         if not indices:
             return original_total
 
-        # Reroll those dice
+        # Reroll those dice, recording before→after pairs so an
+        # observer-side consumer can emit a MerchantRerollEvent.
+        self._pending_rerolls = []
+        self._pending_reroll_type = roll_type
         for i in indices:
             old_value = dice[i]
             new_value = self._reroll_die_provider.roll_die()
             logger.debug(
                 f"Merchant 5th Dan: rerolling die {old_value} -> {new_value}"
             )
+            self._pending_rerolls.append((old_value, new_value))
             dice[i] = new_value
 
         # Recompute total: sort descending, sum the kept best

@@ -1013,6 +1013,15 @@ KITSUKI_PRIORITIES: list[tuple[str, str, int]] = [
     ("skill", "iaijutsu", 4),
     ("skill", "discern honor", 3),
     ("skill", "presence", 3),
+    # Knack ranks 4 and 5 — bought EARLY relative to the
+    # max-rings phase because they gate school_rank
+    # (min(knack ranks)) and the 5th Dan ability gates on rank 5.
+    # Capping non-combat knacks at 3 leaves the school stuck at
+    # rank 3 with the marquee 5th Dan ability uninstalled.
+    ("skill", "discern honor", 4),
+    ("skill", "presence", 4),
+    ("skill", "discern honor", 5),
+    ("skill", "presence", 5),
     # Dan 5 — max combat; water max via discount.
     ("skill", "attack", 5),
     ("skill", "parry", 5),
@@ -1120,6 +1129,15 @@ SHOSURO_ACTOR_PRIORITIES: list[tuple[str, str, int]] = [
     ("skill", "athletics", 3),
     ("skill", "discern honor", 3),
     ("skill", "pontificate", 3),
+    # Knack ranks 4 and 5 — bought before max-rings phase since they
+    # gate school_rank (min(knack ranks)) and 5th Dan needs rank 5.
+    # Non-combat by rules text but mandatory for school progression.
+    ("skill", "athletics", 4),
+    ("skill", "discern honor", 4),
+    ("skill", "pontificate", 4),
+    ("skill", "athletics", 5),
+    ("skill", "discern honor", 5),
+    ("skill", "pontificate", 5),
     # Dan 5 — max combat; air discounted via school discount.
     ("skill", "attack", 5),
     ("skill", "parry", 5),

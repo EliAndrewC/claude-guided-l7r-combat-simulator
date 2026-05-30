@@ -200,10 +200,17 @@ class AkodoFifthDanStrategy(Strategy):
                         character, "damage", max_vp,
                         source="Akodo 5th Dan",
                     )
-                    yield events.LightWoundsDamageEvent(
-                        character, event.subject, 10 * max_vp,
+                    counter_damage = 10 * max_vp
+                    counter_event = events.LightWoundsDamageEvent(
+                        character, event.subject, counter_damage,
                         source="Akodo 5th Dan",
                     )
+                    # 2026-05-30: tag the post-damage LW total so the
+                    # trace formatter can render a discrete
+                    # ``💥 takes N LW (total: K)`` line with running
+                    # total (trace-reader sweep fix).
+                    counter_event._lw_after = event.subject.lw() + counter_damage  # type: ignore[attr-defined]
+                    yield counter_event
 
 
 class AkodoWoundCheckSucceededListener(Listener):

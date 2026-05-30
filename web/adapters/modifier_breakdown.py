@@ -116,6 +116,14 @@ def _is_kakita_bushi(character: Any) -> bool:
     return bool(school.name() == "Kakita Bushi School")
 
 
+def _is_hiruma_scout(character: Any) -> bool:
+    """True iff the character's school is the Hiruma Scout School."""
+    school = character.school() if hasattr(character, "school") else None
+    if school is None:
+        return False
+    return bool(school.name() == "Hiruma Scout School")
+
+
 def explain_modifier(
     character: Any,
     skill: str,
@@ -310,6 +318,26 @@ def explain_modifier(
                         f"(attack {attack_skill} × {tempo_diff} phases)",
                         tempo_bonus,
                     ))
+
+    # Hiruma Scout 3rd Dan post-parry attack+damage bonus
+    # (rules/04-schools.md "Hiruma Scout School: Third Dan"). The
+    # school installs a target-scoped Modifier with the
+    # ``_hiruma_3rd_dan`` tag after a successful or failed parry; the
+    # modifier applies to the next attack OR damage roll against the
+    # parried attacker. Surface the source so the reader can connect
+    # the +N on attack/damage back to the earlier parry.
+    if _is_hiruma_scout(character) and action is not None:
+        target = action.target() if hasattr(action, "target") else None
+        if target is not None and hasattr(character, "_modifiers"):
+            for mod in character._modifiers:
+                if not getattr(mod, "_hiruma_3rd_dan", False):
+                    continue
+                applied = mod.apply(target, skill)
+                if applied:
+                    contributions.append(
+                        ("Hiruma 3rd Dan: post-parry bonus", applied),
+                    )
+                    break
 
     # ``_counterattack_roll_bonus`` when the Hida counterattacks as a
     # 1-die interrupt; the engine then adds that value directly to the

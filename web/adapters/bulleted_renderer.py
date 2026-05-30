@@ -39,6 +39,7 @@ from web.adapters.trace_entries import (
     AttackEntry,
     ComponentDelta,
     CounterattackEntry,
+    CounterDamageDealtEntry,
     DamageProjection,
     DeathEntry,
     DuelEndedEntry,
@@ -55,8 +56,10 @@ from web.adapters.trace_entries import (
     IaijutsuStrikeEntry,
     InitiativeEntry,
     KeepLightWoundsEntry,
+    KitsukiRingReductionEntry,
     LightWoundsDamageEntry,
     MatsuLwFloorEntry,
+    MerchantRerollEntry,
     ModifierDelta,
     ParryEntry,
     PhaseHeaderEntry,
@@ -383,6 +386,12 @@ class BulletedRenderer:
             return self._render_school_negated(entry)
         if isinstance(entry, AkodoFifthDanCounterEntry):
             return self._render_akodo_5th_dan_counter(entry)
+        if isinstance(entry, CounterDamageDealtEntry):
+            return self._render_counter_damage_dealt(entry)
+        if isinstance(entry, KitsukiRingReductionEntry):
+            return self._render_kitsuki_ring_reduction(entry)
+        if isinstance(entry, MerchantRerollEntry):
+            return self._render_merchant_reroll(entry)
         if isinstance(entry, HidaThirdDanRerollEntry):
             return self._render_hida_3rd_dan_reroll(entry)
         if isinstance(entry, HidaSWForLWTradeEntry):
@@ -773,8 +782,16 @@ class BulletedRenderer:
         elif entry.follow_up == "take_sw":
             noun = "wound" if entry.follow_up_sw_count == 1 else "wounds"
             verb = "chooses to take" if entry.follow_up_voluntary else "takes"
+            # Surface the LW-reset that the engine performs silently
+            # when SW is taken so the reader can reconcile the next
+            # status block's ``Light 0`` with the prior LW total
+            # (trace-reader sweep 2026-05-30: the LW→0 transition
+            # was previously implicit).
+            lw_reset = ""
+            if entry.lw_before_check > 0:
+                lw_reset = f" (LW {entry.lw_before_check} → 0)"
             lines.append(
-                f"  - {verb} {entry.follow_up_sw_count} serious {noun}"
+                f"  - {verb} {entry.follow_up_sw_count} serious {noun}{lw_reset}"
             )
         return lines
 
@@ -864,12 +881,50 @@ class BulletedRenderer:
         # which trace-reader sweep flagged as opaque (could read as
         # "10 LW dealt 3 times" or "10 LW base scaled by 3 SW" etc.).
         squares = "⬛" * entry.vp_spent
-        vp_word = "VP" if entry.vp_spent == 1 else "VP"
         return [
             f"{entry.phase_prefix} {squares} Akodo 5th Dan: "
-            f"spends {entry.vp_spent} {vp_word} on counter-damage, "
+            f"spends {entry.vp_spent} VP on counter-damage, "
             f"10 LW per VP × {entry.vp_spent} VP = {entry.damage} LW "
             f"dealt to {entry.target_name}"
+        ]
+
+    def _render_counter_damage_dealt(
+        self, entry: CounterDamageDealtEntry,
+    ) -> list[str]:
+        # Mirror the standard ``💥 takes N light wounds (total: K)``
+        # rendering of normal damage events so the reader sees the
+        # counter-damaged character's LW total inline, rather than
+        # having to infer it from the next wound check's TN.
+        return [
+            f"{entry.phase_prefix} 💥 takes {entry.damage} light wounds "
+            f"(total: {entry.lw_after})"
+        ]
+
+    def _render_kitsuki_ring_reduction(
+        self, entry: KitsukiRingReductionEntry,
+    ) -> list[str]:
+        # Surface the marquee Kitsuki 5th Dan ability inline with
+        # explicit before-values so a reader can reconcile the next
+        # status block (where ``target`` now has each ring -1).
+        deltas = ", ".join(
+            f"{r.title()} {v}→{max(1, v - 1)}"
+            for r, v in entry.ring_values_before.items()
+        )
+        return [
+            f"{entry.phase_prefix} 🔻 Kitsuki 5th Dan: reduces "
+            f"{entry.target_name}'s rings — {deltas}"
+        ]
+
+    def _render_merchant_reroll(
+        self, entry: MerchantRerollEntry,
+    ) -> list[str]:
+        # Surface the Merchant 5th Dan reroll inline with each
+        # before→after pair so the reader can see what changed and
+        # which roll category it affected.
+        pairs = ", ".join(f"{b}→{a}" for (b, a) in entry.rerolled_pairs)
+        return [
+            f"{entry.phase_prefix} 🎲 Merchant 5th Dan: rerolled "
+            f"{pairs} (on {entry.roll_type} roll)"
         ]
 
     def _render_hida_3rd_dan_reroll(

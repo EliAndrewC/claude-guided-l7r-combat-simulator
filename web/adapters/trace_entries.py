@@ -291,6 +291,12 @@ class WoundCheckEntry:
     # Default 0 = halving did not apply (the WC was not Bayushi 5th
     # Dan's path, or the WC passed and halving was a no-op).
     bayushi_5th_dan_halved_lw_actual: int = 0
+    # 2026-05-30: LW value at the moment the WC was declared. When a
+    # WC fails and the defender takes SW, the engine resets LW to 0
+    # silently; surfacing the pre-WC value lets renderers append
+    # ``(LW {N} → 0)`` to a failed WC line so the reader can see why
+    # the next status block shows ``Light 0``.
+    lw_before_check: int = 0
     kind: Literal["wound_check"] = "wound_check"
 
 
@@ -381,6 +387,57 @@ class AkodoFifthDanCounterEntry:
     damage: int
     target_name: str
     kind: Literal["akodo_5th_dan_counter"] = "akodo_5th_dan_counter"
+
+
+@dataclass(frozen=True)
+class KitsukiRingReductionEntry:
+    """Kitsuki 5th Dan round-start ring debuff.
+
+    Rendered as a single line surfacing the school identity ability
+    so the reader can see WHICH opponent was chosen and WHAT the
+    pre-reduction ring values were (so the post-reduction values in
+    the next status block are reconcilable).
+    """
+
+    phase_prefix: str
+    subject_name: str
+    target_name: str
+    ring_values_before: dict[str, int]
+    kind: Literal["kitsuki_ring_reduction"] = "kitsuki_ring_reduction"
+
+
+@dataclass(frozen=True)
+class MerchantRerollEntry:
+    """Merchant 5th Dan dice-reroll event.
+
+    Rendered alongside the roll that prompted the reroll so the
+    reader can see what changed: ``Merchant 5th Dan: reroll
+    {before}→{after}, ... (on skill/wound check/damage roll)``.
+    """
+
+    phase_prefix: str
+    subject_name: str
+    roll_type: str
+    rerolled_pairs: tuple[tuple[int, int], ...]
+    kind: Literal["merchant_reroll"] = "merchant_reroll"
+
+
+@dataclass(frozen=True)
+class CounterDamageDealtEntry:
+    """Discrete LW-applied event for Akodo 5th Dan counter-damage.
+
+    Companion to :class:`AkodoFifthDanCounterEntry` — the counter
+    entry shows the formula and the source; this entry mirrors the
+    standard ``💥 takes N LW (total: K)`` pattern of normal damage
+    so the reader can see the target's running LW total inline
+    rather than having to infer it from the next wound check's TN.
+    """
+
+    phase_prefix: str
+    subject_name: str
+    damage: int
+    lw_after: int
+    kind: Literal["counter_damage_dealt"] = "counter_damage_dealt"
 
 
 @dataclass(frozen=True)
@@ -608,6 +665,9 @@ TraceEntry = (
     | SpendFloatingBonusEntry
     | SchoolNegatedEntry
     | AkodoFifthDanCounterEntry
+    | CounterDamageDealtEntry
+    | KitsukiRingReductionEntry
+    | MerchantRerollEntry
     | HidaThirdDanRerollEntry
     | HidaSWForLWTradeEntry
     | MatsuLwFloorEntry

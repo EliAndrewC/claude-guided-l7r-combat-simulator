@@ -32,6 +32,7 @@ from web.adapters.trace_entries import (
     AttackEntry,
     ComponentDelta,
     CounterattackEntry,
+    CounterDamageDealtEntry,
     DamageProjection,
     DeathEntry,
     DuelEndedEntry,
@@ -48,8 +49,10 @@ from web.adapters.trace_entries import (
     IaijutsuStrikeEntry,
     InitiativeEntry,
     KeepLightWoundsEntry,
+    KitsukiRingReductionEntry,
     LightWoundsDamageEntry,
     MatsuLwFloorEntry,
+    MerchantRerollEntry,
     ModifierDelta,
     ParryEntry,
     RoundHeaderEntry,
@@ -384,9 +387,22 @@ class DetailedEventFormatter:
                         history, i + 1, event.subject,
                     )
                     if counter_idx is not None:
+                        counter_evt = history[counter_idx]
                         out.append(self._entry_akodo_5th_dan_counter(
-                            event, history[counter_idx],
+                            event, counter_evt,
                         ))
+                        # 2026-05-30 trace-reader sweep fix: also emit a
+                        # discrete CounterDamageDealtEntry so the trace
+                        # mirrors the normal damage pattern of a "💥
+                        # takes N LW (total: K)" line with running
+                        # total. Pre-fix the reader had to infer the
+                        # counter-damaged character's new LW from the
+                        # next wound check's TN.
+                        out.append(
+                            self._entry_counter_damage_dealt_from_lw(
+                                counter_evt,
+                            ),
+                        )
                         consumed.add(counter_idx)
                         combat_output_since_status = True
                         any_entry_emitted = True
@@ -572,6 +588,21 @@ class DetailedEventFormatter:
 
             elif isinstance(event, events.SchoolNegatedEvent):
                 out.append(self._entry_school_negated(event))
+                combat_output_since_status = True
+                any_entry_emitted = True
+
+            elif isinstance(event, events.KitsukiRingReductionEvent):
+                out.append(self._entry_kitsuki_ring_reduction(event))
+                combat_output_since_status = True
+                any_entry_emitted = True
+
+            elif isinstance(event, events.MerchantRerollEvent):
+                out.append(self._entry_merchant_reroll(event))
+                combat_output_since_status = True
+                any_entry_emitted = True
+
+            elif isinstance(event, events.CounterDamageDealtEvent):
+                out.append(self._entry_counter_damage_dealt(event))
                 combat_output_since_status = True
                 any_entry_emitted = True
 
@@ -1384,6 +1415,7 @@ class DetailedEventFormatter:
                 follow_up_voluntary=follow_up_voluntary,
                 hida_5th_dan_excess_bonus=hida_5th_dan_excess_bonus,
                 bayushi_5th_dan_halved_lw_actual=bayushi_5th_dan_halved_lw_actual,
+                lw_before_check=event.damage,
             )
 
         dice = list(event._detail_dice)
@@ -1407,6 +1439,7 @@ class DetailedEventFormatter:
             follow_up_lw_total=follow_up_lw_total,
             follow_up_voluntary=follow_up_voluntary,
             hida_5th_dan_excess_bonus=hida_5th_dan_excess_bonus,
+            lw_before_check=event.damage,
         )
 
     def _process_wound_check_entry(
@@ -1548,6 +1581,58 @@ class DetailedEventFormatter:
             target_name=event.target.name(),
             target_school_name=event.target_school_name,
             vp_cost=event.vp_cost,
+        )
+
+    def _entry_kitsuki_ring_reduction(
+        self, event: Any,
+    ) -> KitsukiRingReductionEntry:
+        subject = event.subject.name()
+        return KitsukiRingReductionEntry(
+            phase_prefix=self._phase_prefix(subject),
+            subject_name=subject,
+            target_name=event.target.name(),
+            ring_values_before=dict(event.ring_values_before),
+        )
+
+    def _entry_merchant_reroll(self, event: Any) -> MerchantRerollEntry:
+        subject = event.subject.name()
+        return MerchantRerollEntry(
+            phase_prefix=self._phase_prefix(subject),
+            subject_name=subject,
+            roll_type=event.roll_type,
+            rerolled_pairs=tuple(event.rerolled_pairs),
+        )
+
+    def _entry_counter_damage_dealt(
+        self, event: Any,
+    ) -> CounterDamageDealtEntry:
+        subject = event.subject.name()
+        return CounterDamageDealtEntry(
+            phase_prefix=self._phase_prefix(subject),
+            subject_name=subject,
+            damage=event.damage,
+            lw_after=event.lw_after,
+        )
+
+    def _entry_counter_damage_dealt_from_lw(
+        self, lw_event: Any,
+    ) -> CounterDamageDealtEntry:
+        """Build a CounterDamageDealtEntry from a counter-damage
+        ``LightWoundsDamageEvent`` (the Akodo 5th Dan output).
+        Reads the ``_lw_after`` annotation the strategy stamped on
+        the event at emit time.
+
+        NB: ``DamageEvent.subject`` is the INFLICTOR; ``target`` is
+        who takes the damage. The trace entry's ``subject_name``
+        carries who takes the damage (the prefix is "<target> | 💥
+        takes N light wounds").
+        """
+        target_name = lw_event.target.name()
+        return CounterDamageDealtEntry(
+            phase_prefix=self._phase_prefix(target_name),
+            subject_name=target_name,
+            damage=lw_event.damage,
+            lw_after=getattr(lw_event, "_lw_after", lw_event.damage),
         )
 
     def _entry_keep_lw(self, event: Any) -> KeepLightWoundsEntry:

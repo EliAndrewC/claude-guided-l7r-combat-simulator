@@ -200,13 +200,17 @@ def _normalize_breakdown(
     #   (2) Non-overflow reconciliation — the raw sum was already
     #       within the 10k10 cap; the delta comes from another
     #       mechanic the breakdown didn't capture (e.g., feint
-    #       damage reduction, attack_rolled_penalty).  Label as
-    #       "reconciliation" so the renderer uses the standard
-    #       NkM form (no dropped-dice claim).
+    #       damage reduction, counterattack damage formula, Shiba
+    #       3rd Dan parry-damage cap). Pre-2026-05-30 this was
+    #       labeled "reconciliation" — trace-reader sweep flagged
+    #       the term as opaque rules-jargon a fresh reader couldn't
+    #       decode. Renamed to "school adjustment" which at least
+    #       hints at the cause (a school-specific formula not
+    #       captured by the standard breakdown).
     if sum_rolled > 10 or sum_kept > 10:
         label = "from dice in excess of 10k10"
     else:
-        label = "reconciliation"
+        label = "school adjustment"
     return [*components, (label, delta_rolled, delta_kept)]
 
 

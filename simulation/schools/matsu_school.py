@@ -322,7 +322,26 @@ class MatsuSeriousWoundsDamageListener(SeriousWoundsDamageListener):
             # defender.  5th Dan LW-floor — only fires when this Matsu
             # is the attacker AND someone ELSE is the target (not when
             # the Matsu takes SW from another attacker).
-            if event.subject == character and event.target != character:
+            #
+            # 2026-05-30 trace-reader sweep fix: the rules text reads
+            # "After you deal LIGHT WOUNDS which result in the defender
+            # taking one or more serious wounds". The double-attack
+            # mechanical-penalty SW is NOT a wound-check conversion of
+            # light wounds — it's a flat penalty for choosing the
+            # double-attack action. Skipping it here:
+            #   (a) matches the rules-text "from light wounds" trigger,
+            #   (b) prevents the confusing trace ordering where the
+            #       LW-set-to-15 line fires before any damage event
+            #       (the user-reported defect: "takes 1 SW penalty →
+            #       LW set to 15 → takes 63 LW (total: 78)").
+            from_double_attack_penalty = getattr(
+                event, "_from_double_attack", False,
+            )
+            if (
+                event.subject == character
+                and event.target != character
+                and not from_double_attack_penalty
+            ):
                 event.target._lw = 15
                 yield events.MatsuLightWoundsFloorEvent(
                     character, event.target, lw_set_to=15,

@@ -27,6 +27,7 @@ from web.adapters.trace_entries import (
     AkodoFifthDanCounterEntry,
     AttackEntry,
     ComponentDelta,
+    CounterDamageDealtEntry,
     DamageProjection,
     DeathEntry,
     DuelEndedEntry,
@@ -42,8 +43,10 @@ from web.adapters.trace_entries import (
     IaijutsuStrikeEntry,
     InitiativeEntry,
     KeepLightWoundsEntry,
+    KitsukiRingReductionEntry,
     LightWoundsDamageEntry,
     MatsuLwFloorEntry,
+    MerchantRerollEntry,
     ModifierDelta,
     PhaseHeaderEntry,
     RawTextEntry,
@@ -244,6 +247,18 @@ class TestJsonRenderer:
             AkodoFifthDanCounterEntry(
                 phase_prefix="A |", akodo_name="A",
                 vp_spent=2, damage=20, target_name="B",
+            ),
+            CounterDamageDealtEntry(
+                phase_prefix="B |", subject_name="B",
+                damage=20, lw_after=20,
+            ),
+            KitsukiRingReductionEntry(
+                phase_prefix="K |", subject_name="K", target_name="A",
+                ring_values_before={"air": 3, "fire": 3, "water": 3},
+            ),
+            MerchantRerollEntry(
+                phase_prefix="M |", subject_name="M", roll_type="skill",
+                rerolled_pairs=((1, 7), (2, 8)),
             ),
             HidaThirdDanRerollEntry(
                 phase_prefix="A |", actor_name="A", skill="attack",
