@@ -117,9 +117,9 @@ class TestFormattingHelpers(unittest.TestCase):
 
     def test_format_tn_with_raises(self):
         s = _format_tn(50, 30, "double attack")
-        assert "TN 50" in s
-        assert "4 raises" in s
-        assert "double attack" in s
+        # New unified form: ``TN 50 (base TN 30 + 20 for double attack)``
+        # — the per-raise ``× +5`` factoring was dropped for readability.
+        assert s == "TN 50 (base TN 30 + 20 for double attack)"
 
     def test_format_tn_no_raises(self):
         assert _format_tn(30, 30, "attack") == "TN 30"
@@ -327,7 +327,7 @@ class TestAttackRendering(unittest.TestCase):
         out = BulletedRenderer().render([entry])
         # Header has VP prefix and raise breakdown.
         assert "⬛⬛ spends 2 VP on double attack" in out
-        assert "TN 50 (base TN 30 + 4 raises × +5 for double attack)" in out
+        assert "TN 50 (base TN 30 + 20 for double attack)" in out
         # Bullet sub-list:
         assert "- 5k5 Fire ring" in out
         assert "- 5k0 double attack skill" in out

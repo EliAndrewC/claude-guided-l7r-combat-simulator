@@ -15,8 +15,8 @@ Per FR-013 to FR-022:
 - Modifier with attribution: emit its own bullet under the breakdown.
 - Damage projection on an attack/counterattack: nested ``Damage will
   be:`` sub-bullet group.
-- TN with raises: ``vs TN N (base TN M + K raises × +5 for {action})``
-  on the header.
+- TN with raises: ``vs TN N (base TN M + K for {action})`` on the
+  header, where K = N - M is the total raise contribution.
 - Floating-bonus gain/consume: one line with source.
 - VP-spend (standalone): one line.
 - Round headers → ``## Round N`` Markdown headings.
@@ -103,14 +103,15 @@ def _format_dice_inline(dice: list[int], kept: int) -> str:
 
 
 def _format_tn(tn: int, base_tn: int, action_skill: str) -> str:
-    """Format TN clause with raise-attribution (FR-017)."""
+    """Format TN clause with raise-attribution (FR-017).
+
+    Renders the raise contribution as a single ``+N`` instead of the
+    arithmetic ``K raises × +5`` form — easier to scan, the reader
+    rarely needs the per-raise factoring (it's always ×5).
+    """
     if tn > base_tn:
         diff = tn - base_tn
-        raises = diff // 5
-        return (
-            f"TN {tn} (base TN {base_tn} + {raises} raises × +5 "
-            f"for {action_skill})"
-        )
+        return f"TN {tn} (base TN {base_tn} + {diff} for {action_skill})"
     return f"TN {tn}"
 
 

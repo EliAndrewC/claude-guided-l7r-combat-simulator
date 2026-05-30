@@ -612,7 +612,8 @@ class TestTNRaiseAttribution(unittest.TestCase):
     Per the formatter-rendering contract (§ "TN rendering") the
     parenthetical TN expression MUST always show ``(base TN M)`` and,
     when ``event.action.raises() > 0``, MUST also include
-    ``+X from K raises for {skill}`` where X = K × 5.
+    ``+ X for {skill}`` where X is the total raise contribution
+    (K × 5 for K raises).
 
     Calibration anchor: the seed=1234 Bayushi-vs-Akodo combat produces
     Bayushi double-attack lines with TN inflation +20 (4 raises) per
@@ -623,8 +624,8 @@ class TestTNRaiseAttribution(unittest.TestCase):
 
     def test_tn_raise_attribution_for_double_attack(self):
         """T026: Bayushi double-attack lines from the calibration combat
-        MUST render the raise breakdown:
-        ``vs TN 50 (base TN 30, +20 from 4 raises for double attack)``.
+        MUST render the raise contribution:
+        ``vs TN 50 (base TN 30 + 20 for double attack)``.
 
         Per the rule (rules/04-schools.md, double attack), a double
         attack raises the TN by 20 (4 raises). The trace MUST surface
@@ -644,12 +645,12 @@ class TestTNRaiseAttribution(unittest.TestCase):
             "a (base TN N) parenthetical",
         )
         # Every double-attack TN parenthetical must include the raise
-        # attribution. The expected literal form is:
-        # ``(base TN 30, +20 from 4 raises for double attack)``.
+        # contribution. The expected literal form is:
+        # ``(base TN 30 + 20 for double attack)``.
         for line in double_attack_lines:
             self.assertRegex(
                 line,
-                r"\(base TN \d+, \+20 from 4 raises for double attack\)",
+                r"\(base TN \d+ \+ 20 for double attack\)",
                 f"Double-attack line missing raise attribution: {line}",
             )
 
@@ -681,8 +682,9 @@ class TestTNRaiseAttribution(unittest.TestCase):
                 r"vs TN \d+ \(base TN \d+\)",
                 f"Plain attack line missing (base TN N) parenthetical: {line}",
             )
+            tail = line.split("vs TN")[-1].split("—")[0]
             self.assertNotIn(
-                "from", line.split("vs TN")[-1].split("—")[0],
+                " for ", tail,
                 f"Plain attack line should have no raise clause: {line}",
             )
 
@@ -693,7 +695,7 @@ class TestTNRaiseAttribution(unittest.TestCase):
         Constructed via a synthetic ``AttackRolledEvent`` whose action
         skill is ``"feint"`` and whose TN exceeds the base TN — the
         formatter MUST interpolate the action's skill into the raise
-        clause (``+X from K raises for feint``) rather than hard-coding
+        clause (``+ X for feint``) rather than hard-coding
         ``double attack``.
 
         Verifies FR-011 (action-name interpolation).
@@ -732,7 +734,7 @@ class TestTNRaiseAttribution(unittest.TestCase):
         # The raise clause MUST use the action skill name ("feint"),
         # not a hard-coded "double attack".
         self.assertIn(
-            "(base TN 20, +10 from 2 raises for feint)",
+            "(base TN 20 + 10 for feint)",
             attack_line,
         )
 

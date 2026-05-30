@@ -90,14 +90,15 @@ def _format_dice(dice: list[int], kept: int) -> str:
 
 
 def _format_tn(tn: int, base_tn: int, action_skill: str) -> str:
-    """Format TN clause with raise-attribution."""
+    """Format TN clause with raise-attribution.
+
+    Renders the raise contribution as a single ``+N`` instead of
+    spelling out the per-raise factoring — the reader rarely needs
+    the ``raises × +5`` arithmetic.
+    """
     if tn > base_tn:
         diff = tn - base_tn
-        raises = diff // 5
-        return (
-            f"TN {tn} (base TN {base_tn}, "
-            f"+{diff} from {raises} raises for {action_skill})"
-        )
+        return f"TN {tn} (base TN {base_tn} + {diff} for {action_skill})"
     return f"TN {tn} (base TN {base_tn})"
 
 

@@ -151,63 +151,70 @@ else:
                             st.write(f"**{k}:** {group_items[k]}")
 
     with tab_single:
+        # Streamlit reruns the entire script on every widget interaction,
+        # so the result of `run_single` must live in session_state — if it
+        # were a local variable bound inside the `if st.button(...)` block,
+        # clicking any other widget (e.g. the trace's per-roll modal button)
+        # would discard it and blank the page.
         if st.button("Run Single Combat"):
             with st.spinner("Running combat..."):
                 try:
-                    result = run_single(characters, groups)
+                    st.session_state.single_combat_result = run_single(characters, groups)
                 except Exception as e:
                     st.error(f"Simulation error: {e}")
-                    result = None
+                    st.session_state.single_combat_result = None
 
-            if result:
-                # Character stats
-                st.subheader("Combatants")
-                stat_cols = st.columns(len(characters))
-                for col, config in zip(stat_cols, characters):
-                    with col:
-                        st.markdown(f"**{config.name}**")
-                        st.markdown(_format_character_stats(config))
-                st.divider()
+        result = st.session_state.get("single_combat_result")
+        if result:
+            # Character stats
+            st.subheader("Combatants")
+            stat_cols = st.columns(len(characters))
+            for col, config in zip(stat_cols, characters):
+                with col:
+                    st.markdown(f"**{config.name}**")
+                    st.markdown(_format_character_stats(config))
+            st.divider()
 
-                # Winner
-                winner_label = test_label if result.winner == 1 else control_label
-                st.subheader(f"Winner: {winner_label}")
-                st.write(f"Duration: {result.duration_rounds} rounds, {result.duration_phases} phases")
+            # Winner
+            winner_label = test_label if result.winner == 1 else control_label
+            st.subheader(f"Winner: {winner_label}")
+            st.write(f"Duration: {result.duration_rounds} rounds, {result.duration_phases} phases")
 
-                # Play-by-play — compact headers + click-to-expand modal
-                # for the per-source breakdowns (spec 007 FR-023/FR-024;
-                # 2026-05-30 UX refactor: replace inline bulleted lists
-                # with clickable tertiary buttons opening a modal).
-                with st.expander("Play-by-Play Log", expanded=True):
-                    segments = BulletedRenderer().render_segments(result.trace_entries)
-                    _render_trace_segments(segments, scope="single")
+            # Play-by-play — compact headers + click-to-expand modal
+            # for the per-source breakdowns (spec 007 FR-023/FR-024;
+            # 2026-05-30 UX refactor: replace inline bulleted lists
+            # with clickable tertiary buttons opening a modal).
+            with st.expander("Play-by-Play Log", expanded=True):
+                segments = BulletedRenderer().render_segments(result.trace_entries)
+                _render_trace_segments(segments, scope="single")
 
-                # Features
-                with st.expander("Trial Statistics"):
-                    for k, v in sorted(result.features.items()):
-                        st.write(f"**{k}:** {v}")
+            # Features
+            with st.expander("Trial Statistics"):
+                for k, v in sorted(result.features.items()):
+                    st.write(f"**{k}:** {v}")
 
     if duel_eligible:
         with tabs[2]:
             if st.button("Run Single Duel"):
                 with st.spinner("Running duel..."):
                     try:
-                        result = run_duel_single(characters, groups)
+                        st.session_state.single_duel_result = run_duel_single(characters, groups)
                     except Exception as e:
                         st.error(f"Duel error: {e}")
-                        result = None
+                        st.session_state.single_duel_result = None
 
-                if result:
-                    winner_label = test_label if result.winner == 1 else control_label
-                    st.subheader(f"Winner: {winner_label}")
+            duel_result = st.session_state.get("single_duel_result")
+            if duel_result:
+                winner_label = test_label if duel_result.winner == 1 else control_label
+                st.subheader(f"Winner: {winner_label}")
 
-                    with st.expander("Play-by-Play Log", expanded=True):
-                        segments = BulletedRenderer().render_segments(result.trace_entries)
-                        _render_trace_segments(segments, scope="duel")
+                with st.expander("Play-by-Play Log", expanded=True):
+                    segments = BulletedRenderer().render_segments(duel_result.trace_entries)
+                    _render_trace_segments(segments, scope="duel")
 
-                    with st.expander("Trial Statistics"):
-                        for k, v in sorted(result.features.items()):
-                            st.write(f"**{k}:** {v}")
+                with st.expander("Trial Statistics"):
+                    for k, v in sorted(duel_result.features.items()):
+                        st.write(f"**{k}:** {v}")
 
         with tabs[3]:
             duel_trials = st.number_input(
