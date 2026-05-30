@@ -132,15 +132,34 @@ class AttackAction(Action):
         self._parries_declined.append(character)
 
     def calculate_extra_damage_dice(self, skill_roll: int | None = None, tn: int | None = None) -> int:
+        """Extra damage dice from exceeding TN, modulated by parry.
+
+        rules/03-combat.md "Damage":
+            "you roll an extra die for every 5 by which your attack roll
+            exceeded its TN.  If the defender attempted and failed to
+            parry, the number of these extra damage dice roll is
+            decreased by the defender's parry skill."
+
+        Updated 2026-05-30: the rules text used to read "you don't roll
+        these extra damage dice" — i.e., a failed parry zeroed the
+        entire margin extras. The new rule reduces by the defender's
+        parry-skill rank (min 0), so a high-parry defender can still
+        wipe out the extras but a low-parry defender only blunts them.
+        """
         if skill_roll is None:
             skill_roll = self.skill_roll()
         if tn is None:
             tn = self.tn()
-        if self.parry_attempted():
-            return 0
-        else:
-            assert skill_roll is not None
-            return (skill_roll - tn) // 5
+        assert skill_roll is not None
+        extras = (skill_roll - tn) // 5
+        # Failed-parry reduction (rules-text: "the defender attempted
+        # AND FAILED to parry"). Successful parries make the attack
+        # fail entirely so damage isn't normally computed; gate on
+        # ``not parried`` for the hypothetical-evaluation case.
+        if self.parry_attempted() and not self.parried():
+            reduction: int = self.target().skill("parry")
+            extras = max(0, extras - reduction)
+        return int(extras)
 
     def damage_roll(self) -> int | None:
         return self._damage_roll
@@ -258,20 +277,50 @@ class CounterattackAction(AttackAction):
 
 class DoubleAttackAction(AttackAction):
     def calculate_extra_damage_dice(self, skill_roll: int | None = None, tn: int | None = None) -> int:
+        """Double-attack extra damage dice.
+
+        Rules text (rules/05-school_knacks.md "Double Attack"):
+            "If successful, roll extra damage dice as if the TN hadn't
+            been raised, and inflict a serious wound in addition to the
+            normal damage roll. On an unsuccessful parry, this extra
+            serious wound becomes 2 extra rolled damage dice, or 4
+            extra rolled damage dice if someone else unsuccessfully
+            parried for the target."
+
+        Combined with rules/03-combat.md "Damage" (updated 2026-05-30):
+            "If the defender attempted and failed to parry, the number
+            of these extra damage dice roll is decreased by the
+            defender's parry skill."
+
+        So on a failed-parry double attack:
+          (a) margin extras (as if TN hadn't been raised) decreased by
+              defender's parry skill (min 0) — the general failed-parry
+              rule applies to double attacks too.
+          (b) PLUS the SW-replacement: 2 (target parried) or 4 (ally
+              parried for the target).
+
+        Pre-2026-05-30 this returned only the SW-replacement on parry
+        attempted, silently dropping the margin contribution entirely.
+        """
         if skill_roll is None:
             skill_roll = self.skill_roll()
         if tn is None:
             tn = self.tn() - 20
-        if self.parry_attempted():
-            # on unsuccessful parry, the 1 SW becomes flat extra rolled damage dice:
-            # 2 if the target parried, 4 if a third party parried
-            for parry_event in self.parries_declared():
-                if parry_event.action.subject() == self.target():
-                    return 2
-                else:
-                    return 4
         assert skill_roll is not None
-        return (skill_roll - tn) // 5
+        margin_extras = (skill_roll - tn) // 5
+        if self.parry_attempted() and not self.parried():
+            # General failed-parry reduction (rules/03-combat.md).
+            reduction: int = self.target().skill("parry")
+            margin_extras = max(0, margin_extras - reduction)
+            # SW-replacement: 4 if a third party parried on the
+            # target's behalf, else 2.
+            sw_replacement = 2
+            for parry_event in self.parries_declared():
+                if parry_event.action.subject() != self.target():
+                    sw_replacement = 4
+                    break
+            return int(margin_extras + sw_replacement)
+        return int(margin_extras)
 
     def direct_damage(self) -> Any:
         if self.parry_attempted():

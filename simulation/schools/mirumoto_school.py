@@ -428,60 +428,44 @@ class MirumotoAttackAction(AttackAction):
     the Mirumoto's attack damage dice), so the override hangs off this
     subclass rather than off ParryAction.
 
-    The base ``AttackAction.calculate_extra_damage_dice`` returns 0 when
-    ``parry_attempted()`` is True (the full would-be-extra dice count is
-    "reduced" away by any parry attempt, successful or failed). FR-013
-    halves the reduction on FAILED parries only -- successful parries
-    and no-parry-attempted cases defer to the base class.
+    rules/03-combat.md (updated 2026-05-30) sets the general failed-
+    parry reduction at ``defender's parry skill`` (was: "all extras
+    lost"). Mirumoto 4th Dan halves that reduction on regular attacks
+    only — successful parries (the attack fails entirely) and the
+    no-parry-attempted case (full margin extras) defer to the base
+    class.
     """
 
     def calculate_extra_damage_dice(self, skill_roll: int | None = None, tn: int | None = None) -> int:
         """FR-013: on a FAILED parry against this Mirumoto's regular
         attack, halve the damage-die-count reduction (integer floor).
 
-        The base class collapses the reduction to "all" on any parry
-        attempt -- returns 0. To halve the reduction we compute the
-        would-be-extra-dice count (the no-parry path) and the
-        would-be-reduction (== would-be-extra, since the base class
-        zeroes the entire amount). The halved reduction is
-        ``would_be_reduction // 2``; the resulting extra dice is
-        ``max(0, would_be_extra - would_be_reduction // 2)``. The
-        ``max(0, ...)`` guard handles the spec.md Edge Cases bullet
-        ("1 -> 0") and the skill-roll-below-TN case where the base
-        formula yields a negative.
+        rules/04-schools.md "Mirumoto Bushi School: Fourth Dan":
+            "On regular attacks the number of extra rolled damage dice
+            the failed parry reduced is cut in half (rounded down)."
+
+        2026-05-30 update: rules/03-combat.md now defines the general
+        failed-parry reduction as the defender's parry skill (was: the
+        full would-be-extras). Halving the reduction therefore halves
+        ``parry_skill`` (integer floor); the result is the actual
+        deduction from the margin extras, floored at 0.
         """
         if skill_roll is None:
             skill_roll = self.skill_roll()
         if tn is None:
             tn = self.tn()
-        # Only the FAILED-parry branch fires FR-013. Successful parries
-        # (parry_attempted AND parried) and no-parry-attempted cases
-        # defer to the base class for baseline behavior.
         if self.parry_attempted() and not self.parried():
             assert skill_roll is not None
-            # would-be-extra: what the base class returns when no parry
-            # was attempted (the unmitigated extra-dice count).
             would_be_extra = (skill_roll - tn) // 5
-            # would-be-reduction: what the failed parry would normally
-            # remove. In the base AttackAction model the entire
-            # would-be-extra is reduced (return 0), so reduction equals
-            # would-be-extra.
-            would_be_reduction = would_be_extra
-            # FR-013 halves the reduction (integer floor) and floors
-            # the resulting extra-dice count at 0.
-            result = max(0, would_be_extra - would_be_reduction // 2)
-            # SC-006 trace clarity: log the original would-be-extra count
-            # and the halved result so a reviewer can verify the
-            # arithmetic against rules/04-schools.md Mirumoto Bushi
-            # School Fourth Dan ("the number of extra rolled damage dice
-            # the failed parry reduced is cut in half (rounded down)").
+            full_reduction: int = self.target().skill("parry")
+            halved_reduction = full_reduction // 2
+            result = max(0, would_be_extra - halved_reduction)
             logger.debug(
                 f"[Mirumoto 4th Dan] failed-parry damage-die reduction "
                 f"halved: would-be-extra {would_be_extra} -> {result} "
-                f"(reduction {would_be_reduction} -> {would_be_reduction // 2}; "
-                f"FR-013)",
+                f"(reduction {full_reduction} -> {halved_reduction}; FR-013)",
             )
-            return result
+            return int(result)
         return super().calculate_extra_damage_dice(skill_roll, tn)
 
 

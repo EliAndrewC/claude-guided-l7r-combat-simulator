@@ -3901,75 +3901,61 @@ class TestMirumotoAttackActionExtraDamageDiceOverride(unittest.TestCase):
         return action
 
     def test_failed_parry_with_reduction_of_five_yields_two_halved(self):
-        """FR-013 main case: would-be-extra is 5, reduction is 5; halved
-        reduction is 2 (5 // 2 = 2); result is 5 - 2 = 3.
-
-        Without the override the base class returns 0 (parry_attempted ->
-        full reduction). This is the headline test that proves FR-013
-        fires.
-
-        skill_roll=50, tn=25 -> (50-25)//5 = 5 would-be-extra.
+        """FR-013 (post-2026-05-30 general-rule update):
+        defender's parry skill is 4 → halved reduction = 2.
+        would-be-extras = (50-25)//5 = 5; result = 5 - 2 = 3.
         """
         action = self._make_attack(skill_roll=50)
         action.set_parry_attempted()  # failed parry: attempted but not parried
         self.assertFalse(action.parried())
         self.assertEqual(3, action.calculate_extra_damage_dice(),
-            "FR-013: reduction 5 -> halved 2; extra = 5 - 2 = 3.")
+            "Mirumoto 4th Dan: parry_skill 4 → halved 2; extra = 5 - 2 = 3.")
 
     def test_failed_parry_with_reduction_of_three_yields_one_halved(self):
-        """FR-013 edge example from spec.md: 3 -> 1.
-
-        skill_roll=40, tn=25 -> (40-25)//5 = 3 would-be-extra.
-        Reduction 3 -> halved (3 // 2) = 1; result = 3 - 1 = 2.
+        """Post-2026-05-30 (Mirumoto 4th Dan halves parry-skill reduction):
+        parry_skill 4 → halved 2; would-be-extras = (40-25)//5 = 3;
+        result = 3 - 2 = 1.
         """
         action = self._make_attack(skill_roll=40)
         action.set_parry_attempted()
-        self.assertEqual(2, action.calculate_extra_damage_dice(),
-            "FR-013: reduction 3 -> halved 1; extra = 3 - 1 = 2.")
+        self.assertEqual(1, action.calculate_extra_damage_dice(),
+            "Mirumoto 4th Dan: parry_skill 4 → halved 2; extra = 3 - 2 = 1.")
 
     def test_failed_parry_with_reduction_of_one_yields_zero_halved(self):
-        """FR-013 edge case from spec.md (Edge Cases bullet): 1 -> 0.
-
-        skill_roll=30, tn=25 -> (30-25)//5 = 1 would-be-extra.
-        Reduction 1 -> halved (1 // 2) = 0; result = 1 - 0 = 1.
-
-        This proves the floor behavior: even with a reduction of 1, the
-        halved reduction floors to 0, so the attacker keeps the single
-        extra damage die.
+        """Edge case: would-be-extras=1, parry_skill=4, halved=2.
+        Result floors to 0 (max(0, 1-2) = 0).
         """
         action = self._make_attack(skill_roll=30)
         action.set_parry_attempted()
-        self.assertEqual(1, action.calculate_extra_damage_dice(),
-            "FR-013: reduction 1 -> halved 0 (integer floor); extra = 1 - 0 = 1.")
+        self.assertEqual(0, action.calculate_extra_damage_dice(),
+            "Mirumoto 4th Dan: parry_skill 4 → halved 2; extra = max(0, 1-2) = 0.")
 
     def test_failed_parry_floors_extra_at_zero_when_skill_roll_below_tn(self):
-        """FR-013 floor guard: if the attacker's skill roll is below the TN,
-        would-be-extra is negative and the result must still floor at 0
-        (the rule shouldn't ever produce a negative extra-dice count).
-
-        skill_roll=20, tn=25 -> (20-25)//5 = -1; halved reduction = -1 //
-        2 = -1 (Python floor div); naive 'extra - reduction//2' = -1 -
-        (-1) = 0; max(0, ...) = 0.
+        """FR-013 floor guard: even when (skill_roll - tn) // 5 is
+        negative the result must floor at 0 (no negative extra dice).
         """
         action = self._make_attack(skill_roll=20)
         action.set_parry_attempted()
         self.assertEqual(0, action.calculate_extra_damage_dice(),
-            "FR-013: result floors at 0 even when skill roll < TN.")
+            "Result floors at 0 even when skill roll < TN.")
 
     def test_successful_parry_returns_zero_baseline_preserved(self):
-        """Baseline preservation: a SUCCESSFUL parry does NOT fire the
-        FR-013 halving (the rule applies to FAILED parries). The base
-        class returns 0 when parry_attempted is True; the override must
-        defer to that on a successful parry.
+        """A SUCCESSFUL parry doesn't reach this path in normal combat
+        (the attack fails entirely), but the hypothetical-evaluation
+        path defers to the base class. Post-2026-05-30: the base
+        class's parry-attempted branch is gated on ``not parried``,
+        so on a successful parry it returns the full (unreduced)
+        margin extras; the Mirumoto override also defers via the
+        ``and not self.parried()`` gate.
         """
         action = self._make_attack(skill_roll=50)
         action.set_parry_attempted()
         action.set_parried()  # successful: attempted AND parried
         self.assertTrue(action.parried())
-        self.assertEqual(0, action.calculate_extra_damage_dice(),
-            "Successful parry: baseline AttackAction returns 0 -> "
-            "Mirumoto override must defer to that (FR-013 fires only on "
-            "FAILED parries).")
+        self.assertEqual(5, action.calculate_extra_damage_dice(),
+            "Successful parry: defers to base class which returns "
+            "full margin extras (the parry-skill reduction is gated "
+            "on FAILED parry only).")
 
     def test_no_parry_attempted_returns_full_extra_dice_baseline_preserved(self):
         """Baseline preservation: when NO parry was attempted, the base
@@ -3984,17 +3970,13 @@ class TestMirumotoAttackActionExtraDamageDiceOverride(unittest.TestCase):
             "No parry attempted: full (skill_roll-tn)//5 = 5 extra dice.")
 
     def test_explicit_skill_roll_and_tn_arguments_still_apply_halving(self):
-        """The base method supports passing skill_roll and tn as explicit
-        arguments (for hypothetical evaluation); the override must honor
-        those too.
-
-        Pass skill_roll=70, tn=20 -> would-be-extra = (70-20)//5 = 10;
-        reduction 10 -> halved (10 // 2) = 5; extra = 10 - 5 = 5.
+        """Post-2026-05-30: parry_skill 4 → halved 2; would-be-extras
+        = (70-20)//5 = 10; result = 10 - 2 = 8.
         """
         action = self._make_attack(skill_roll=0)  # actual roll irrelevant
         action.set_parry_attempted()
-        self.assertEqual(5, action.calculate_extra_damage_dice(skill_roll=70, tn=20),
-            "FR-013 must use explicit skill_roll/tn args when provided.")
+        self.assertEqual(8, action.calculate_extra_damage_dice(skill_roll=70, tn=20),
+            "Mirumoto 4th Dan: parry_skill 4 → halved 2; extra = 10 - 2 = 8.")
 
     def test_double_attack_action_extra_dice_unaffected_by_t014(self):
         """Scope guard (FR-013 vs FR-012 narrow scopes): the T014 override
@@ -4017,16 +3999,25 @@ class TestMirumotoAttackActionExtraDamageDiceOverride(unittest.TestCase):
         double.set_parry_attempted()
         # Wire a parry-declared event from the defender so the
         # DoubleAttackAction's failed-parry branch picks the "target
-        # parried" 2-dice path.
+        # parried" path (SW-replacement = 2).
         parry_action = actions.ParryAction(
             self.defender, self.mirumoto, "parry",
             self.initiative_action, self.context, double,
         )
         double.add_parry_declared(events.ParryDeclaredEvent(parry_action))
-        # Inherited DoubleAttackAction logic: target parried -> 2 flat.
-        self.assertEqual(2, double.calculate_extra_damage_dice(),
+        # Inherited DoubleAttackAction logic (post-2026-05-30 rule
+        # update): margin extras (as if TN not raised) reduced by
+        # defender's parry skill, PLUS SW-replacement.
+        #   margin_extras = (60 - 25) // 5 = 7
+        #   reduced = max(0, 7 - 4) = 3
+        #   + 2 (target parried) = 5
+        # T014 (FR-013) does NOT halve this — it only applies to
+        # regular MirumotoAttackAction; DoubleAttackAction inherits
+        # the full reduction without the FR-013 halving.
+        self.assertEqual(5, double.calculate_extra_damage_dice(),
             "T014 (FR-013) must NOT override double-attack extra dice; "
-            "those follow the inherited DoubleAttackAction logic.")
+            "those follow the inherited DoubleAttackAction logic which "
+            "applies the full parry-skill reduction (no halving).")
 
 
 class TestMirumotoTraceClarity(unittest.TestCase):

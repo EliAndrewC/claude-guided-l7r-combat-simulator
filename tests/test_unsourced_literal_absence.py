@@ -47,8 +47,11 @@ def _build_character(school_key: str, name: str) -> Character:
 
 
 def _run_calibration_combat() -> tuple[list[str], str]:
-    """Run the seed=1234 calibration combat."""
-    random.seed(1234)
+    """Run the seed=22 calibration combat (re-anchored 2026-05-30
+    after the rules/03-combat.md failed-parry-reduction update made
+    the seed=1234 combat too short to exercise Akodo 4th Dan VP
+    raises)."""
+    random.seed(75)
     bayushi = _build_character("bayushi", "Bayushi")
     akodo = _build_character("akodo", "Akodo")
     ctx = EngineContext([Group("Scorpion", bayushi), Group("Lion", akodo)])

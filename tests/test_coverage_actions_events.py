@@ -431,37 +431,43 @@ class TestDoubleAttackAction(unittest.TestCase):
         self.assertEqual(5, da.calculate_extra_damage_dice())
 
     def test_calculate_extra_damage_dice_parried_by_target(self):
-        """On unsuccessful parry by target, extra dice = flat 2."""
+        """On unsuccessful parry by target: margin extras decreased by
+        the defender's parry skill (rules/03-combat.md, 2026-05-30),
+        PLUS the SW-replacement of 2 extra dice (rules/05-school_knacks
+        "Double Attack"). Target has parry skill 5 (setUp).
+        """
         da = DoubleAttackAction(
             self.attacker, self.target, "double attack", self.ia, self.context
         )
         da.set_skill_roll(75)
         # Without parry: (75 - 30) // 5 = 9
         self.assertEqual(9, da.calculate_extra_damage_dice())
-        # Simulate a parry by the target
         da.set_parry_attempted()
         mock_parry_event = MagicMock()
         mock_parry_event.action = MagicMock()
         mock_parry_event.action.subject.return_value = self.target
         da.add_parry_declared(mock_parry_event)
-        # flat 2 extra dice when target parried
-        self.assertEqual(2, da.calculate_extra_damage_dice())
+        # margin extras = max(0, 9 - parry_skill(5)) = 4
+        # + 2 (SW-replacement when target parried)
+        self.assertEqual(6, da.calculate_extra_damage_dice())
 
     def test_calculate_extra_damage_dice_parried_by_third_party(self):
-        """On unsuccessful parry by third party, extra dice = flat 4."""
+        """On unsuccessful parry by third party: margin extras decreased
+        by defender's parry skill, PLUS 4-die SW-replacement
+        (rules/05-school_knacks "Double Attack")."""
         third = Character("third")
         da = DoubleAttackAction(
             self.attacker, self.target, "double attack", self.ia, self.context
         )
         da.set_skill_roll(75)
-        # Without parry: (75 - 30) // 5 = 9
         da.set_parry_attempted()
         mock_parry_event = MagicMock()
         mock_parry_event.action = MagicMock()
         mock_parry_event.action.subject.return_value = third  # not the target
         da.add_parry_declared(mock_parry_event)
-        # flat 4 extra dice when third party parried
-        self.assertEqual(4, da.calculate_extra_damage_dice())
+        # margin extras = max(0, 9 - parry_skill(5)) = 4
+        # + 4 (SW-replacement when ally parried)
+        self.assertEqual(8, da.calculate_extra_damage_dice())
 
     def test_direct_damage_no_parry(self):
         """When no parry attempted, direct_damage returns 1 SW."""
