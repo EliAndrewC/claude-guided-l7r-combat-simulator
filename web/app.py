@@ -11,13 +11,26 @@ from web.state import _validate_groups, clear_state, restore_state, save_state, 
 
 st.set_page_config(page_title="L7R Combat Simulator", page_icon="⚔️", layout="wide")
 
-# Full-width CSS so content expands when sidebar is collapsed
-_FULL_WIDTH_CSS = """
+# Full-width CSS so content expands when sidebar is collapsed,
+# AND make tertiary-button text user-selectable. The combat trace
+# renders each roll as a ``st.button(type="tertiary")`` so it can
+# pop a modal showing the per-source breakdown on click — but
+# Streamlit's default button CSS blocks text selection, which
+# means readers can't copy-paste the trace into Discord / chat
+# / notes. Overriding ``user-select`` here keeps the click-to-modal
+# affordance while letting click+drag select text normally.
+_CUSTOM_CSS = """
 <style>
 .stMainBlockContainer { max-width: 100%; }
+/* Make tertiary-button labels selectable for copy/paste. */
+button[kind="tertiary"], button[kind="tertiary"] * {
+    user-select: text !important;
+    -webkit-user-select: text !important;
+    cursor: text;
+}
 </style>
 """
-st.markdown(_FULL_WIDTH_CSS, unsafe_allow_html=True)
+st.markdown(_CUSTOM_CSS, unsafe_allow_html=True)
 
 # Restore persisted state before setting defaults
 restore_state()

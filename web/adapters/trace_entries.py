@@ -245,6 +245,13 @@ class SeriousWoundsDamageEntry:
     # unexplained extra SW to the 5th Dan dice-trade ability per
     # Principle VII.
     from_otaku_5th_dan: bool = False
+    # rules/04-schools.md "Mirumoto Bushi School: Fourth Dan" — when
+    # a failed parry against a Mirumoto's double attack DOES inflict
+    # the auto-SW (because the 4th Dan overrides the general failed-
+    # parry-negates-auto-SW rule), surface the school attribution so
+    # the reader can distinguish this from the generic double-attack
+    # auto-SW (which is suppressed on parry attempt by base rules).
+    from_mirumoto_4th_dan: bool = False
     kind: Literal["sw_damage"] = "sw_damage"
 
 

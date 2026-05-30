@@ -516,17 +516,18 @@ class MirumotoDoubleAttackAction(DoubleAttackAction):
         # parries against this Mirumoto's double attacks do NOT prevent
         # the automatic serious wound (FR-012).
         if self.parry_attempted() and not self.parried():
-            # Failed-parry branch: emit the same SeriousWoundsDamageEvent
-            # the base class emits on the no-parry-attempted path, with
-            # the matching _from_double_attack marker that
-            # detailed_formatter consumes for the "(double attack penalty)"
-            # suffix.
+            # Failed-parry branch: emit a SeriousWoundsDamageEvent with
+            # BOTH the standard ``_from_double_attack`` marker AND a
+            # Mirumoto-specific ``_mirumoto_4th_dan`` marker so the
+            # trace renderer can attribute the auto-SW to the
+            # Mirumoto-school override rather than the generic
+            # "(double attack penalty)" label. Per the 2026-05-30 user
+            # report, the bare "(double attack penalty)" label after
+            # a failed parry looks like a rules violation to a reader
+            # unfamiliar with the Mirumoto 4th Dan exception.
             event = events.SeriousWoundsDamageEvent(self.subject(), self.target(), 1)
             event._from_double_attack = True  # type: ignore[attr-defined]
-            # SC-006 trace clarity: surface the FR-012 override path so a
-            # reviewer can distinguish this auto-SW from the ordinary
-            # no-parry-attempted auto-SW (both produce the same event
-            # type, so the distinction lives only in the log).
+            event._mirumoto_4th_dan = True  # type: ignore[attr-defined]
             logger.debug(
                 f"[Mirumoto 4th Dan] auto-serious-wound lands on "
                 f"{self.target().name()} (failed parry against double "

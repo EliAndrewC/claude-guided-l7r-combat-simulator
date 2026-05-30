@@ -637,7 +637,11 @@ class TextRenderer:
     def _render_sw_damage(self, entry: SeriousWoundsDamageEntry) -> list[str]:
         hearts = _hearts(entry.damage)
         noun = "wound" if entry.damage == 1 else "wounds"
-        if entry.from_double_attack:
+        if entry.from_mirumoto_4th_dan:
+            suffix = (
+                " (Mirumoto 4th Dan: auto-SW lands despite failed parry)"
+            )
+        elif entry.from_double_attack:
             suffix = " (double attack penalty)"
         elif entry.from_otaku_5th_dan:
             suffix = " (Otaku 5th Dan: traded 10 rolled damage dice for 1 SW)"
