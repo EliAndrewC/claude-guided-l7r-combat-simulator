@@ -89,6 +89,20 @@ def _format_dice(dice: list[int], kept: int) -> str:
     return "[" + ", ".join(parts) + "]"
 
 
+_MAX_HEART_EMOJI = 3
+"""Cap on the number of literal 💔 emojis rendered before falling back
+to a short ``💔 × N`` form. See bulleted_renderer for the rationale —
+trace-reader sweep 2026-05-30 flagged long heart strings as visually
+overwhelming."""
+
+
+def _hearts(n: int) -> str:
+    """Render ``n`` heart emojis, capped at :data:`_MAX_HEART_EMOJI`."""
+    if n <= _MAX_HEART_EMOJI:
+        return "💔" * n
+    return f"💔 × {n}"
+
+
 def _format_tn(tn: int, base_tn: int, action_skill: str) -> str:
     """Format TN clause with raise-attribution.
 
@@ -107,21 +121,21 @@ def _format_modifier_breakdown(
 ) -> str:
     """Render the ``(Source: +N x M VP; ...)`` modifier-attribution suffix.
 
-    Spec 008 FR-014: when the modifier's sources don't fully account
-    for the modifier value, the remaining gap is rendered as
-    ``(see preceding line)`` rather than the alarming ``unsourced: +K``
-    literal.  Most observed gaps are attributable from context one
-    line earlier (e.g., a VP-spend annotation that the modifier
-    breakdown didn't reproduce).  The Principle VII signal that
-    ``(unsourced: +K)`` provided is preserved structurally — the gap
-    is still visible — but the wording is non-alarming.
+    When the modifier's sources don't fully account for the modifier
+    value, the unattributed remainder is OMITTED rather than rendered
+    as ``(see preceding line)``. The 2026-05-30 trace-reader sweep
+    found that ``(see preceding line)`` was the single most-flagged
+    UX defect across all 24 schools — a dangling pointer that almost
+    never pointed at an actual source on the preceding line. The
+    parent-header arithmetic still shows the bare number (e.g.,
+    ``→ 25, +10 = 35``) so the reader sees the modifier; omitting the
+    unsourced remainder removes the misleading promise of attribution
+    without losing the value itself.
     """
     if modifier == 0:
         return ""
     nonzero = [m for m in breakdown if m.amount != 0]
-    known_total = sum(m.amount for m in nonzero)
-    remainder = modifier - known_total
-    if nonzero and remainder == 0 and len(nonzero) == 1:
+    if nonzero and len(nonzero) == 1:
         m = nonzero[0]
         if m.source == "Mirumoto 5th Dan" and m.amount > 0 and m.amount % 10 == 0:
             vp_count = m.amount // 10
@@ -132,9 +146,7 @@ def _format_modifier_breakdown(
     for m in nonzero:
         sign = "+" if m.amount >= 0 else ""
         parts.append(f"{m.source}: {sign}{m.amount}")
-    if remainder != 0:
-        parts.append("see preceding line")
-    if not parts:  # pragma: no cover  # defensive: unreachable when modifier != 0
+    if not parts:
         return ""
     return f" ({'; '.join(parts)})"
 
@@ -168,8 +180,13 @@ def _build_roll_str(
     elif mod < 0:
         roll_str += f", {mod} = {total}"
     # Append each consumed floating bonus inline with source.
+    # Skip zero-magnitude bonuses — the trace-reader sweep flagged
+    # ``+0 (floating bonus) = N`` as a confusing arithmetic step
+    # ("why was a bonus consumed if it added nothing?").
     if consumed_floating_bonuses:
         for fb in consumed_floating_bonuses:
+            if fb.amount == 0:
+                continue
             total += fb.amount
             label = fb.source or "floating bonus"
             sign = "+" if fb.amount >= 0 else ""
@@ -302,9 +319,15 @@ class TextRenderer:
         lines = ["  ─────"]
         for name, s in entry.statuses.items():
             crippled = " | CRIPPLED" if s["crippled"] else ""
+            tvp = s.get("tvp", 0)
+            base_vp = s["vp"] - tvp
+            if tvp > 0:
+                vp_str = f"Void {base_vp}/{s['max_vp']} (+{tvp} TVP)"
+            else:
+                vp_str = f"Void {s['vp']}/{s['max_vp']}"
             lines.append(
                 f"  {name}:  Light {s['lw']} | Serious {s['sw']}/{s['max_sw']} | "
-                f"Void {s['vp']}/{s['max_vp']} | Actions: {s['actions']}{crippled}"
+                f"{vp_str} | Actions: {s['actions']}{crippled}"
             )
         lines.append("  ─────")
         return lines
@@ -603,7 +626,7 @@ class TextRenderer:
         ]
 
     def _render_sw_damage(self, entry: SeriousWoundsDamageEntry) -> list[str]:
-        hearts = "💔" * entry.damage
+        hearts = _hearts(entry.damage)
         noun = "wound" if entry.damage == 1 else "wounds"
         if entry.from_double_attack:
             suffix = " (double attack penalty)"
@@ -635,7 +658,7 @@ class TextRenderer:
         if entry.follow_up == "keep_lw":
             emoji = "🖤"
         elif entry.follow_up == "take_sw":
-            emoji = "💔" * entry.follow_up_sw_count
+            emoji = _hearts(entry.follow_up_sw_count)
         else:
             emoji = "💔" if entry.outcome == "passed" else "🖤"
 
@@ -752,6 +775,11 @@ class TextRenderer:
     def _render_spend_floating_bonus(
         self, entry: SpendFloatingBonusEntry,
     ) -> list[str]:
+        # Suppress zero-magnitude consume events — trace-reader sweep
+        # flagged these as confusing ("why was a bonus spent if it
+        # added nothing?"). See bulleted_renderer for matching change.
+        if entry.amount == 0:
+            return []
         if entry.source:
             return [
                 f"{entry.phase_prefix} ✨ +{entry.amount} "
@@ -772,12 +800,14 @@ class TextRenderer:
     def _render_akodo_5th_dan_counter(
         self, entry: AkodoFifthDanCounterEntry,
     ) -> list[str]:
+        # See bulleted_renderer._render_akodo_5th_dan_counter for the
+        # "per VP" rationale (trace-reader sweep 2026-05-30).
         squares = "⬛" * entry.vp_spent
         return [
             f"{entry.phase_prefix} {squares} Akodo 5th Dan: "
             f"spends {entry.vp_spent} VP on counter-damage, "
-            f"10 LW × {entry.vp_spent} = {entry.damage} LW dealt to "
-            f"{entry.target_name}"
+            f"10 LW per VP × {entry.vp_spent} VP = {entry.damage} LW "
+            f"dealt to {entry.target_name}"
         ]
 
     def _render_hida_3rd_dan_reroll(

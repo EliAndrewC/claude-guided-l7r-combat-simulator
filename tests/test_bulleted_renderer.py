@@ -143,29 +143,39 @@ class TestFormattingHelpers(unittest.TestCase):
         bullets = _modifier_bullets(5, [ModifierDelta("Bayushi 2nd Dan", 5)])
         assert bullets == ["  - Modifier: +5 (Bayushi 2nd Dan)"]
 
-    def test_modifier_bullets_with_unsourced(self):
-        """Spec 008 FR-014: the previously-bare ``"unsourced"`` fallback
-        is now rendered as ``"see preceding line"`` so the gap is still
-        visible (Principle VII) but the wording is non-alarming.
+    def test_modifier_bullets_with_partial_attribution(self):
+        """2026-05-30: when the breakdown only partly accounts for the
+        modifier, render only the attributed components. The 2026-05-30
+        trace-reader sweep found the prior ``"(see preceding line)"``
+        fallback was the single most-flagged UX defect across all 24
+        schools (a dangling pointer that almost never pointed at the
+        actual source). The unattributed remainder is omitted; the
+        modifier value itself remains visible on the parent header.
         """
         bullets = _modifier_bullets(10, [ModifierDelta("Akodo 2nd Dan", 5)])
-        assert bullets == [
-            "  - Modifier: +5 (Akodo 2nd Dan)",
-            "  - Modifier: +5 (see preceding line)",
-        ]
+        assert bullets == ["  - Modifier: +5 (Akodo 2nd Dan)"]
 
     def test_modifier_bullets_negative(self):
         bullets = _modifier_bullets(-5, [ModifierDelta("Penalty", -5)])
         assert bullets == ["  - Modifier: -5 (Penalty)"]
 
-    def test_modifier_bullets_negative_unsourced(self):
-        """Spec 008 FR-014: negative unattributed remainder also uses
-        the ``"see preceding line"`` fallback.
+    def test_modifier_bullets_negative_fully_unsourced_returns_empty(self):
+        """2026-05-30: a modifier with no attributed breakdown returns
+        no bullets — the parent header still shows the value. See
+        ``test_modifier_bullets_with_partial_attribution`` for the
+        trace-reader rationale.
         """
         bullets = _modifier_bullets(-3, [])
-        assert bullets == ["  - Modifier: -3 (see preceding line)"]
+        assert bullets == []
 
     def test_damage_projection_bullets_multi(self):
+        """2026-05-30 trace-reader sweep: the ``+N over TN`` and
+        ``N extra damage dice`` metadata tags are no longer rendered
+        as projection component bullets — they looked like contributors
+        to the dice pool when they're actually informational. The
+        ``margin (+N over TN)`` component (when present) already
+        captures the same information at the correct semantic level.
+        """
         proj = DamageProjection(
             rolled=10, kept=2,
             components=[
@@ -180,10 +190,16 @@ class TestFormattingHelpers(unittest.TestCase):
         assert "  - Damage will be: 10k2" in bullets
         assert any("4k2 katana" in b for b in bullets)
         assert any("3k0 Fire ring" in b for b in bullets)
-        assert any("+15 over TN" in b for b in bullets)
-        assert any("3 extra damage dice" in b for b in bullets)
+        # Metadata tags omitted per sweep findings:
+        assert not any("over TN" in b and "margin" not in b for b in bullets)
+        assert not any("extra damage" in b for b in bullets)
 
     def test_damage_projection_bullets_one_extra_die(self):
+        """2026-05-30: the ``"extra damage die"`` metadata bullet is
+        no longer emitted (it was redundant with the ``margin`` component
+        and read as a contributor when it's not). See
+        ``test_damage_projection_bullets_multi``.
+        """
         proj = DamageProjection(
             rolled=7, kept=2,
             components=[ComponentDelta("katana", 4, 2)],
@@ -191,8 +207,7 @@ class TestFormattingHelpers(unittest.TestCase):
             margin_over_tn=5,
         )
         bullets = _damage_projection_bullets(proj)
-        # 1 die → singular
-        assert any("1 extra damage die" in b for b in bullets)
+        assert not any("extra damage" in b for b in bullets)
 
     def test_damage_projection_bullets_single_component_no_breakdown(self):
         # Single component → no sub-bullets, no margin → no margin bullet
@@ -343,20 +358,28 @@ class TestAttackRendering(unittest.TestCase):
         out = BulletedRenderer().render([entry])
         assert "Modifier: +5 (Bayushi 2nd Dan)" in out
 
-    def test_attack_modifier_unsourced_visible(self):
-        """Spec 008 FR-014: unattributed bullet still visible but
-        rendered as ``"see preceding line"`` not the alarming
-        ``"unsourced"`` wording.
+    def test_attack_modifier_unsourced_omitted(self):
+        """2026-05-30 trace-reader sweep: when the attack carries a
+        modifier with no attributed breakdown, the ``Modifier`` bullet
+        is omitted entirely. The modifier value remains visible on
+        the parent header arithmetic. See
+        ``test_modifier_bullets_with_partial_attribution`` for the
+        sweep-finding rationale.
         """
         entry = _attack_entry(
             modifier=5,
             modifier_components=[],
         )
         out = BulletedRenderer().render([entry])
-        # Unsourced bullet must still be visible (Principle VII).
-        assert "Modifier: +5 (see preceding line)" in out
+        assert "see preceding line" not in out
+        assert "Modifier:" not in out
+        # Modifier value still visible on the header arithmetic line.
+        assert "+5" in out
 
     def test_attack_with_damage_projection_nested(self):
+        """2026-05-30: damage projection no longer renders ``+N over TN``
+        or ``N extra damage dice`` as bullets — they read as contributors
+        when they're metadata. The ``margin`` component still appears."""
         proj = DamageProjection(
             rolled=10, kept=2,
             components=[
@@ -371,8 +394,9 @@ class TestAttackRendering(unittest.TestCase):
         out = BulletedRenderer().render([entry])
         assert "Damage will be: 10k2" in out
         assert "4k2 katana" in out
-        assert "+15 over TN" in out
-        assert "3 extra damage dice" in out
+        assert "3k0 margin" in out  # component still rendered
+        # Metadata tags omitted per sweep findings:
+        assert "extra damage" not in out
 
     def test_attack_miss_no_damage_projection_rendered(self):
         proj = DamageProjection(
@@ -893,13 +917,18 @@ class TestSchoolAndAkodo5(unittest.TestCase):
         assert "⛔ negates Akodo's Akodo Bushi (10 VP — Isawa Ishi 5th Dan)" in out
 
     def test_akodo_5th_dan_counter(self):
+        """2026-05-30: counter-damage formula clarified to ``10 LW per
+        VP × N VP`` (was ``10 LW × N``) — trace-reader sweep found the
+        prior form was ambiguous (could read as "10 LW dealt 3 times"
+        or other interpretations).
+        """
         entry = AkodoFifthDanCounterEntry(
             phase_prefix="Akodo |", akodo_name="Akodo",
             vp_spent=3, damage=30, target_name="Bayushi",
         )
         out = BulletedRenderer().render([entry])
         assert "⬛⬛⬛ Akodo 5th Dan: spends 3 VP on counter-damage" in out
-        assert "10 LW × 3 = 30 LW dealt to Bayushi" in out
+        assert "10 LW per VP × 3 VP = 30 LW dealt to Bayushi" in out
 
 
 # ── Duel entries ───────────────────────────────────────────────────

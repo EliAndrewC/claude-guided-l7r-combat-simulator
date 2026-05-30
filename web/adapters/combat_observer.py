@@ -258,7 +258,15 @@ class CombatObserver:
             self._annotate_duel_initiative(event, context)
 
     def _status_snapshot(self, context: Any) -> dict[str, Any]:
-        """Capture a dict of character status keyed by name."""
+        """Capture a dict of character status keyed by name.
+
+        ``vp`` is the total spendable pool (regular VP + TVP) — kept
+        for back-compat with code that reads this key. ``tvp`` is the
+        temporary-VP component carried separately so the status
+        renderer can show ``Void N/M (+K TVP)`` instead of the
+        confusing over-cap ``Void M+K/M`` form flagged by the
+        2026-05-30 trace-reader sweep.
+        """
         status = {}
         for char in context.characters():
             status[char.name()] = {
@@ -267,6 +275,7 @@ class CombatObserver:
                 "max_sw": char.max_sw(),
                 "vp": char.vp(),
                 "max_vp": char.max_vp(),
+                "tvp": char.tvp(),
                 "actions": list(char.actions()),
                 "crippled": char.crippled(),
             }

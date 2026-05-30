@@ -79,6 +79,26 @@ from web.adapters.trace_entries import (
 # ── Shared formatting helpers ──────────────────────────────────────────
 
 
+_MAX_HEART_EMOJI = 3
+"""Cap on the number of literal 💔 emojis rendered before falling back
+to a short ``💔 × N`` form. The 2026-05-30 trace-reader sweep flagged
+long heart strings (one combat surfaced 47 hearts on a single line) as
+visually overwhelming and hard to count at a glance."""
+
+
+def _hearts(n: int) -> str:
+    """Render ``n`` heart emojis, capped at :data:`_MAX_HEART_EMOJI`.
+
+    For ``n <= _MAX_HEART_EMOJI`` returns the literal repeated emoji
+    (so 1-3 SW still read as a tight visual cluster). Past the cap,
+    renders ``"💔 × N"`` — the reader gets the magnitude without the
+    line dominating the screen.
+    """
+    if n <= _MAX_HEART_EMOJI:
+        return "💔" * n
+    return f"💔 × {n}"
+
+
 def _nonzero_components(components: list[ComponentDelta]) -> list[ComponentDelta]:
     """Filter component list to nonzero-contribution entries only."""
     return [c for c in components if c.rolled != 0 or c.kept != 0]
@@ -142,30 +162,24 @@ def _component_bullets(
 def _modifier_bullets(
     modifier: int, breakdown: list[ModifierDelta], indent: str = "  ",
 ) -> list[str]:
-    """Render modifier as one bullet per source (and one for unattributed remainder).
+    """Render modifier as one bullet per attributed source.
 
-    Returns an empty list when modifier == 0. When the modifier is
-    nonzero but partly unattributed, renders the gap as
-    ``Modifier: +K (see preceding line)`` per spec 008 FR-014 — the
-    Principle VII signal is preserved (the gap is visible) but the
-    wording is non-alarming.
+    Returns an empty list when modifier == 0. Unattributed remainders
+    (modifier > sum of breakdown.amount) are OMITTED — the 2026-05-30
+    trace-reader sweep found ``Modifier: +K (see preceding line)`` was
+    the single most-flagged UX defect across all 24 schools, a dangling
+    pointer that almost never pointed at an actual source. The parent
+    header's arithmetic still surfaces the modifier value (e.g.,
+    ``→ 25, +10 = 35``) so the reader sees it; the missing bullet just
+    avoids promising attribution we can't deliver.
     """
     if modifier == 0:
         return []
     nonzero = [m for m in breakdown if m.amount != 0]
-    known_total = sum(m.amount for m in nonzero)
-    remainder = modifier - known_total
     out: list[str] = []
     for m in nonzero:
         sign = "+" if m.amount >= 0 else ""
         out.append(f"{indent}- Modifier: {sign}{m.amount} ({m.source})")
-    if remainder != 0:
-        sign = "+" if remainder >= 0 else ""
-        out.append(
-            f"{indent}- Modifier: {sign}{remainder} (see preceding line)",
-        )
-    if not out:  # pragma: no cover  # defensive: nonzero modifier always renders something
-        return []
     return out
 
 
@@ -179,19 +193,20 @@ def _damage_projection_bullets(
     form matches TextRenderer's output (spec 008 FR-001/004 — Issue 1
     fix: the damage-projection sub-bullets previously bypassed the
     special-case helper and emitted the raw ``-3k3`` form).
+
+    Per the 2026-05-30 trace-reader sweep, the ``+N over TN`` and
+    ``N extra damage dice`` informational tags are NOT rendered as
+    component bullets — they were flagged across multiple schools as
+    looking like contributors to the dice pool when they're actually
+    metadata about how the projection was derived. The ``margin (+N
+    over TN)`` component (when nonzero) already captures the same
+    information at the correct semantic level.
     """
     out: list[str] = [f"{indent}- Damage will be: {proj.rolled}k{proj.kept}"]
     sub_indent = indent + "  "
     if _has_breakdown(proj.components):
         for c in _nonzero_components(proj.components):
             out.append(f"{sub_indent}- {_format_component_bullet(c)}")
-    if proj.margin_over_tn > 0:
-        out.append(f"{sub_indent}- +{proj.margin_over_tn} over TN")
-    if proj.extra_damage_dice > 0:
-        noun = "die" if proj.extra_damage_dice == 1 else "dice"
-        out.append(
-            f"{sub_indent}- {proj.extra_damage_dice} extra damage {noun}"
-        )
     return out
 
 
@@ -209,14 +224,21 @@ def _floating_bonus_inline_segment(
     """Render the inline ``", +N (source floating bonus), +M (source2)"``
     segment for an attack-line header (spec 008 FR-008/9).
 
-    Returns an empty string when no bonuses are consumed.  Each bonus
-    is rendered as ``", +{amount} ({source} floating bonus)"`` and the
-    caller appends ``" = {total}"`` to close the arithmetic.
+    Returns an empty string when no bonuses are consumed (after
+    filtering out zero-magnitude entries). Zero-magnitude bonuses
+    are skipped — the 2026-05-30 trace-reader sweep flagged
+    ``+0 (floating bonus)`` arithmetic steps as confusing across
+    every Akodo-involving combat.
+
+    Each remaining bonus renders as
+    ``", +{amount} ({source} floating bonus)"`` and the caller
+    appends ``" = {total}"`` to close the arithmetic.
     """
-    if not bonuses:
+    nonzero = [fb for fb in bonuses if fb.amount != 0]
+    if not nonzero:
         return ""
     parts: list[str] = []
-    for fb in bonuses:
+    for fb in nonzero:
         label = fb.source or "floating bonus"
         sign = "+" if fb.amount >= 0 else ""
         parts.append(f", {sign}{fb.amount} ({label} floating bonus)")
@@ -406,9 +428,20 @@ class BulletedRenderer:
         lines: list[str] = ["", "**Status:**"]
         for name, s in entry.statuses.items():
             crippled = " | **CRIPPLED**" if s["crippled"] else ""
+            # Surface TVP separately so the Void slot doesn't render
+            # as "current 7 / max 3" — trace-reader flagged this as
+            # the single most-confusing status-block detail across
+            # nearly every Akodo combat (Akodo SA grants TVPs that
+            # exceed max_vp).
+            tvp = s.get("tvp", 0)
+            base_vp = s["vp"] - tvp
+            if tvp > 0:
+                vp_str = f"Void {base_vp}/{s['max_vp']} (+{tvp} TVP)"
+            else:
+                vp_str = f"Void {s['vp']}/{s['max_vp']}"
             lines.append(
                 f"- **{name}**: Light {s['lw']} | Serious {s['sw']}/{s['max_sw']} | "
-                f"Void {s['vp']}/{s['max_vp']} | Actions: {s['actions']}{crippled}"
+                f"{vp_str} | Actions: {s['actions']}{crippled}"
             )
         lines.append("")
         return lines
@@ -659,7 +692,7 @@ class BulletedRenderer:
         return out
 
     def _render_sw_damage(self, entry: SeriousWoundsDamageEntry) -> list[str]:
-        hearts = "💔" * entry.damage
+        hearts = _hearts(entry.damage)
         noun = "wound" if entry.damage == 1 else "wounds"
         if entry.from_double_attack:
             suffix = " (double attack penalty)"
@@ -688,7 +721,7 @@ class BulletedRenderer:
         if entry.follow_up == "keep_lw":
             emoji = "🖤"
         elif entry.follow_up == "take_sw":
-            emoji = "💔" * entry.follow_up_sw_count
+            emoji = _hearts(entry.follow_up_sw_count)
         else:
             emoji = "💔" if entry.outcome == "passed" else "🖤"
 
@@ -799,6 +832,13 @@ class BulletedRenderer:
     def _render_spend_floating_bonus(
         self, entry: SpendFloatingBonusEntry,
     ) -> list[str]:
+        # Suppress zero-magnitude consume events — trace-reader sweep
+        # flagged these as confusing ("why was a bonus spent if it
+        # added nothing?"). The Principle VII signal is preserved at
+        # the source level (the depleted-pool transition exists in the
+        # event history), just not surfaced as a dedicated trace line.
+        if entry.amount == 0:
+            return []
         if entry.source:
             return [
                 f"{entry.phase_prefix} ✨ +{entry.amount} "
@@ -819,12 +859,17 @@ class BulletedRenderer:
     def _render_akodo_5th_dan_counter(
         self, entry: AkodoFifthDanCounterEntry,
     ) -> list[str]:
+        # Spell out "per VP" so the multiplier reads as "10 LW per VP
+        # × N VP = N×10 LW" rather than the ambiguous "10 LW × 3"
+        # which trace-reader sweep flagged as opaque (could read as
+        # "10 LW dealt 3 times" or "10 LW base scaled by 3 SW" etc.).
         squares = "⬛" * entry.vp_spent
+        vp_word = "VP" if entry.vp_spent == 1 else "VP"
         return [
             f"{entry.phase_prefix} {squares} Akodo 5th Dan: "
-            f"spends {entry.vp_spent} VP on counter-damage, "
-            f"10 LW × {entry.vp_spent} = {entry.damage} LW dealt to "
-            f"{entry.target_name}"
+            f"spends {entry.vp_spent} {vp_word} on counter-damage, "
+            f"10 LW per VP × {entry.vp_spent} VP = {entry.damage} LW "
+            f"dealt to {entry.target_name}"
         ]
 
     def _render_hida_3rd_dan_reroll(
@@ -995,9 +1040,13 @@ class BulletedRenderer:
     ) -> list[str]:
         """Render header + bulleted breakdown + modifier + dice + damage proj.
 
-        Per FR-013 / FR-014 the bullets only appear when there's a real
-        multi-source breakdown OR a modifier OR a damage projection.
-        Otherwise the header is emitted alone (single-line form).
+        The bullets appear when there's a real multi-source breakdown
+        OR an attributed modifier OR a damage projection OR (post-
+        2026-05-30 trace-reader sweep) a nonzero modifier whose
+        attribution is empty — in the last case we still expand so the
+        dice line's ``+N = total`` arithmetic surfaces the modifier
+        value (no longer falsely promised by a ``(see preceding line)``
+        bullet, but still visible in the line itself).
         """
         has_components = _has_breakdown(components)
         mod_bullets = _modifier_bullets(modifier, modifier_components)
@@ -1006,7 +1055,7 @@ class BulletedRenderer:
             if damage_projection is not None else []
         )
 
-        if not (has_components or mod_bullets or proj_bullets):
+        if not (has_components or mod_bullets or proj_bullets or modifier != 0):
             return [header]
 
         out: list[str] = [header]

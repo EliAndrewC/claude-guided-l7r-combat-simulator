@@ -1513,8 +1513,10 @@ class TestAkodoFifthDanCounterDamageTraceAttribution(unittest.TestCase):
         phase_event = events.NewPhaseEvent(phase=1)
         joined = "\n".join(fmt.format_history([phase_event] + responses))
         self.assertIn("Akodo 5th Dan", joined)
-        # Numeric breakdown: 10 LW × 3 VP = 30 LW dealt.
-        self.assertIn("10 LW × 3", joined)
+        # Numeric breakdown: 10 LW per VP × 3 VP = 30 LW dealt
+        # (2026-05-30: clarified formula per trace-reader sweep —
+        # the bare "10 LW × 3" was ambiguous).
+        self.assertIn("10 LW per VP × 3 VP", joined)
         self.assertIn("Attacker", joined)
         # The "30" damage MUST appear (10 × 3).
         self.assertIn("30", joined)

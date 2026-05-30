@@ -109,13 +109,20 @@ class TestUnsourcedLiteralAbsence(unittest.TestCase):
             "Akodo 4th Dan VP-for-raise modifier attribution missing",
         )
 
-    def test_fallback_wording_uses_see_preceding_line(self) -> None:
-        """FR-014: The fallback wording (when ``explain_modifier``
-        genuinely cannot identify a source) is
-        ``"see preceding line"``, not ``"unsourced"``.
+    def test_fallback_omits_unattributable_remainder(self) -> None:
+        """Updated 2026-05-30 per trace-reader sweep findings: the
+        ``(see preceding line)`` fallback is no longer rendered — the
+        sweep found it was the single most-flagged UX defect (a
+        dangling pointer that almost never pointed at the actual
+        source). When a modifier's breakdown is partial, only the
+        attributed components render as their own segments; the
+        unattributed remainder is omitted.
 
-        Sanity-check the fallback by unit-testing the formatter
-        helper directly with a known-unattributable modifier.
+        The remainder value itself remains visible at the parent
+        header level (e.g., the attack/WC line shows the modifier in
+        its arithmetic), so Principle VII's "every value visible"
+        guarantee is preserved at the line level even though the
+        per-bullet attribution is incomplete.
         """
         from web.adapters.bulleted_renderer import (
             _modifier_bullets as bulleted_fmt,
@@ -125,16 +132,15 @@ class TestUnsourcedLiteralAbsence(unittest.TestCase):
         )
         from web.adapters.trace_entries import ModifierDelta
 
-        # A modifier of +7 with one known +5 source — the remaining +2
-        # is unattributable.  TextRenderer should render the fallback.
         text_out = text_fmt(7, [ModifierDelta(source="Some Source", amount=5)])
         self.assertNotIn("unsourced", text_out)
-        self.assertIn("see preceding line", text_out)
+        self.assertNotIn("see preceding line", text_out)
+        self.assertIn("Some Source: +5", text_out)
 
-        # BulletedRenderer's _modifier_bullets should do the same.
         bullets = bulleted_fmt(
             7, [ModifierDelta(source="Some Source", amount=5)],
         )
         joined = "\n".join(bullets)
         self.assertNotIn("unsourced", joined)
-        self.assertIn("see preceding line", joined)
+        self.assertNotIn("see preceding line", joined)
+        self.assertIn("Some Source", joined)

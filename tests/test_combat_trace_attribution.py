@@ -524,17 +524,18 @@ class TestFormatterShowsSourceAttribution(unittest.TestCase):
         self.assertNotIn("Mirumoto 5th Dan", wc_line)
         self.assertNotIn("Mirumoto 2nd Dan", wc_line)
 
-    def test_breakdown_mismatch_renders_partial_with_unsourced(self):
+    def test_breakdown_mismatch_renders_partial_attributed_only(self):
         """When ``_detail_modifier_breakdown`` does not sum to the
-        rendered modifier, the formatter renders the partial breakdown
-        AND appends a ``"see preceding line"`` fallback for the
-        unaccounted portion (spec 008 FR-014 — replaces the prior
-        ``unsourced: +K`` literal with non-alarming wording).
+        rendered modifier, the formatter renders ONLY the attributed
+        portion. The unattributed remainder is omitted from the
+        suffix — 2026-05-30 trace-reader sweep found the prior
+        ``"see preceding line"`` fallback was a dangling pointer that
+        almost never pointed at an actual source.
 
-        spec.md FR-010 (Combat Trace Observability Audit) introduced
-        the visible placeholder so that Principle VII gaps are
-        surfaced rather than hidden; spec 008 only changes the wording,
-        preserving the visibility.
+        The modifier value itself (+35) remains visible in the line's
+        arithmetic ("→ kept_sum, +35 = total"); only the per-source
+        attribution suffix omits the unattributed remainder, which
+        promised a source it couldn't deliver.
         """
         fmt = DetailedEventFormatter()
         mirumoto = _make_fifth_dan_mirumoto()
@@ -544,26 +545,25 @@ class TestFormatterShowsSourceAttribution(unittest.TestCase):
         action = _make_skill_action(
             subject=mirumoto, target=target, skill="attack",
             skill_roll=80, tn=20, vp=3,
-            rolled=10, kept=6, modifier=35,  # actual modifier 35
+            rolled=10, kept=6, modifier=35,
         )
         event = events.AttackRolledEvent(action, 80)
         event._detail_dice = [10, 10, 9, 8, 7, 6, 5, 4, 3, 2]
         event._detail_params = (10, 6, 35)
         event._detail_tn = 20
         event._detail_base_tn = 20
-        # Breakdown only accounts for 30 of 35 -> +5 unaccounted ->
-        # rendered as ``see preceding line`` per spec 008 FR-014.
         event._detail_modifier_breakdown = [("Mirumoto 5th Dan", 30)]
 
         lines = fmt.format_history([event])
         attack_line = [ln for ln in lines if "Attack:" in ln][0]
+        # Modifier value still visible in the line's arithmetic.
         self.assertIn("+35", attack_line)
-        # Both the known source AND the unattributed-fallback marker
-        # must appear (the gap is visible, just non-alarming).
+        # Attributed source still surfaces.
         self.assertIn("Mirumoto 5th Dan", attack_line)
-        self.assertIn("see preceding line", attack_line)
-        # Ensure the old alarming wording is gone.
+        # Both the old alarming literal AND the dangling fallback
+        # must NOT appear.
         self.assertNotIn("unsourced", attack_line)
+        self.assertNotIn("see preceding line", attack_line)
 
 
 class TestFormatterShowsIshiThirdDanBoostAttribution(unittest.TestCase):
