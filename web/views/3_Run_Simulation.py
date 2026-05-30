@@ -3,11 +3,37 @@ from typing import Any
 import streamlit as st
 
 from simulation.schools.factory import get_school
-from web.adapters.bulleted_renderer import BulletedRenderer
+from web.adapters.bulleted_renderer import BulletedRenderer, ExpandableSegment, Segment, TextSegment
 from web.adapters.engine_adapter import is_duel_eligible, run_batch, run_duel_batch, run_duel_single, run_single
 from web.models import CharacterConfig
 
 RING_ORDER = ["air", "earth", "fire", "water", "void"]
+
+
+@st.dialog("Roll breakdown", width="large")
+def _show_breakdown(markdown_content: str) -> None:
+    """Open a modal dialog containing one roll's bulleted breakdown."""
+    st.markdown(markdown_content)
+
+
+def _render_trace_segments(segments: list[Segment], scope: str) -> None:
+    """Render a segmented trace: text inline, expandable entries as
+    tertiary-button links that pop a modal showing the full breakdown.
+
+    ``scope`` is appended to button keys so different tabs (single
+    combat vs duel) don't collide on widget identity.
+    """
+    for i, seg in enumerate(segments):
+        if isinstance(seg, TextSegment):
+            st.markdown(seg.content)
+        elif isinstance(seg, ExpandableSegment):
+            if st.button(
+                seg.compact,
+                key=f"trace_{scope}_{i}",
+                type="tertiary",
+                help="Click for the full per-source breakdown",
+            ):
+                _show_breakdown(seg.full)
 
 
 def _school_rank(config: CharacterConfig) -> int | None:
@@ -148,10 +174,13 @@ else:
                 st.subheader(f"Winner: {winner_label}")
                 st.write(f"Duration: {result.duration_rounds} rounds, {result.duration_phases} phases")
 
-                # Play-by-play — bulleted Markdown form (spec 007 FR-023/FR-024)
+                # Play-by-play — compact headers + click-to-expand modal
+                # for the per-source breakdowns (spec 007 FR-023/FR-024;
+                # 2026-05-30 UX refactor: replace inline bulleted lists
+                # with clickable tertiary buttons opening a modal).
                 with st.expander("Play-by-Play Log", expanded=True):
-                    markdown_trace = BulletedRenderer().render(result.trace_entries)
-                    st.markdown(markdown_trace)
+                    segments = BulletedRenderer().render_segments(result.trace_entries)
+                    _render_trace_segments(segments, scope="single")
 
                 # Features
                 with st.expander("Trial Statistics"):
@@ -173,8 +202,8 @@ else:
                     st.subheader(f"Winner: {winner_label}")
 
                     with st.expander("Play-by-Play Log", expanded=True):
-                        markdown_trace = BulletedRenderer().render(result.trace_entries)
-                        st.markdown(markdown_trace)
+                        segments = BulletedRenderer().render_segments(result.trace_entries)
+                        _render_trace_segments(segments, scope="duel")
 
                     with st.expander("Trial Statistics"):
                         for k, v in sorted(result.features.items()):

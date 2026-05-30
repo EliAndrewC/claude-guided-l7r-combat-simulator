@@ -30,6 +30,7 @@ NOT import from ``simulation/``; all input arrives as plain
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from web.adapters._breakdown_format import format_breakdown_component
@@ -221,6 +222,46 @@ def _floating_bonus_inline_segment(
     return "".join(parts)
 
 
+# ── Segment dataclasses (for the Streamlit modal-on-click UI) ──────────
+
+
+@dataclass(frozen=True)
+class TextSegment:
+    """A run of trace lines that render as plain Markdown."""
+
+    content: str
+
+
+@dataclass(frozen=True)
+class ExpandableSegment:
+    """A roll entry rendered as a compact clickable header + full detail.
+
+    ``compact`` is the single-line summary shown inline (acts as the
+    button label); ``full`` is the full Markdown breakdown (header +
+    bullets) shown when the user opens the modal.
+    """
+
+    compact: str
+    full: str
+
+
+Segment = TextSegment | ExpandableSegment
+
+
+# Entry kinds that warrant a click-to-expand modal — the roll-bearing
+# ones with multi-line bulleted breakdowns. Other multi-line entries
+# (round headers, status blocks, initiative) are structural and stay
+# inline because they ARE the trace's scaffolding.
+_EXPANDABLE_ENTRY_TYPES: tuple[type, ...] = (
+    AttackEntry,
+    CounterattackEntry,
+    ParryEntry,
+    IaijutsuEntry,
+    LightWoundsDamageEntry,
+    WoundCheckEntry,
+)
+
+
 # ── BulletedRenderer ────────────────────────────────────────────────────
 
 
@@ -238,6 +279,47 @@ class BulletedRenderer:
         for entry in entries:
             lines.extend(self._dispatch(entry))
         return "\n".join(lines)
+
+    def render_segments(self, entries: list[TraceEntry]) -> list[Segment]:
+        """Produce a segmented trace for the Streamlit modal-on-click UI.
+
+        Roll-bearing entries (attacks, parries, wound checks, etc.) with
+        a multi-line bulleted breakdown become :class:`ExpandableSegment`
+        objects — the compact header line is shown inline, and clicking
+        opens a modal containing the full breakdown. Structural entries
+        (round headers, status blocks, initiative rolls) and single-line
+        entries remain inline as :class:`TextSegment` chunks.
+
+        Consecutive text-rendered entries are coalesced into a single
+        :class:`TextSegment` so the Streamlit page can render long runs
+        of one-liners with one ``st.markdown`` call rather than one
+        widget per entry.
+        """
+        segments: list[Segment] = []
+        buffer: list[str] = []
+
+        def _flush_buffer() -> None:
+            if buffer:
+                segments.append(TextSegment("\n".join(buffer)))
+                buffer.clear()
+
+        for entry in entries:
+            lines = self._dispatch(entry)
+            if (
+                isinstance(entry, _EXPANDABLE_ENTRY_TYPES)
+                and len(lines) > 1
+            ):
+                _flush_buffer()
+                segments.append(
+                    ExpandableSegment(
+                        compact=lines[0],
+                        full="\n".join(lines),
+                    )
+                )
+            else:
+                buffer.extend(lines)
+        _flush_buffer()
+        return segments
 
     def _dispatch(self, entry: TraceEntry) -> list[str]:
         if isinstance(entry, RoundHeaderEntry):

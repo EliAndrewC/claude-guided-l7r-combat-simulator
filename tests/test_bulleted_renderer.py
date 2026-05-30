@@ -26,6 +26,8 @@ from simulation.groups import Group
 from simulation.templates.generator import generate_template
 from web.adapters.bulleted_renderer import (
     BulletedRenderer,
+    ExpandableSegment,
+    TextSegment,
     _component_bullets,
     _damage_projection_bullets,
     _format_dice_inline,
@@ -1067,6 +1069,93 @@ class TestCalibrationCombat(unittest.TestCase):
             assert "🎲 Initiative" in text
         finally:
             random.setstate(saved_state)
+
+
+class TestRenderSegments(unittest.TestCase):
+    """The segmented rendering used by the Run Simulation page —
+    roll-bearing multi-line entries become click-to-expand modals
+    (ExpandableSegment); structural and one-line entries stay inline
+    (TextSegment, coalesced)."""
+
+    def test_single_line_attack_is_text(self):
+        # No components, no modifier, no projection → single-line header.
+        entry = _attack_entry()
+        segments = BulletedRenderer().render_segments([entry])
+        # One coalesced TextSegment holding the lone header.
+        assert len(segments) == 1
+        assert isinstance(segments[0], TextSegment)
+        assert "⚔️ attacks Akodo" in segments[0].content
+
+    def test_multi_line_attack_is_expandable(self):
+        components = [
+            ComponentDelta("Fire ring", 5, 5),
+            ComponentDelta("double attack skill", 5, 0),
+        ]
+        entry = _attack_entry(components=components, skill="double attack")
+        segments = BulletedRenderer().render_segments([entry])
+        assert len(segments) == 1
+        assert isinstance(segments[0], ExpandableSegment)
+        # Compact line is just the header — the bullets must not appear.
+        assert "⚔️ attacks Akodo" in segments[0].compact
+        assert "- 5k5 Fire ring" not in segments[0].compact
+        # Full content includes both header AND the bulleted breakdown.
+        assert "⚔️ attacks Akodo" in segments[0].full
+        assert "- 5k5 Fire ring" in segments[0].full
+        assert "- 5k0 double attack skill" in segments[0].full
+        assert "- Dice: " in segments[0].full
+
+    def test_structural_round_header_is_text(self):
+        # Round headers carry the trace's scaffolding; they should
+        # never be hidden behind a modal even though they span lines.
+        segments = BulletedRenderer().render_segments(
+            [RoundHeaderEntry(round_number=3)],
+        )
+        assert len(segments) == 1
+        assert isinstance(segments[0], TextSegment)
+        assert "## Round 3" in segments[0].content
+
+    def test_consecutive_text_entries_coalesce(self):
+        # Two single-line entries (VP-spend + TVP-gain) should fold
+        # into ONE TextSegment so the page makes a single st.markdown
+        # call rather than two widgets.
+        entries = [
+            SpendVpEntry(
+                phase_prefix="Phase 2 | Bayushi |",
+                character_name="Bayushi", skill="attack", amount=1,
+            ),
+            GainTvpEntry(
+                phase_prefix="Phase 2 | Akodo |",
+                character_name="Akodo", amount=1, source=None,
+            ),
+        ]
+        segments = BulletedRenderer().render_segments(entries)
+        assert len(segments) == 1
+        assert isinstance(segments[0], TextSegment)
+        assert "spends 1 VP on attack" in segments[0].content
+        assert "+1 TVP" in segments[0].content
+
+    def test_expandable_breaks_text_run(self):
+        # text → expandable → text should produce 3 distinct segments.
+        components = [
+            ComponentDelta("Fire ring", 5, 5),
+            ComponentDelta("double attack skill", 5, 0),
+        ]
+        entries = [
+            SpendVpEntry(
+                phase_prefix="Phase 2 | Bayushi |",
+                character_name="Bayushi", skill="attack", amount=1,
+            ),
+            _attack_entry(components=components, skill="double attack"),
+            GainTvpEntry(
+                phase_prefix="Phase 2 | Akodo |",
+                character_name="Akodo", amount=1, source=None,
+            ),
+        ]
+        segments = BulletedRenderer().render_segments(entries)
+        assert len(segments) == 3
+        assert isinstance(segments[0], TextSegment)
+        assert isinstance(segments[1], ExpandableSegment)
+        assert isinstance(segments[2], TextSegment)
 
 
 if __name__ == "__main__":  # pragma: no cover
