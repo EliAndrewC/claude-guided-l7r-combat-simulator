@@ -41,7 +41,7 @@ as none of it is relevant to this project.
 - **Run unit tests**: `env/bin/pytest tests/ -v`
 - **Run linting**: `env/bin/ruff check .`
 - **Run type check**: `env/bin/mypy` (uses `[tool.mypy]` in `pyproject.toml`: strict on `simulation/` and `web/`, relaxed on `tests/`)
-- **Start web server**: `env/bin/streamlit run web/app.py`
+- **Start web server**: `env/bin/python web/launcher.py` (the launcher patches Streamlit's URL-path regex so `_stcore/*` endpoints resolve under page-name prefixes — see `web/launcher.py`)
 
 ## Post-Change Checklist
 After every code change, run these steps in order:
@@ -49,7 +49,7 @@ After every code change, run these steps in order:
 2. **Type check**: `env/bin/mypy` — must report zero errors. Strict mode is enabled for `simulation/` and `web/`; do not add `# type: ignore` to silence errors without an inline justification.
 3. **Test**: `env/bin/pytest tests/ -v` — all tests must pass
 4. **Restart Streamlit**: Streamlit does not reliably hot-reload all changes (especially new modules, factory registrations, and sys.path fixes in page files), so a full restart is required after you've completed your implementation and testing of each change. Since `streamlit run` is a long-running server that never exits on its own:
-   - Start: Run `env/bin/streamlit run web/app.py --server.headless true` using the Bash tool with `run_in_background: true`
+   - Start: Run `env/bin/python web/launcher.py --server.headless true` using the Bash tool with `run_in_background: true`
    - Verify: After a few seconds, read the background task output file to confirm "You can now view your Streamlit app" appears
 
 ## Secrets and credentials

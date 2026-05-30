@@ -6,6 +6,8 @@ COPY simulation/ simulation/
 COPY web/ web/
 COPY .streamlit/ .streamlit/
 EXPOSE 8501
-CMD ["streamlit", "run", "web/app.py", \
-     "--server.port=8501", \
-     "--server.address=0.0.0.0"]
+# Use web/launcher.py instead of `streamlit run` directly so the
+# launcher's patch to ``make_url_path_regex`` lands BEFORE Streamlit's
+# Server class registers its ``_stcore/*`` routes. See web/launcher.py
+# for the rationale (browser-console 404s on multi-page navigation).
+CMD ["python", "web/launcher.py"]

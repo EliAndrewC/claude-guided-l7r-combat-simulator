@@ -204,6 +204,15 @@ class CombatObserver:
         # ``LightWoundsDamageEvent`` annotation can recover the inputs
         # without re-walking history.
         self._pending_damage_context: dict[str, tuple[int, int, Any]] = {}
+        # 2026-05-30 fix: ``SpendActionEvent`` is processed BEFORE the
+        # subsequent ``TakeAttackActionEvent`` and mutates the
+        # character's ``actions()`` list. If we snapshot status on the
+        # TakeAttackActionEvent (as before), the status block displayed
+        # immediately before the attack shows the POST-spend actions
+        # list — making it look like the character is attacking with
+        # no actions remaining.  Stash a pre-spend snapshot here so
+        # ``_annotate_take_attack`` can use it.
+        self._pre_spend_status_snapshot: dict[str, Any] | None = None
 
     def on_event(self, event: Any, context: Any) -> None:
         if isinstance(event, events.NewRoundEvent):
@@ -212,6 +221,11 @@ class CombatObserver:
             self._pending_wound_check_vp[event.subject.name()] = event.vp
         elif isinstance(event, events.NewPhaseEvent):
             self._annotate_phase(event, context)
+        elif isinstance(event, events.SpendActionEvent):
+            # Capture status BEFORE the engine spends the die so the
+            # TakeAttackActionEvent annotation can show the actions
+            # list as it stood at the moment the attack was declared.
+            self._pre_spend_status_snapshot = self._status_snapshot(context)
         elif isinstance(event, TakeCounterattackActionEvent):
             self._annotate_take_attack(event, context)
         elif isinstance(event, events.TakeAttackActionEvent):
@@ -279,8 +293,19 @@ class CombatObserver:
                 event._detail_initiative = initiative
 
     def _annotate_take_attack(self, event: Any, context: Any) -> None:
-        """Annotate attack action with pre-action status snapshot."""
-        event._detail_status = self._status_snapshot(context)
+        """Annotate attack action with pre-action status snapshot.
+
+        Uses the snapshot captured on the immediately preceding
+        ``SpendActionEvent`` when available (so the actions list shows
+        the die that's about to be spent rather than the post-spend
+        state). Falls back to a live snapshot if no spend was observed
+        — e.g. for cost-free actions that don't yield SpendActionEvent.
+        """
+        if self._pre_spend_status_snapshot is not None:
+            event._detail_status = self._pre_spend_status_snapshot
+            self._pre_spend_status_snapshot = None
+        else:
+            event._detail_status = self._status_snapshot(context)
 
     def _annotate_attack_rolled(self, event: Any) -> None:
         subject = event.action.subject()
