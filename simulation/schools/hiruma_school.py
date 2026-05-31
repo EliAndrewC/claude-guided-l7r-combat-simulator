@@ -318,8 +318,9 @@ class HirumaFifthDanParryListener(HirumaParryListener):
     def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, (events.ParrySucceededEvent, events.ParryFailedEvent)):
             if event.action.subject() == character:
-                # 3rd Dan effect (super delegation, spec 019 T-A5).
+                # 3rd Dan effects (super delegation, spec 019 T-A5).
                 yield from self._emit_third_dan_modifier(character, event, context)
+                yield from self._maybe_interrupt_counterattack(character, event, context)
                 # 5th Dan attacker -10 damage modifier.
                 attacker = event.action.target()
                 modifier = Modifier(attacker, None, "damage", -10)

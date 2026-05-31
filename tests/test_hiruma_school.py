@@ -278,6 +278,26 @@ class TestHirumaFifthDanParryListener(unittest.TestCase):
         self.assertEqual(-10, fifth_dan.modifier.adjustment())
         self.assertTrue(getattr(fifth_dan.modifier, "_hiruma_5th_dan", False))
 
+    def test_interrupt_counterattack_fires_at_5th_dan(self):
+        """2026-05-31 regression: the 5th Dan listener overrides
+        ``handle`` (it doesn't call super) so it has to invoke
+        ``_maybe_interrupt_counterattack`` explicitly.  An earlier
+        cut of the change forgot this and the counterattack clause
+        silently dropped out for 450 XP Hirumas (who have 5th Dan
+        installed).  This test guards the wiring.
+        """
+        self.hiruma.set_skill("counterattack", 3)
+        self.hiruma.set_actions([5])
+        self.hiruma.set_interrupt_cost("counterattack", 1)
+        attack = actions.AttackAction(self.attacker, self.hiruma, "attack", self.initiative_action, self.context)
+        parry = actions.ParryAction(self.hiruma, self.attacker, "parry", self.initiative_action, self.context, attack)
+        parry.set_skill_roll(50)
+        emitted = list(hiruma_school.HirumaFifthDanParryListener().handle(
+            self.hiruma, events.ParrySucceededEvent(parry), self.context,
+        ))
+        take = [e for e in emitted if isinstance(e, events.TakeCounterattackActionEvent)]
+        self.assertEqual(1, len(take), f"expected 5th Dan path to emit one counterattack, got {emitted}")
+
 
 class TestExpireAfterNDamageRollsListener(unittest.TestCase):
     def test_expire_after_2_damage_rolls(self):
