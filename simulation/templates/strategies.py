@@ -455,24 +455,24 @@ NINJA_ABILITIES: list[str] = [
     "stealth (memorability)",
 ]
 
-# Hiruma Scout School (school_ring: air, knacks: double attack, feint, iaijutsu)
+# Hiruma Scout School (school_ring: air, knacks: double attack, counterattack, iaijutsu)
 HIRUMA_PRIORITIES: list[tuple[str, str, int]] = [
     # Dan 2
     ("skill", "double attack", 2),
-    ("skill", "feint", 2),
+    ("skill", "counterattack", 2),
     ("skill", "iaijutsu", 2),
     ("skill", "attack", 2),
     ("skill", "parry", 2),
     # Dan 3
     ("skill", "double attack", 3),
-    ("skill", "feint", 3),
+    ("skill", "counterattack", 3),
     ("skill", "iaijutsu", 3),
     ("skill", "attack", 3),
     ("skill", "parry", 3),
     ("ring", "earth", 3),
     # Dan 4
     ("skill", "double attack", 4),
-    ("skill", "feint", 4),
+    ("skill", "counterattack", 4),
     ("skill", "iaijutsu", 4),
     ("skill", "attack", 4),
     ("skill", "parry", 4),
@@ -482,7 +482,7 @@ HIRUMA_PRIORITIES: list[tuple[str, str, int]] = [
     ("ring", "earth", 4),
     # Dan 5
     ("skill", "double attack", 5),
-    ("skill", "feint", 5),
+    ("skill", "counterattack", 5),
     ("skill", "iaijutsu", 5),
     ("skill", "attack", 5),
     ("skill", "parry", 5),

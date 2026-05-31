@@ -6,16 +6,23 @@
 # Implement Hiruma Scout School.
 #
 # School Ring: Air
-# School Knacks: double attack, feint, iaijutsu
+# School Knacks: double attack, counterattack, iaijutsu
 #
 # Special Ability: Left/right adjacent allies have their TN to be
 #                  hit raised by +5 (spec 019 Q1 fix; was unimplemented).
 # 1st Dan: Extra rolled on initiative, parry, wound check.
 # 2nd Dan: Free raise on parry.
-# 3rd Dan: After parry (success/fail), +2X to next attack AND
-#          damage roll vs the attacker.  X = attack skill.
-#          NOTE: rules text "or someone adjacent to them" deferred —
-#          attacker-only scope for now (spec 019 Q2 partial).
+# 3rd Dan: After parry (success/fail):
+#            (a) +2X to next attack AND damage roll vs the attacker
+#                (X = attack skill).
+#            (b) MAY immediately counterattack as an interrupt action
+#                at the cost of 1 action die; this counterattack may
+#                target anyone hittable (not limited to the attacker).
+#          NOTE: rules-text "(a) or someone adjacent to them" deferred
+#                — attacker-only scope for now (spec 019 Q2 partial).
+#          NOTE: rules-text "(b) anyone you can hit" implemented as
+#                target=attacker for now (simplest sensible choice in
+#                1v1 — broader target selection is a future tweak).
 # 4th Dan: Ring+1/discount; NewRoundListener subtracts 2 from all
 #          action dice (min 1) after initiative.  ALSO refreshes
 #          the Special Ability neighbor modifiers (chains via super).
@@ -28,6 +35,7 @@ from typing import Any
 
 from simulation import events
 from simulation.listeners import Listener
+from simulation.mechanics.initiative_actions import InitiativeAction
 from simulation.mechanics.modifiers import Modifier
 from simulation.mechanics.skills import ATTACK_SKILLS
 from simulation.modifier_listeners import (
@@ -63,9 +71,14 @@ class HirumaScoutSchool(BaseSchool):
         #   the identity engine.
         # - ``WoundCheckStrategy04`` — 1st Dan WC die + 5th Dan -10
         #   damage debuff = above-average WC pool, threshold 0.4.
+        #
+        # 2026-05-31: the 3rd Dan ability now grants an interrupt
+        # counterattack option (1 action die) — set the cost here so
+        # the listener can dispatch ``has_interrupt_action`` checks.
         self._set_school_listener(
             character, "new_round", HirumaSpecialAbilityNewRoundListener(character),
         )
+        character.set_interrupt_cost("counterattack", 1)
         self._set_school_strategy(character, "parry", AlwaysParryStrategy())
         self._set_school_strategy(character, "wound_check", WoundCheckStrategy04())
 
@@ -95,7 +108,7 @@ class HirumaScoutSchool(BaseSchool):
         return "Hiruma Scout School"
 
     def school_knacks(self) -> list[str]:
-        return ["double attack", "feint", "iaijutsu"]
+        return ["double attack", "counterattack", "iaijutsu"]
 
     def school_ring(self) -> str:
         return "air"
@@ -165,7 +178,12 @@ class HirumaParryListener(Listener):
 
     "After making a successful or unsuccessful parry, add 2X to your
     next attack and damage roll against the attacker or someone
-    adjacent to them, where X is your attack skill."
+    adjacent to them, where X is your attack skill.  After your
+    successful or unsuccessful parry resolves, you may immediately
+    counterattack as an interrupt action at the cost of 1 action die,
+    and this counterattack may be directed at anyone you can hit
+    rather than being limited to the attacker whose strike you
+    parried." (2026-05-31 rules update.)
 
     Spec 019 T-A2 + T-A3 (Q2 + Q3 BLOCKING fixes):
     - Previous skeleton granted ``AnyAttackFloatingBonus(2X)`` which
@@ -187,12 +205,49 @@ class HirumaParryListener(Listener):
     safety net.  Minor edge case: if Hiruma's next damage roll
     targets someone OTHER than the attacker (rare in 1v1), the
     modifier expires unused.
+
+    Interrupt counterattack (2026-05-31): immediately after the parry
+    resolves, if Hiruma has the counterattack skill and an
+    interrupt-action die available, the listener yields the standard
+    SpendAction + TakeCounterattack event pair so the counterattack
+    runs inline.  Target defaults to the parried attacker — the
+    rules-text "anyone you can hit" scope is preserved as future
+    work (in 1v1 the attacker IS the only hittable target).
     """
 
     def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, (events.ParrySucceededEvent, events.ParryFailedEvent)):
             if event.action.subject() == character:
                 yield from self._emit_third_dan_modifier(character, event, context)
+                yield from self._maybe_interrupt_counterattack(character, event, context)
+
+    def _maybe_interrupt_counterattack(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
+        # rules/04-schools.md "Hiruma Scout School: Third Dan"
+        # (2026-05-31 update) — interrupt counterattack at 1 action
+        # die cost.  Eager: always counterattack if the Hiruma can,
+        # since the entire defensive identity is built around
+        # converting parries into offense.
+        if character.skill("counterattack") <= 0:
+            return
+        if not character.has_interrupt_action("counterattack", context):
+            return
+        cost = character.interrupt_cost("counterattack", context)
+        unspent = list(character.actions())
+        action_dice: list[int] = []
+        while len(action_dice) < cost:
+            die = max(unspent)
+            unspent.remove(die)
+            action_dice.append(die)
+        initiative_action = InitiativeAction(
+            action_dice, context.phase(), is_interrupt=True,
+        )
+        attacker = event.action.target()
+        counterattack = character.action_factory().get_counterattack_action(
+            character, attacker, event.action.attack(),
+            "counterattack", initiative_action, context,
+        )
+        yield events.SpendActionEvent(character, "counterattack", initiative_action)
+        yield character.take_action_event_factory().get_take_counterattack_action_event(counterattack)
 
     def _emit_third_dan_modifier(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         attacker = event.action.target()

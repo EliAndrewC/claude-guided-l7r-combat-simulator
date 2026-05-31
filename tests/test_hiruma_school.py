@@ -37,7 +37,9 @@ class TestHirumaScoutSchoolBasics(unittest.TestCase):
 
     def test_school_knacks(self):
         school = hiruma_school.HirumaScoutSchool()
-        self.assertEqual(["double attack", "feint", "iaijutsu"], school.school_knacks())
+        # 2026-05-31 rules update: feint replaced with counterattack
+        # to support the new 3rd Dan interrupt-counterattack clause.
+        self.assertEqual(["double attack", "counterattack", "iaijutsu"], school.school_knacks())
 
     def test_free_raise_skills(self):
         school = hiruma_school.HirumaScoutSchool()
@@ -105,6 +107,64 @@ class TestHirumaParryListener(unittest.TestCase):
         add_mod_events = [e for e in emitted if isinstance(e, events.AddModifierEvent)]
         self.assertEqual(1, len(add_mod_events))
         self.assertEqual(8, add_mod_events[0].modifier.adjustment())
+
+    def test_3rd_dan_interrupt_counterattack_emitted_on_parry(self):
+        """2026-05-31 rules update: after a parry resolves, Hiruma
+        may immediately counterattack as an interrupt at 1 action
+        die cost.  Implementation: ``HirumaParryListener.handle``
+        yields ``SpendActionEvent`` + ``TakeCounterattackActionEvent``
+        when the Hiruma has the counterattack skill AND an interrupt
+        action available.
+        """
+        # Hiruma needs the counterattack skill and at least one die.
+        self.hiruma.set_skill("counterattack", 3)
+        self.hiruma.set_actions([5])  # one available die
+        self.hiruma.set_interrupt_cost("counterattack", 1)
+        attack = actions.AttackAction(self.attacker, self.hiruma, "attack", self.initiative_action, self.context)
+        parry = actions.ParryAction(self.hiruma, self.attacker, "parry", self.initiative_action, self.context, attack)
+        parry.set_skill_roll(50)
+        emitted = list(hiruma_school.HirumaParryListener().handle(
+            self.hiruma, events.ParrySucceededEvent(parry), self.context,
+        ))
+        spend = [e for e in emitted if isinstance(e, events.SpendActionEvent)]
+        take = [e for e in emitted if isinstance(e, events.TakeCounterattackActionEvent)]
+        self.assertEqual(1, len(spend), f"expected one SpendActionEvent, got {emitted}")
+        self.assertEqual("counterattack", spend[0].skill)
+        self.assertEqual(1, len(take), f"expected one TakeCounterattackActionEvent, got {emitted}")
+        ca = take[0].action
+        self.assertEqual(self.hiruma, ca.subject())
+        self.assertEqual(self.attacker, ca.target())
+
+    def test_3rd_dan_interrupt_counterattack_skipped_when_no_skill(self):
+        """If the Hiruma has no counterattack skill, the interrupt
+        clause is silently skipped (the 3rd Dan modifier still fires).
+        """
+        # skill defaults to 0
+        self.hiruma.set_actions([5])
+        self.hiruma.set_interrupt_cost("counterattack", 1)
+        attack = actions.AttackAction(self.attacker, self.hiruma, "attack", self.initiative_action, self.context)
+        parry = actions.ParryAction(self.hiruma, self.attacker, "parry", self.initiative_action, self.context, attack)
+        parry.set_skill_roll(50)
+        emitted = list(hiruma_school.HirumaParryListener().handle(
+            self.hiruma, events.ParrySucceededEvent(parry), self.context,
+        ))
+        take = [e for e in emitted if isinstance(e, events.TakeCounterattackActionEvent)]
+        self.assertEqual(0, len(take))
+
+    def test_3rd_dan_interrupt_counterattack_skipped_when_no_actions(self):
+        """If the Hiruma has no action dice available, the interrupt
+        clause is silently skipped."""
+        self.hiruma.set_skill("counterattack", 3)
+        self.hiruma.set_actions([])
+        self.hiruma.set_interrupt_cost("counterattack", 1)
+        attack = actions.AttackAction(self.attacker, self.hiruma, "attack", self.initiative_action, self.context)
+        parry = actions.ParryAction(self.hiruma, self.attacker, "parry", self.initiative_action, self.context, attack)
+        parry.set_skill_roll(50)
+        emitted = list(hiruma_school.HirumaParryListener().handle(
+            self.hiruma, events.ParrySucceededEvent(parry), self.context,
+        ))
+        take = [e for e in emitted if isinstance(e, events.TakeCounterattackActionEvent)]
+        self.assertEqual(0, len(take))
 
     def test_3rd_dan_modifier_expires_on_damage_roll(self):
         """Trace-reader cat#10 finding (2026-05-30): the 3rd Dan

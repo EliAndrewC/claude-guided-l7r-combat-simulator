@@ -53,6 +53,7 @@ from web.adapters.trace_entries import (
     RoundHeaderEntry,
     SchoolNegatedEntry,
     SeriousWoundsDamageEntry,
+    ShibaFifthDanTnReductionEntry,
     ShowMeYourStanceDeclaredEntry,
     ShowMeYourStanceRolledEntry,
     SpendFloatingBonusEntry,
@@ -63,6 +64,7 @@ from web.adapters.trace_entries import (
     TraceEntry,
     UnconsciousEntry,
     WoundCheckEntry,
+    YogoThirdDanLwReductionEntry,
 )
 from web.adapters.trace_entries import (
     CounterattackEntry as _CounterattackEntry,
@@ -303,6 +305,14 @@ class TestJsonRenderer:
             UnconsciousEntry(phase_prefix="A |", character_name="A"),
             SurrenderEntry(phase_prefix="A |", character_name="A"),
             RawTextEntry(lines=["some raw line"]),
+            YogoThirdDanLwReductionEntry(
+                phase_prefix="A |", subject_name="A",
+                vp_spent=2, attack_skill=5, reduction=20, lw_after=0,
+            ),
+            ShibaFifthDanTnReductionEntry(
+                phase_prefix="A |", subject_name="A",
+                target_name="B", margin=12,
+            ),
         ]
 
 
