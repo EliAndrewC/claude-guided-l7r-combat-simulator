@@ -58,6 +58,7 @@ from web.adapters.trace_entries import (
     RoundHeaderEntry,
     SchoolNegatedEntry,
     SeriousWoundsDamageEntry,
+    ShibaFifthDanTnReductionEntry,
     ShowMeYourStanceDeclaredEntry,
     ShowMeYourStanceRolledEntry,
     SpendFloatingBonusEntry,
@@ -68,6 +69,7 @@ from web.adapters.trace_entries import (
     TraceEntry,
     UnconsciousEntry,
     WoundCheckEntry,
+    YogoThirdDanLwReductionEntry,
 )
 
 
@@ -603,6 +605,16 @@ class DetailedEventFormatter:
 
             elif isinstance(event, events.CounterDamageDealtEvent):
                 out.append(self._entry_counter_damage_dealt(event))
+                combat_output_since_status = True
+                any_entry_emitted = True
+
+            elif isinstance(event, events.YogoThirdDanLwReductionEvent):
+                out.append(self._entry_yogo_3rd_dan_lw_reduction(event))
+                combat_output_since_status = True
+                any_entry_emitted = True
+
+            elif isinstance(event, events.ShibaFifthDanTnReductionEvent):
+                out.append(self._entry_shiba_5th_dan_tn_reduction(event))
                 combat_output_since_status = True
                 any_entry_emitted = True
 
@@ -1615,6 +1627,30 @@ class DetailedEventFormatter:
             subject_name=subject,
             damage=event.damage,
             lw_after=event.lw_after,
+        )
+
+    def _entry_yogo_3rd_dan_lw_reduction(
+        self, event: Any,
+    ) -> YogoThirdDanLwReductionEntry:
+        subject = event.subject.name()
+        return YogoThirdDanLwReductionEntry(
+            phase_prefix=self._phase_prefix(subject),
+            subject_name=subject,
+            vp_spent=event.vp_spent,
+            attack_skill=event.attack_skill,
+            reduction=event.reduction,
+            lw_after=event.lw_after,
+        )
+
+    def _entry_shiba_5th_dan_tn_reduction(
+        self, event: Any,
+    ) -> ShibaFifthDanTnReductionEntry:
+        subject = event.subject.name()
+        return ShibaFifthDanTnReductionEntry(
+            phase_prefix=self._phase_prefix(subject),
+            subject_name=subject,
+            target_name=event.target.name(),
+            margin=event.margin,
         )
 
     def _entry_counter_damage_dealt_from_lw(

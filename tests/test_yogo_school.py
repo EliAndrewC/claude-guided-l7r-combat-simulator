@@ -120,6 +120,56 @@ class TestYogoSpendVoidPointsListener(unittest.TestCase):
             16, getattr(self.yogo, "_yogo_3rd_dan_last_reduction", 0),
         )
 
+    def test_emits_lw_reduction_event(self):
+        """Trace-reader cat#10 fix (2026-05-30): the listener must
+        emit a ``YogoThirdDanLwReductionEvent`` so the trace surfaces
+        the reduction that was previously a silent ``_lw`` mutation."""
+        listener = yogo_school.YogoSpendVoidPointsListener()
+        event = events.SpendVoidPointsEvent(self.yogo, "attack", 2)
+        emitted = list(listener.handle(self.yogo, event, self.context))
+        reduction_events = [
+            e for e in emitted
+            if isinstance(e, events.YogoThirdDanLwReductionEvent)
+        ]
+        self.assertEqual(1, len(reduction_events))
+        ev = reduction_events[0]
+        self.assertEqual(self.yogo, ev.subject)
+        self.assertEqual(2, ev.vp_spent)
+        self.assertEqual(4, ev.attack_skill)
+        self.assertEqual(16, ev.reduction)
+        self.assertEqual(4, ev.lw_after)
+
+    def test_no_event_when_lw_already_zero(self):
+        """When the Yogo has 0 LW, the reduction caps to 0 and no
+        ``YogoThirdDanLwReductionEvent`` is emitted (avoid noise)."""
+        self.yogo._lw = 0
+        listener = yogo_school.YogoSpendVoidPointsListener()
+        event = events.SpendVoidPointsEvent(self.yogo, "attack", 1)
+        emitted = list(listener.handle(self.yogo, event, self.context))
+        reduction_events = [
+            e for e in emitted
+            if isinstance(e, events.YogoThirdDanLwReductionEvent)
+        ]
+        self.assertEqual(0, len(reduction_events))
+
+    def test_reduction_caps_at_current_lw(self):
+        """When the reduction formula exceeds current LW, the trace
+        event reports the EFFECTIVE reduction (capped at current LW)
+        so ``lw_after`` matches the post-mutation state."""
+        self.yogo._lw = 3  # less than reduction (2*4*1=8)
+        listener = yogo_school.YogoSpendVoidPointsListener()
+        event = events.SpendVoidPointsEvent(self.yogo, "attack", 1)
+        emitted = list(listener.handle(self.yogo, event, self.context))
+        reduction_events = [
+            e for e in emitted
+            if isinstance(e, events.YogoThirdDanLwReductionEvent)
+        ]
+        self.assertEqual(1, len(reduction_events))
+        ev = reduction_events[0]
+        self.assertEqual(3, ev.reduction)
+        self.assertEqual(0, ev.lw_after)
+        self.assertEqual(0, self.yogo.lw())
+
 
 class TestYogoRollParameterProvider(unittest.TestCase):
     def test_wound_check_extra_vp_bonus(self):

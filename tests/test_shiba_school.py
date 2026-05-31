@@ -150,14 +150,21 @@ class TestShibaParrySucceededListener(unittest.TestCase):
         # play parry succeeded event on listener
         listener = shiba_school.ShibaParrySucceededListener()
         responses = list([response for response in listener.handle(self.shiba, event, self.context)])
-        # should get one response: AddModifierEvent
-        self.assertEqual(1, len(responses))
-        response = responses[0]
-        self.assertTrue(isinstance(response, events.AddModifierEvent))
+        # 2026-05-30 cat#10 fix: now emits 1 AddModifierEvent +
+        # 1 ShibaFifthDanTnReductionEvent (the discrete trace event).
+        self.assertEqual(2, len(responses))
+        add_event = responses[0]
+        self.assertTrue(isinstance(add_event, events.AddModifierEvent))
         # should add a penalty to self.attacker's TN to be hit
-        modifier = response.modifier
+        modifier = add_event.modifier
         self.assertEqual(self.attacker, modifier.subject())
         self.assertEqual(-6, modifier.adjustment())
+        # discrete trace event carries the school identity
+        tn_reduction = responses[1]
+        self.assertTrue(isinstance(tn_reduction, events.ShibaFifthDanTnReductionEvent))
+        self.assertEqual(self.shiba, tn_reduction.subject)
+        self.assertEqual(self.attacker, tn_reduction.target)
+        self.assertEqual(6, tn_reduction.margin)
 
     def test_run_parry_engine(self):
         # build Shiba as a 5th Dan character
@@ -213,9 +220,12 @@ class TestShibaParrySucceededListener(unittest.TestCase):
         # add_modifier
         fifth_event = history.pop(0)
         self.assertTrue(isinstance(fifth_event, events.AddModifierEvent))
-        # lw_damage
+        # shiba_5th_dan_tn_reduction (discrete trace event, 2026-05-30)
         sixth_event = history.pop(0)
-        self.assertTrue(isinstance(sixth_event, events.LightWoundsDamageEvent))
+        self.assertTrue(isinstance(sixth_event, events.ShibaFifthDanTnReductionEvent))
+        # lw_damage
+        seventh_event = history.pop(0)
+        self.assertTrue(isinstance(seventh_event, events.LightWoundsDamageEvent))
 
 
 class TestShibaTakeParryEvent(unittest.TestCase):

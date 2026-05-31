@@ -140,6 +140,14 @@ def _is_shinjo_bushi(character: Any) -> bool:
     return bool(school.name() == "Shinjo Bushi School")
 
 
+def _is_yogo_warden(character: Any) -> bool:
+    """True iff the character's school is the Yogo Warden School."""
+    school = character.school() if hasattr(character, "school") else None
+    if school is None:
+        return False
+    return bool(school.name() == "Yogo Warden School")
+
+
 def explain_modifier(
     character: Any,
     skill: str,
@@ -257,6 +265,33 @@ def explain_modifier(
         # counterattack rolls).
         if rank >= 2 and skill == "counterattack":
             contributions.append(("Hida 2nd Dan free raise", 5))
+
+    elif _is_yogo_warden(character):
+        rank = _school_rank(character)
+
+        # Yogo Warden 2nd Dan free raise on wound check
+        # (rules/04-schools.md "Yogo Warden School: Second Dan"; the
+        # school's ``free_raise_skills() == ["wound check"]`` installs
+        # FreeRaise(+5) on wound-check rolls).
+        yogo_2nd_dan_amount = 0
+        if rank >= 2 and skill == "wound check":
+            yogo_2nd_dan_amount = 5
+            contributions.append(("Yogo 2nd Dan free raise", 5))
+
+        # Yogo Warden 4th Dan +10/VP on wound check (rules/04-schools.md
+        # "Yogo Warden School: Fourth Dan": "+10 per VP on wound checks
+        # instead of +5").  The standard WC VP spend contributes +N
+        # rolled and +N kept (no flat modifier).  YogoRollParameter
+        # Provider adds ``+5 * vp`` to the modifier on top, producing
+        # the "+10 per VP" outcome.  Attribute that residual here so
+        # the trace shows "Yogo 4th Dan VP raises: +5×N" instead of
+        # leaving the modifier unsourced.  Trace-reader cat#10 fix
+        # (2026-05-30).
+        if rank >= 4 and skill == "wound check" and vp > 0:
+            residual = modifier_arg - yogo_2nd_dan_amount
+            expected = 5 * vp
+            if residual >= expected:
+                contributions.append(("Yogo 4th Dan VP raises", expected))
 
     elif _is_akodo_bushi(character):
         rank = _school_rank(character)

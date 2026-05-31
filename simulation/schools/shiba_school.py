@@ -11,7 +11,13 @@ from typing import Any
 
 from simulation import events
 from simulation.actions import ParryAction
-from simulation.events import AddModifierEvent, LightWoundsDamageEvent, ParrySucceededEvent, TakeParryActionEvent
+from simulation.events import (
+    AddModifierEvent,
+    LightWoundsDamageEvent,
+    ParrySucceededEvent,
+    ShibaFifthDanTnReductionEvent,
+    TakeParryActionEvent,
+)
 from simulation.listeners import Listener
 from simulation.log import logger
 from simulation.mechanics.initiative_actions import InitiativeAction
@@ -217,28 +223,30 @@ class ShibaParrySucceededListener(Listener):
     amount by which your parry roll exceeded its TN.  This can lower
     the TN to a negative number."
 
-    Tags the emitted ``AddModifierEvent`` with a ``_shiba_5th_dan``
-    attribute carrying the parry margin so future trace-renderer
-    work can surface the 5th Dan attribution (spec 016 trace gap —
-    P0 but renderer-side AddModifierEvent handler does not exist
-    yet; deferred for follow-up branch).
+    Emits BOTH an ``AddModifierEvent`` (which installs the actual
+    ``Modifier`` — the engine mechanism that lowers TN-to-hit) AND a
+    discrete ``ShibaFifthDanTnReductionEvent`` so the trace surfaces
+    the school identity in user-facing rendering.  Trace-reader
+    cat#10 fix (2026-05-30): pre-fix the modifier was installed
+    silently and the school's marquee defensive ability never
+    appeared in the trace.
     """
 
     def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, ParrySucceededEvent):
             margin = event.action.skill_roll() - event.action.attack().skill_roll()
             penalty = -1 * margin
-            modifier = Modifier(event.action.target(), None, "tn to hit", penalty)
+            attacker = event.action.target()
+            modifier = Modifier(attacker, None, "tn to hit", penalty)
             listener = ExpireAfterNextAttackListener()
             modifier.register_listener("attack_failed", listener)
             modifier.register_listener("attack_succeeded", listener)
-            add_event = AddModifierEvent(event.action.target(), modifier)
-            # Trace attribution tag (spec 016 T-C2 partial — renderer
-            # work deferred to a follow-up branch since no
-            # ``AddModifierEvent`` handler exists in the trace
-            # adapters yet).
+            add_event = AddModifierEvent(attacker, modifier)
             add_event._shiba_5th_dan_margin = margin  # type: ignore[attr-defined]
             yield add_event
+            yield ShibaFifthDanTnReductionEvent(
+                subject=character, target=attacker, margin=margin,
+            )
 
 
 class ShibaTakeActionEventFactory(DefaultTakeActionEventFactory):

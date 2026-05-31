@@ -863,6 +863,83 @@ class MerchantRerollEvent(Event):
         self.rerolled_pairs = list(rerolled_pairs)
 
 
+class ShibaFifthDanTnReductionEvent(Event):
+    """Event emitted when the Shiba Bushi 5th Dan ability lowers the
+    TN-to-hit a successfully-parried attacker on their next attack
+    (rules/04-schools.md "Shiba Bushi School: Fifth Dan": "After you
+    successfully parry, the TN to hit the parried opponent on the
+    next attack directed at them this combat is lowered by the amount
+    by which your parry roll exceeded its TN").
+
+    Companion to the ``AddModifierEvent`` that installs the actual
+    ``Modifier``; surfaces the school identity so the trace shows
+    "Shiba 5th Dan: TN to hit <attacker> lowered by N (parry margin)"
+    instead of leaving the debuff invisible (trace-reader cat#10 fix
+    2026-05-30).
+
+    ``subject`` is the Shiba who parried.  ``target`` is the attacker
+    whose TN-to-hit is now lowered (i.e. they become easier to hit on
+    their next attack).  ``margin`` is the amount by which the parry
+    roll exceeded its TN (also the TN reduction amount).
+    """
+
+    def __init__(
+        self,
+        subject: Any,
+        target: Any,
+        margin: int,
+    ) -> None:
+        super().__init__("shiba_5th_dan_tn_reduction")
+        self.subject = subject
+        self.target = target
+        if not isinstance(margin, int):
+            raise ValueError("margin must be int")
+        self.margin = margin
+
+
+class YogoThirdDanLwReductionEvent(Event):
+    """Event emitted when the Yogo Warden 3rd Dan ability reduces
+    a Yogo's light wounds via VP spend (rules/04-schools.md "Yogo
+    Warden School: Third Dan": "Whenever you spend a void point,
+    reduce your current light wound total by 2X, where X is your
+    attack skill").
+
+    Surfaced as a discrete event so the trace shows the LW reduction
+    that previously happened as a silent ``_lw`` mutation in the
+    listener (trace-reader cat#10 fix 2026-05-30).
+
+    ``subject`` is the Yogo.  ``vp_spent`` is the number of VP that
+    triggered this reduction.  ``attack_skill`` is the Yogo's attack
+    skill rank at trigger time.  ``reduction`` is the amount of LW
+    removed (= 2 × attack_skill × vp_spent).  ``lw_after`` is the
+    Yogo's LW total AFTER the reduction lands, for inline
+    ``(total: K)`` rendering.
+    """
+
+    def __init__(
+        self,
+        subject: Any,
+        vp_spent: int,
+        attack_skill: int,
+        reduction: int,
+        lw_after: int,
+    ) -> None:
+        super().__init__("yogo_3rd_dan_lw_reduction")
+        self.subject = subject
+        if not isinstance(vp_spent, int):
+            raise ValueError("vp_spent must be int")
+        self.vp_spent = vp_spent
+        if not isinstance(attack_skill, int):
+            raise ValueError("attack_skill must be int")
+        self.attack_skill = attack_skill
+        if not isinstance(reduction, int):
+            raise ValueError("reduction must be int")
+        self.reduction = reduction
+        if not isinstance(lw_after, int):
+            raise ValueError("lw_after must be int")
+        self.lw_after = lw_after
+
+
 class CounterDamageDealtEvent(Event):
     """Event emitted when the Akodo 5th Dan ability deals
     counter-damage as raw LW to the original attacker

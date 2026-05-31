@@ -430,6 +430,45 @@ class MerchantRerollEntry:
 
 
 @dataclass(frozen=True)
+class ShibaFifthDanTnReductionEntry:
+    """Shiba 5th Dan post-parry TN-to-hit reduction.
+
+    Rendered after a successful Shiba parry so the reader can see
+    that the attacker's next attack has its TN lowered by the parry
+    margin.  Pre-2026-05-30 the modifier was installed via a silent
+    ``AddModifierEvent`` and the school's marquee defensive ability
+    never surfaced in the trace.
+    """
+
+    phase_prefix: str
+    subject_name: str
+    target_name: str
+    margin: int
+    kind: Literal["shiba_5th_dan_tn_reduction"] = "shiba_5th_dan_tn_reduction"
+
+
+@dataclass(frozen=True)
+class YogoThirdDanLwReductionEntry:
+    """Yogo 3rd Dan VP-spend LW-reduction line.
+
+    Rendered after a Yogo VP-spend event so the reader can see WHY
+    the Yogo's LW dropped on the next status block.  Pre-2026-05-30
+    the reduction was a silent ``_lw`` mutation in
+    ``YogoSpendVoidPointsListener``; trace-reader cat#10 sweep added
+    a discrete event + entry pair so the trace surfaces the formula
+    ``2 × attack × VP``.
+    """
+
+    phase_prefix: str
+    subject_name: str
+    vp_spent: int
+    attack_skill: int
+    reduction: int
+    lw_after: int
+    kind: Literal["yogo_3rd_dan_lw_reduction"] = "yogo_3rd_dan_lw_reduction"
+
+
+@dataclass(frozen=True)
 class CounterDamageDealtEntry:
     """Discrete LW-applied event for Akodo 5th Dan counter-damage.
 
@@ -691,4 +730,6 @@ TraceEntry = (
     | UnconsciousEntry
     | SurrenderEntry
     | RawTextEntry
+    | YogoThirdDanLwReductionEntry
+    | ShibaFifthDanTnReductionEntry
 )

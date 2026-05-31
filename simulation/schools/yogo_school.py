@@ -122,15 +122,27 @@ class YogoSpendVoidPointsListener(Listener):
             if event.subject == character:
                 character.spend_vp(event.amount)
                 # Per-VP scaling (Q2 fix).
-                reduction = 2 * character.skill("attack") * event.amount
-                new_lw = max(0, character.lw() - reduction)
+                attack_skill = character.skill("attack")
+                reduction = 2 * attack_skill * event.amount
+                # Cap reduction at current LW so the trace's
+                # ``lw_after`` reflects the actual mutation.
+                effective_reduction = min(reduction, character.lw())
+                new_lw = character.lw() - effective_reduction
                 character._lw = new_lw
-                # Trace attribution tag (spec 021 FR-005) for future
-                # renderer work.  The reduction is a silent LW
-                # mutation today; the tag lets a downstream renderer
-                # surface "Yogo 3rd Dan: LW -N (= 2 * attack * VP)".
-                character._yogo_3rd_dan_last_reduction = reduction
-        yield from ()
+                # Trace attribution tag (kept for back-compat with
+                # any external consumers).
+                character._yogo_3rd_dan_last_reduction = effective_reduction
+                if effective_reduction > 0:
+                    # Trace-reader cat#10 fix (2026-05-30): emit a
+                    # discrete event so the trace surfaces the LW
+                    # reduction instead of a silent _lw mutation.
+                    yield events.YogoThirdDanLwReductionEvent(
+                        subject=character,
+                        vp_spent=event.amount,
+                        attack_skill=attack_skill,
+                        reduction=effective_reduction,
+                        lw_after=new_lw,
+                    )
 
 
 class YogoRollParameterProvider(DefaultRollParameterProvider):

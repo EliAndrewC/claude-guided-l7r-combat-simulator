@@ -18,6 +18,7 @@ from simulation.mechanics.modifiers import Modifier
 from simulation.schools.hiruma_school import HirumaScoutSchool
 from simulation.schools.kitsuki_school import KitsukiMagistrateSchool
 from simulation.schools.shinjo_school import ShinjoBushiSchool
+from simulation.schools.yogo_school import YogoWardenSchool
 from web.adapters.modifier_breakdown import explain_modifier
 
 
@@ -157,6 +158,50 @@ class TestHirumaThirdDanPostParryAttribution(unittest.TestCase):
         self.assertEqual(
             [], [c for c in contribs if "Hiruma" in c[0]],
         )
+
+
+class TestYogoFourthDanVPAttribution(unittest.TestCase):
+    """Yogo 4th Dan: +10 per VP on wound checks (vs the default +5)
+    must surface in the modifier breakdown as "Yogo 4th Dan VP
+    raises" so the +5N flat contribution doesn't appear unsourced.
+    """
+
+    def test_yogo_4th_dan_vp_attributed_on_wound_check(self) -> None:
+        y = Character("Yogo")
+        school = YogoWardenSchool()
+        y.set_school(school)
+        for knack in school.school_knacks():
+            y.set_skill(knack, 4)
+        # Caller passes the actual modifier on the WC roll; with
+        # 2nd Dan free raise (+5) + 4th Dan +5 per VP × 2 VP = +5 + 10 = +15.
+        contribs = explain_modifier(y, "wound check", 15, vp=2)
+        labels = [c[0] for c in contribs]
+        self.assertIn("Yogo 2nd Dan free raise", labels)
+        self.assertIn("Yogo 4th Dan VP raises", labels)
+        self.assertEqual(
+            10,
+            next(c[1] for c in contribs if c[0] == "Yogo 4th Dan VP raises"),
+        )
+
+    def test_yogo_4th_dan_skipped_when_vp_zero(self) -> None:
+        y = Character("Yogo")
+        school = YogoWardenSchool()
+        y.set_school(school)
+        for knack in school.school_knacks():
+            y.set_skill(knack, 4)
+        contribs = explain_modifier(y, "wound check", 5, vp=0)
+        labels = [c[0] for c in contribs]
+        self.assertNotIn("Yogo 4th Dan VP raises", labels)
+
+    def test_yogo_4th_dan_skipped_when_rank_low(self) -> None:
+        y = Character("Yogo")
+        school = YogoWardenSchool()
+        y.set_school(school)
+        for knack in school.school_knacks():
+            y.set_skill(knack, 3)
+        contribs = explain_modifier(y, "wound check", 10, vp=2)
+        labels = [c[0] for c in contribs]
+        self.assertNotIn("Yogo 4th Dan VP raises", labels)
 
 
 if __name__ == "__main__":  # pragma: no cover  # test entry

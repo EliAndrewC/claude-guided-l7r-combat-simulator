@@ -67,6 +67,7 @@ from web.adapters.trace_entries import (
     RoundHeaderEntry,
     SchoolNegatedEntry,
     SeriousWoundsDamageEntry,
+    ShibaFifthDanTnReductionEntry,
     ShowMeYourStanceDeclaredEntry,
     ShowMeYourStanceRolledEntry,
     SpendFloatingBonusEntry,
@@ -77,6 +78,7 @@ from web.adapters.trace_entries import (
     TraceEntry,
     UnconsciousEntry,
     WoundCheckEntry,
+    YogoThirdDanLwReductionEntry,
 )
 
 # ── Shared formatting helpers ──────────────────────────────────────────
@@ -388,6 +390,10 @@ class BulletedRenderer:
             return self._render_akodo_5th_dan_counter(entry)
         if isinstance(entry, CounterDamageDealtEntry):
             return self._render_counter_damage_dealt(entry)
+        if isinstance(entry, YogoThirdDanLwReductionEntry):
+            return self._render_yogo_3rd_dan_lw_reduction(entry)
+        if isinstance(entry, ShibaFifthDanTnReductionEntry):
+            return self._render_shiba_5th_dan_tn_reduction(entry)
         if isinstance(entry, KitsukiRingReductionEntry):
             return self._render_kitsuki_ring_reduction(entry)
         if isinstance(entry, MerchantRerollEntry):
@@ -907,6 +913,24 @@ class BulletedRenderer:
         return [
             f"{entry.phase_prefix} 💥 takes {entry.damage} light wounds "
             f"(total: {entry.lw_after})"
+        ]
+
+    def _render_yogo_3rd_dan_lw_reduction(
+        self, entry: YogoThirdDanLwReductionEntry,
+    ) -> list[str]:
+        return [
+            f"{entry.phase_prefix} 🩹 Yogo 3rd Dan: LW -{entry.reduction} "
+            f"(= 2 × attack {entry.attack_skill} × {entry.vp_spent} VP) "
+            f"→ total: {entry.lw_after}"
+        ]
+
+    def _render_shiba_5th_dan_tn_reduction(
+        self, entry: ShibaFifthDanTnReductionEntry,
+    ) -> list[str]:
+        return [
+            f"{entry.phase_prefix} 🔻 Shiba 5th Dan: TN to hit "
+            f"{entry.target_name} lowered by {entry.margin} on next attack "
+            f"(parry margin)"
         ]
 
     def _render_kitsuki_ring_reduction(
