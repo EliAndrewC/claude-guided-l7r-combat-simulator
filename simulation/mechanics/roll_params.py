@@ -164,6 +164,7 @@ def _normalize_breakdown(
     components: list[tuple[str, int, int]],
     aggregate_rolled: int,
     aggregate_kept: int,
+    character: Any = None,
 ) -> list[tuple[str, int, int]]:
     """Adjust a raw breakdown so the components' summed rolled/kept equals
     the normalized aggregate.
@@ -183,6 +184,13 @@ def _normalize_breakdown(
 
     Zero-delta cases produce no synthetic entry (the breakdown is
     already balanced).
+
+    When ``character`` is provided and the non-overflow catch-all
+    fires, the label is qualified with the character's school short
+    name (e.g., ``"Shiba school formula"``) so a fresh reader can at
+    least tell *which* school's override is contributing — even if
+    the specific Dan ability is not pinpointed (trace-reader cat#10
+    fix 2026-05-30).
     """
     sum_rolled = sum(r for _, r, _ in components)
     sum_kept = sum(k for _, _, k in components)
@@ -201,17 +209,26 @@ def _normalize_breakdown(
     #       within the 10k10 cap; the delta comes from another
     #       mechanic the breakdown didn't capture (e.g., feint
     #       damage reduction, counterattack damage formula, Shiba
-    #       3rd Dan parry-damage cap). Pre-2026-05-30 this was
-    #       labeled "reconciliation" — trace-reader sweep flagged
-    #       the term as opaque rules-jargon a fresh reader couldn't
-    #       decode. Renamed to "school adjustment" which at least
-    #       hints at the cause (a school-specific formula not
-    #       captured by the standard breakdown).
+    #       3rd Dan parry-damage cap).  Trace-reader 2026-05-30
+    #       sweep: name the school in the label when known so the
+    #       reader can identify the source even without a full
+    #       per-source breakdown.
     if sum_rolled > 10 or sum_kept > 10:
         label = "from dice in excess of 10k10"
     else:
-        label = "school adjustment"
+        label = _school_formula_label(character)
     return [*components, (label, delta_rolled, delta_kept)]
+
+
+def _school_formula_label(character: Any) -> str:
+    """Render the non-overflow catch-all label, qualifying it with the
+    character's school short name when available."""
+    if character is None:
+        return "school formula"
+    school = character.school() if hasattr(character, "school") else None
+    if school is None or not school.name():
+        return "school formula"
+    return f"{school.name().split()[0]} school formula"
 
 
 class DefaultRollParameterProvider(RollParameterProvider):
@@ -275,14 +292,17 @@ class DefaultRollParameterProvider(RollParameterProvider):
         # etc.). The default provider walks ``character.extra_rolled``
         # which already incorporates the school's ``extra_rolled``
         # accessor — per data-model.md "Per-school breakdown
-        # contribution" (1). Labelled with the school name when present
-        # so the trace identifies the source.
+        # contribution" (1). Trace-reader cat#10 fix (2026-05-30):
+        # use the "<School> 1st Dan" short form (matching the attack
+        # breakdown) instead of the full school name, so the reader
+        # can see WHICH Dan ability is contributing rather than just
+        # "Kuni Witch Hunter School".
         if my_extra_rolled > 0 or my_extra_kept > 0:
             school = character.school() if hasattr(character, "school") else None
-            label = (
-                school.name() if school is not None and school.name()
-                else "character bonus"
-            )
+            if school is not None and school.name():
+                label = f"{school.name().split()[0]} 1st Dan"
+            else:
+                label = "character bonus"
             components.append((label, my_extra_rolled, my_extra_kept))
         # Reconcile against the actual aggregate (handles normalize_roll_params
         # rolled→kept conversion). Bonus/modifier dice are NOT part of the
@@ -291,7 +311,9 @@ class DefaultRollParameterProvider(RollParameterProvider):
         aggregate_rolled, aggregate_kept, _ = self.get_damage_roll_params(
             character, target, skill, attack_extra_rolled, vp=vp,
         )
-        return _normalize_breakdown(components, aggregate_rolled, aggregate_kept)
+        return _normalize_breakdown(
+            components, aggregate_rolled, aggregate_kept, character=character,
+        )
 
     def _attack_breakdown(
         self,
@@ -376,7 +398,9 @@ class DefaultRollParameterProvider(RollParameterProvider):
             character, target, skill,
             contested_skill=contested_skill, ring=None, vp=vp,
         )
-        return _normalize_breakdown(components, aggregate_rolled, aggregate_kept)
+        return _normalize_breakdown(
+            components, aggregate_rolled, aggregate_kept, character=character,
+        )
 
     def get_damage_roll_params(self, character: Any, target: Any, skill: str, attack_extra_rolled: int, vp: int = 0) -> tuple[int, int, int]:
         # calculate extra rolled dice

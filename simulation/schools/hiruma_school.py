@@ -199,6 +199,15 @@ class HirumaParryListener(Listener):
         bonus = 2 * character.skill("attack")
         if bonus <= 0:
             return
+        # Each parry adds one +2X stack against the attacker; the
+        # registered ExpireAfterNDamageRollsListener consumes one
+        # stack per damage roll, and ExpireAtEndOfRoundListener
+        # clears the remainder at end of round.  Pre-2026-05-30 the
+        # RemoveModifierListener was broken (wrong isinstance check
+        # in listeners.py), so neither expiry actually fired and the
+        # stacks grew unboundedly (trace-reader sweep reported +400
+        # on Hiruma attacks).  With listeners.py fixed, the rules-
+        # as-written stacking + per-damage expiry now works.
         # Target-scoped Modifier applies on character's attack-skill
         # rolls AND damage rolls vs the attacker.
         skills = list(ATTACK_SKILLS) + ["damage"]

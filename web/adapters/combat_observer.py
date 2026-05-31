@@ -19,6 +19,7 @@ from web.adapters.modifier_breakdown import explain_modifier
 
 def _reconcile_breakdown(
     components: list[tuple[str, int, int]], aggregate: tuple[int, int],
+    character: Any = None,
 ) -> list[tuple[str, int, int]]:
     """Adjust ``components`` so its summed ``(rolled, kept)`` equals the
     displayed ``aggregate``. When the components already sum correctly
@@ -28,7 +29,9 @@ def _reconcile_breakdown(
     the data-model.md invariant ``sum(components) == aggregate_*`` so
     the trace renders a per-line self-explaining breakdown (FR-017).
     """
-    return _normalize_breakdown(components, aggregate[0], aggregate[1])
+    return _normalize_breakdown(
+        components, aggregate[0], aggregate[1], character=character,
+    )
 
 
 class _RecordingDieProvider(DieProvider):
@@ -546,7 +549,9 @@ class CombatObserver:
         # would not sum to the displayed XkY; reconciling against the
         # captured ``(rolled, kept)`` preserves the
         # ``sum(components) == aggregate`` invariant from data-model.md.
-        components = _reconcile_breakdown(components, event._detail_params)
+        components = _reconcile_breakdown(
+            components, event._detail_params, character=attacker,
+        )
         event._detail_components = components
 
     @staticmethod
@@ -624,7 +629,9 @@ class CombatObserver:
         # preserves ``sum(components) == aggregate`` for the rendered
         # XkY.
         if params and len(params) >= 2:
-            result = _reconcile_breakdown(result, (params[0], params[1]))
+            result = _reconcile_breakdown(
+                result, (params[0], params[1]), character=character,
+            )
         return result
 
     def _annotate_wound_check(self, event: Any) -> None:

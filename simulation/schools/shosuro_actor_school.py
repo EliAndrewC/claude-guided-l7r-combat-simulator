@@ -18,7 +18,11 @@
 
 from typing import Any
 
-from simulation.mechanics.roll_params import DefaultRollParameterProvider, normalize_roll_params
+from simulation.mechanics.roll_params import (
+    DefaultRollParameterProvider,
+    _normalize_breakdown,
+    normalize_roll_params,
+)
 from simulation.mechanics.roll_provider import RollProvider
 from simulation.mechanics.skills import ATTACK_SKILLS
 from simulation.schools.base import BaseSchool
@@ -168,3 +172,78 @@ class ShosuroRollParameterProvider(DefaultRollParameterProvider):
         rolled, kept, modifier = super().get_wound_check_roll_params(character, vp)
         rolled += character.skill("acting")
         return normalize_roll_params(rolled, kept, modifier)
+
+    def get_breakdown(
+        self,
+        character: Any,
+        target: Any,
+        skill: str,
+        kind: str = "damage",
+        attack_extra_rolled: int = 0,
+        vp: int = 0,
+        contested_skill: str | None = None,
+        ring: str | None = None,
+    ) -> list[tuple[str, int, int]]:
+        """Trace-reader cat#10 fix (2026-05-30): surface the Shosuro
+        Special Ability +acting contribution as a labeled breakdown
+        entry on attack/parry rolls instead of letting it fall into
+        the "school adjustment" catch-all.
+
+        Damage and other kinds delegate to ``super`` — the SA does
+        not affect damage rolls.
+        """
+        if kind != "attack":
+            return super().get_breakdown(
+                character, target, skill,
+                kind=kind,
+                attack_extra_rolled=attack_extra_rolled,
+                vp=vp,
+                contested_skill=contested_skill,
+                ring=ring,
+            )
+        # Start from the default attack breakdown and inject the SA
+        # entry before the reconciliation pass.  We rebuild the
+        # components rather than calling super() because the parent
+        # already runs ``_normalize_breakdown``, which would absorb
+        # the SA dice into "school adjustment".
+        acting = character.skill("acting")
+        if acting <= 0 or (skill not in ATTACK_SKILLS and skill != "parry"):
+            return super().get_breakdown(
+                character, target, skill,
+                kind=kind,
+                attack_extra_rolled=attack_extra_rolled,
+                vp=vp,
+                contested_skill=contested_skill,
+                ring=ring,
+            )
+        ring_name = ring if ring is not None else character.get_skill_ring(skill)
+        ring_value = character.ring(ring_name)
+        skill_value = character.skill(skill)
+        my_extra_rolled = character.extra_rolled(skill)
+        my_extra_kept = character.extra_kept(skill)
+        components: list[tuple[str, int, int]] = []
+        if ring_value > 0:
+            components.append(
+                (f"{ring_name.capitalize()} ring", ring_value, ring_value),
+            )
+        if skill_value > 0:
+            components.append((f"{skill} skill", skill_value, 0))
+        if my_extra_rolled > 0 or my_extra_kept > 0:
+            school = character.school() if hasattr(character, "school") else None
+            if school is not None and school.name():
+                label = f"{school.name().split()[0]} 1st Dan"
+            else:  # pragma: no cover  # defensive: Shosuro breakdown is only invoked when the school is set; the schoolless path falls back to super().get_breakdown via the early-return at line 211 above
+                label = "character bonus"
+            components.append((label, my_extra_rolled, my_extra_kept))
+        # Shosuro Special Ability: +acting rolled dice on
+        # attack/parry/wound check (rules/04-schools.md).
+        components.append(("Shosuro Special Ability acting", acting, 0))
+        if vp > 0:
+            components.append((f"VP on {skill}", vp, vp))
+        aggregate_rolled, aggregate_kept, _ = self.get_skill_roll_params(
+            character, target, skill,
+            contested_skill=contested_skill, ring=None, vp=vp,
+        )
+        return _normalize_breakdown(
+            components, aggregate_rolled, aggregate_kept, character=character,
+        )

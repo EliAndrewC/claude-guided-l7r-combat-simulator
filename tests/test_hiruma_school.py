@@ -106,6 +106,46 @@ class TestHirumaParryListener(unittest.TestCase):
         self.assertEqual(1, len(add_mod_events))
         self.assertEqual(8, add_mod_events[0].modifier.adjustment())
 
+    def test_3rd_dan_modifier_expires_on_damage_roll(self):
+        """Trace-reader cat#10 finding (2026-05-30): the 3rd Dan
+        bonus must actually EXPIRE on the next damage roll.
+
+        Pre-fix, the engine had a broken ``RemoveModifierListener``
+        (wrong isinstance check in ``listeners.py``) that silently
+        ignored every ``RemoveModifierEvent`` — so the registered
+        ``ExpireAfterNDamageRollsListener`` fired but the modifier
+        never actually left ``character._modifiers``.  Hiruma stacks
+        grew unboundedly, producing the +400 attack rolls the sweep
+        flagged.  With the engine fix in place, this test guards the
+        per-damage-roll expiry that the rules-as-written intended.
+        """
+        listener = hiruma_school.HirumaParryListener()
+        # Parry → AddModifierEvent for one +2X bonus.
+        attack1 = actions.AttackAction(self.attacker, self.hiruma, "attack", self.initiative_action, self.context)
+        parry1 = actions.ParryAction(self.hiruma, self.attacker, "parry", self.initiative_action, self.context, attack1)
+        parry1.set_skill_roll(50)
+        for ev in listener.handle(self.hiruma, events.ParrySucceededEvent(parry1), self.context):
+            if isinstance(ev, events.AddModifierEvent):
+                self.hiruma.add_modifier(ev.modifier)
+        active = [m for m in self.hiruma._modifiers if getattr(m, "_hiruma_3rd_dan", False)]
+        self.assertEqual(1, len(active))
+        # Simulate a damage roll firing the registered "lw_damage"
+        # trigger on the modifier; the listener emits RemoveModifierEvent
+        # which the (now-fixed) RemoveModifierListener processes.
+        modifier = active[0]
+        dmg_event = events.LightWoundsDamageEvent(self.hiruma, self.attacker, 5)
+        from simulation import listeners as core_listeners
+        remove_listener = core_listeners.RemoveModifierListener()
+        # Modifier.handle dispatches the event to its registered
+        # per-event listeners; the lw_damage expiry yields the
+        # RemoveModifierEvent which the (now-fixed) core
+        # RemoveModifierListener processes to remove the modifier.
+        for ev in modifier.handle(self.hiruma, dmg_event, self.context):
+            for _ in remove_listener.handle(self.hiruma, ev, self.context):
+                pass
+        active_after = [m for m in self.hiruma._modifiers if getattr(m, "_hiruma_3rd_dan", False)]
+        self.assertEqual(0, len(active_after))
+
 
 class TestHirumaNewRoundListener(unittest.TestCase):
     def test_subtract_2_from_action_dice(self):

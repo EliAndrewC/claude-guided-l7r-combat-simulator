@@ -124,6 +124,22 @@ def _is_hiruma_scout(character: Any) -> bool:
     return bool(school.name() == "Hiruma Scout School")
 
 
+def _is_kitsuki_magistrate(character: Any) -> bool:
+    """True iff the character's school is the Kitsuki Magistrate School."""
+    school = character.school() if hasattr(character, "school") else None
+    if school is None:
+        return False
+    return bool(school.name() == "Kitsuki Magistrate School")
+
+
+def _is_shinjo_bushi(character: Any) -> bool:
+    """True iff the character's school is the Shinjo Bushi School."""
+    school = character.school() if hasattr(character, "school") else None
+    if school is None:
+        return False
+    return bool(school.name() == "Shinjo Bushi School")
+
+
 def explain_modifier(
     character: Any,
     skill: str,
@@ -318,6 +334,31 @@ def explain_modifier(
                         f"(attack {attack_skill} × {tempo_diff} phases)",
                         tempo_bonus,
                     ))
+
+    # Kitsuki Magistrate Special Ability: +2 × Water on all attack
+    # rolls (rules/04-schools.md "Kitsuki Magistrate School: Special
+    # Ability"). KitsukiRollParameterProvider injects the bonus into
+    # the modifier slot; without this attribution it appears as a
+    # bare "+N" with no source on every Kitsuki attack
+    # (trace-reader cat#10 fix 2026-05-30).
+    if _is_kitsuki_magistrate(character) and skill in ATTACK_SKILLS:
+        water = character.ring("water")
+        bonus = 2 * water
+        if bonus > 0:
+            contributions.append(
+                (f"Kitsuki Special Ability (2 × Water {water})", bonus),
+            )
+
+    # Shinjo Bushi 1st Dan free raise on parry
+    # (rules/04-schools.md "Shinjo Bushi School: Second Dan" — the
+    # ``free_raise_skills() == ["parry"]`` installs FreeRaise(+5) on
+    # parry rolls).  Pre-fix the +5 rendered as a bare modifier on
+    # every Shinjo parry; symmetric to the Akodo 2nd Dan free raise
+    # already attributed above.
+    if _is_shinjo_bushi(character):
+        rank = _school_rank(character)
+        if rank >= 2 and skill == "parry":
+            contributions.append(("Shinjo 2nd Dan free raise", 5))
 
     # Hiruma Scout 3rd Dan post-parry attack+damage bonus
     # (rules/04-schools.md "Hiruma Scout School: Third Dan"). The

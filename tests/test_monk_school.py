@@ -108,6 +108,21 @@ class TestMonkSpecialAbility(unittest.TestCase):
         # Attack should NOT get extra kept from special ability
         self.assertEqual(0, monk.extra_kept("attack"))
 
+    def test_weapon_set_to_unarmed(self):
+        """Trace-reader cat#10 fix (2026-05-30): the Monk SA reads
+        "Roll and keep 1 extra die for damage rolls (unarmed; always
+        applied)".  Monks fight unarmed — the school must equip the
+        UNARMED weapon (0k2 base) so the trace's damage breakdown
+        reads "unarmed" rather than the default "katana" (which
+        contradicted the school identity and also double-counted base
+        damage on top of the +1k1 SA bonus).
+        """
+        from simulation.mechanics.weapons import UNARMED
+        monk = Character("Monk")
+        school = monk_school.BrotherhoodOfShinseMonkSchool()
+        school.apply_special_ability(monk)
+        self.assertEqual(UNARMED, monk.weapon())
+
 
 class TestMonkAPSystem(unittest.TestCase):
     def test_apply_ap(self):

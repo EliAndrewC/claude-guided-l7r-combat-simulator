@@ -236,8 +236,13 @@ class ShinjoFifthDanParryListener(ShinjoParryListener):
                 # 3rd Dan action-die decrease (delegated to super).
                 yield from super().handle(character, event, context)
                 # 5th Dan WC floating bonus = parry margin.
+                # Trace-reader cat#10 fix (2026-05-30): tag the bonus
+                # so the SpendFloatingBonusEvent rendering attributes
+                # the consume line to "Shinjo 5th Dan".
                 parry_roll = event.action.skill_roll()
                 attack_roll = event.action.attack().skill_roll()
                 bonus = parry_roll - attack_roll
                 if bonus > 0:
-                    character.gain_floating_bonus(WoundCheckFloatingBonus(bonus))
+                    character.gain_floating_bonus(
+                        WoundCheckFloatingBonus(bonus, source="Shinjo 5th Dan"),
+                    )

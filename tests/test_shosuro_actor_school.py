@@ -115,6 +115,120 @@ class TestShosuroSpecialAbility(unittest.TestCase):
         base_rolled = shosuro.skill("attack") + shosuro.ring("fire")
         self.assertEqual(base_rolled, rolled)
 
+    def test_breakdown_surfaces_special_ability_on_attack(self):
+        """Trace-reader cat#10 fix (2026-05-30): the SA +acting
+        contribution must appear as a labeled breakdown component on
+        attack/parry rolls.  Before fix, the dice were added to the
+        roll but the breakdown sent them into the catch-all "school
+        adjustment" entry, so a fresh reader could not see which
+        school override the +acting came from.
+        """
+        shosuro = Character("Shosuro")
+        shosuro.set_skill("acting", 3)
+        target = Character("Target")
+        school = shosuro_actor_school.ShosuroActorSchool()
+        school.apply_special_ability(shosuro)
+        # ``school.apply_*`` configures listeners/providers but doesn't
+        # call ``character.set_school`` (that happens in CharacterBuilder);
+        # set it directly so the breakdown's school-name label path
+        # exercises with a real school.
+        shosuro.set_school(school)
+        provider = shosuro.roll_parameter_provider()
+        for skill in ("attack", "parry"):
+            components = provider.get_breakdown(
+                shosuro, target, skill, kind="attack",
+            )
+            labels = [c[0] for c in components]
+            sa_entries = [
+                c for c in components
+                if "Special Ability" in c[0] and "Shosuro" in c[0]
+            ]
+            self.assertEqual(
+                1, len(sa_entries),
+                f"{skill}: expected exactly one Shosuro SA breakdown "
+                f"entry, got labels={labels}",
+            )
+            self.assertEqual(
+                (3, 0), sa_entries[0][1:],
+                f"{skill}: SA entry should add +3 rolled, +0 kept",
+            )
+            self.assertNotIn(
+                "school adjustment", labels,
+                f"{skill}: SA should be sourced, not absorbed into "
+                f"'school adjustment' catch-all",
+            )
+
+    def test_breakdown_delegates_to_super_for_damage_kind(self):
+        """The SA override only applies to attack/parry skill rolls;
+        damage breakdowns must delegate to the parent provider."""
+        shosuro = Character("Shosuro")
+        shosuro.set_skill("acting", 3)
+        target = Character("Target")
+        school = shosuro_actor_school.ShosuroActorSchool()
+        school.apply_special_ability(shosuro)
+        shosuro.set_school(school)
+        provider = shosuro.roll_parameter_provider()
+        # ``kind="damage"`` path: delegates to super and emits the
+        # weapon/ring breakdown.  Shosuro 5th Dan is not applied here
+        # so no extra components are expected from the SA.
+        components = provider.get_breakdown(
+            shosuro, target, "attack", kind="damage",
+        )
+        labels = [c[0] for c in components]
+        self.assertIn("katana", labels)
+
+    def test_breakdown_delegates_to_super_when_acting_zero(self):
+        """When acting=0 there is no SA contribution; the breakdown
+        delegates to super and matches the default attack breakdown."""
+        shosuro = Character("Shosuro")
+        # acting defaults to 0
+        target = Character("Target")
+        school = shosuro_actor_school.ShosuroActorSchool()
+        school.apply_special_ability(shosuro)
+        shosuro.set_school(school)
+        provider = shosuro.roll_parameter_provider()
+        components = provider.get_breakdown(
+            shosuro, target, "attack", kind="attack",
+        )
+        labels = [c[0] for c in components]
+        self.assertNotIn("Shosuro Special Ability acting", labels)
+
+    def test_breakdown_includes_vp_component(self):
+        """When VP is spent on the attack roll, the SA breakdown
+        must include the VP component (rules: VP on attack adds +1
+        rolled AND +1 kept)."""
+        shosuro = Character("Shosuro")
+        shosuro.set_skill("acting", 2)
+        target = Character("Target")
+        school = shosuro_actor_school.ShosuroActorSchool()
+        school.apply_special_ability(shosuro)
+        shosuro.set_school(school)
+        provider = shosuro.roll_parameter_provider()
+        components = provider.get_breakdown(
+            shosuro, target, "attack", kind="attack", vp=2,
+        )
+        labels = [c[0] for c in components]
+        self.assertIn("VP on attack", labels)
+
+    def test_breakdown_includes_first_dan_label(self):
+        """When the school's 1st Dan adds extra rolled dice to the
+        skill, the breakdown labels the component as
+        '<School> 1st Dan' (matching the Akodo pattern)."""
+        shosuro = Character("Shosuro")
+        shosuro.set_skill("acting", 2)
+        target = Character("Target")
+        school = shosuro_actor_school.ShosuroActorSchool()
+        school.apply_special_ability(shosuro)
+        # 1st Dan adds +1 rolled on attack via extra_rolled.
+        school.apply_rank_one_ability(shosuro)
+        shosuro.set_school(school)
+        provider = shosuro.roll_parameter_provider()
+        components = provider.get_breakdown(
+            shosuro, target, "attack", kind="attack",
+        )
+        labels = [c[0] for c in components]
+        self.assertIn("Shosuro 1st Dan", labels)
+
 
 class TestShosuroAPSystem(unittest.TestCase):
     def test_apply_ap(self):

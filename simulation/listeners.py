@@ -69,7 +69,14 @@ class AddModifierListener(Listener):
 
 class RemoveModifierListener(Listener):
     def handle(self, character: Any, event: events.Event, context: Any) -> Iterator[events.Event]:
-        if isinstance(event, events.AddModifierEvent):
+        # 2026-05-30 fix: previous code had ``isinstance(event,
+        # events.AddModifierEvent)`` here (copy-paste from
+        # AddModifierListener), so RemoveModifierEvents were silently
+        # ignored and modifiers never expired.  This caused the
+        # Hiruma 3rd Dan post-parry bonus to stack unboundedly
+        # (trace-reader sweep flagged "+400" on Hiruma attacks) and
+        # would have affected any modifier with a registered expiry.
+        if isinstance(event, events.RemoveModifierEvent):
             if character == event.subject:
                 character.remove_modifier(event.modifier)
             else:

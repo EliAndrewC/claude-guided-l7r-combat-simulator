@@ -171,7 +171,9 @@ class BayushiRollParameterProvider(DefaultRollParameterProvider):
         aggregate_rolled, aggregate_kept, _ = self.get_damage_roll_params(
             character, target, skill, attack_extra_rolled, vp=vp,
         )
-        return _normalize_breakdown(components, aggregate_rolled, aggregate_kept)
+        return _normalize_breakdown(
+            components, aggregate_rolled, aggregate_kept, character=character,
+        )
 
 
 BAYUSHI_ROLL_PARAMETER_PROVIDER = BayushiRollParameterProvider()

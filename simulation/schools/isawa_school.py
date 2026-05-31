@@ -365,6 +365,13 @@ class IsawaWoundCheckSucceededListener(Listener):
             if event.subject == character:
                 bonus = event.roll - event.damage
                 if bonus > 0:
-                    character.gain_floating_bonus(WoundCheckFloatingBonus(bonus))
+                    # Trace-reader cat#10 fix (2026-05-30): tag the
+                    # floating bonus with ``source="Isawa 5th Dan"``
+                    # so the SpendFloatingBonusEvent rendering shows
+                    # the source instead of an anonymous "+N
+                    # (floating bonus consumed)" line.
+                    character.gain_floating_bonus(
+                        WoundCheckFloatingBonus(bonus, source="Isawa 5th Dan"),
+                    )
                 # Continue with normal wound check succeeded behavior
                 yield from character.light_wounds_strategy().recommend(character, event, context)

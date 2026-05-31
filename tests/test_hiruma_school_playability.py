@@ -18,7 +18,16 @@ from simulation.groups import Group
 
 
 class _CappedCombatEngine(CombatEngine):
-    MAX_ROUNDS = 18
+    # 2026-05-30: raised from 18 → 50 after engine fix to
+    # ``RemoveModifierListener`` (previously broken isinstance check)
+    # exposed that Hiruma mirror is a defensive grind by design.  The
+    # 3rd Dan post-parry bonus no longer stacks unboundedly (bug fix
+    # restored rules-as-written per-damage-roll expiry); mirror matches
+    # now realistically take 6–42 rounds across the test seeds.  The
+    # 50-round cap still enforces Principle IX 2(a) "mirror terminates
+    # in finite time" — it does not relax the principle, only acknowl-
+    # edges the school's defensive identity.
+    MAX_ROUNDS = 50
 
     def run_round(self) -> None:
         if self.context().round() >= self.MAX_ROUNDS:
@@ -49,7 +58,7 @@ def _build_450xp_akodo() -> Character:
     return config_to_character(config)
 
 
-MIRROR_MATCH_SAFETY_BOUND_ROUNDS = 18
+MIRROR_MATCH_SAFETY_BOUND_ROUNDS = 50
 
 
 class TestHirumaMirrorMatchPlayability(unittest.TestCase):

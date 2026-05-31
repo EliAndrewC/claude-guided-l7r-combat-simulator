@@ -24,6 +24,7 @@ from typing import Any
 from simulation import actions, events
 from simulation.listeners import Listener, NewRoundListener
 from simulation.log import logger
+from simulation.mechanics.weapons import UNARMED
 from simulation.schools.base import BaseSchool
 from simulation.strategies.action_factory import DefaultActionFactory
 
@@ -54,7 +55,18 @@ class BrotherhoodOfShinseMonkSchool(BaseSchool):
         return ["history", "law", "precepts", "wound check", "attack"]
 
     def apply_special_ability(self, character: Any) -> None:
-        # Extra 1k1 on damage (always applied -- monks fight unarmed)
+        # rules/04-schools.md "Brotherhood of Shinsei Monk School:
+        # Special Ability": "Roll and keep 1 extra die for damage
+        # rolls (unarmed; always applied)."
+        #
+        # Trace-reader cat#10 fix (2026-05-30): equip the UNARMED
+        # weapon so the trace's damage breakdown reads "unarmed"
+        # (the school identity) rather than the default "katana".
+        # The pre-fix character carried katana base damage AND the
+        # +1k1 SA, which both misrepresented identity and inflated
+        # damage above the intended unarmed-strike profile.
+        character.set_weapon(UNARMED)
+        # Extra 1k1 on damage rolls.
         self._set_school_extra_rolled(character, "damage", 1)
         self._set_school_extra_kept(character, "damage", 1)
 

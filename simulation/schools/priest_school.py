@@ -176,7 +176,14 @@ class PriestNewRoundListener(Listener):
                         die_value = character.roll_provider().get_skill_roll(
                             "precepts", 1, 1, True,
                         )
-                        bonus = FloatingBonus(PRIEST_POOL_SKILLS, die_value)
+                        # Trace-reader cat#10 fix (2026-05-30): tag
+                        # the pool dice with ``source="Priest 3rd Dan"``
+                        # so the SpendFloatingBonusEvent rendering
+                        # attributes the consume line.
+                        bonus = FloatingBonus(
+                            PRIEST_POOL_SKILLS, die_value,
+                            source="Priest 3rd Dan",
+                        )
                         # Trace attribution tag for future renderer work.
                         bonus._priest_3rd_dan_pool_die = True  # type: ignore[attr-defined]
                         character.gain_floating_bonus(bonus)
