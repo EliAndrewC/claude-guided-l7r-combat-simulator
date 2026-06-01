@@ -300,3 +300,27 @@ class TestLoadDataDirectory:
         for config in configs:
             character = config_to_character(config)
             assert character.name() == config.name
+
+    def test_all_school_configs_declare_all_school_knacks(self):
+        """Every default school character YAML must declare every one of
+        its school's knacks in the skills dict.  Missing knacks default
+        to 0 and break the rank computation
+        (``min(skills.get(k, 0) for k in school.school_knacks())``),
+        producing a misleading "0th Dan" on the Characters /
+        Combat Setup / Run Simulation pages."""
+        from simulation.schools.factory import get_school
+        data_dir = os.path.join(os.path.dirname(__file__), "..", "simulation", "data")
+        configs = load_data_directory(data_dir)
+        bad = []
+        for config in configs:
+            if not config.school:
+                continue
+            try:
+                school = get_school(config.school)
+            except ValueError:
+                continue
+            knacks = school.school_knacks()
+            missing = [k for k in knacks if k not in config.skills]
+            if missing:
+                bad.append(f"{config.name} ({config.school}): missing {missing}")
+        assert not bad, "Default school YAMLs missing knacks:\n  " + "\n  ".join(bad)

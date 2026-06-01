@@ -9,12 +9,11 @@ from web.models import CharacterConfig
 from web.state import save_state
 from web.views._chronicle import (
     clan_for,
+    format_school_rank,
     render_character_card,
     render_masthead,
     render_section_head,
 )
-
-_ORDINAL = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th"}
 
 
 def _school_rank(config: CharacterConfig) -> int | None:
@@ -32,9 +31,7 @@ def _character_card_dict(config: CharacterConfig) -> dict[str, object]:
     expects."""
     clan_name = clan_for(config.school)
     rank = _school_rank(config)
-    rank_str = _ORDINAL.get(rank, f"{rank}th Dan") if rank is not None else None
-    if rank_str:
-        rank_str = f"{rank_str} Dan"
+    rank_str = format_school_rank(rank)
     ribbon = []
     for s in ("attack", "parry", "iaijutsu", "counterattack",
               "double attack", "feint", "lunge"):
@@ -206,7 +203,7 @@ with st.form("new_character_form"):
 # --- Character list — grouped by clan, rendered as sumi-e cards ---
 render_section_head(
     "III", "The Roster",
-    f"{len(st.session_state.characters)} bushi" if st.session_state.characters else "",
+    f"{len(st.session_state.characters)} characters" if st.session_state.characters else "",
 )
 if st.session_state.characters:
     # Group characters by clan so the roster reads like a clan registry.
@@ -223,7 +220,7 @@ if st.session_state.characters:
             f"<span style='font-family:Shippori Mincho,serif;font-size:22px;font-weight:700;letter-spacing:0.36em;text-transform:uppercase;color:var(--ink);'>{clan_name}</span>"
             f"<span style='font-family:Shippori Mincho,serif;font-size:11px;letter-spacing:0.32em;text-transform:uppercase;color:var(--seal);'>clan</span>"
             f"<span style='flex:1;height:1px;background:var(--ink-faded);opacity:0.5;'></span>"
-            f"<span style='font-family:JetBrains Mono,monospace;font-size:11px;color:var(--ink-faded);'>{len(members)} bushi</span>"
+            f"<span style='font-family:JetBrains Mono,monospace;font-size:11px;color:var(--ink-faded);'>{len(members)} {'character' if len(members) == 1 else 'characters'}</span>"
             "</div>",
             unsafe_allow_html=True,
         )

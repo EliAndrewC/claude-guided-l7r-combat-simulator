@@ -8,13 +8,13 @@ from web.adapters.engine_adapter import is_duel_eligible, run_batch, run_duel_ba
 from web.models import CharacterConfig
 from web.views._chronicle import (
     clan_for,
+    format_school_rank,
     render_fight_card,
     render_masthead,
     render_section_head,
 )
 
 RING_ORDER = ["air", "earth", "fire", "water", "void"]
-_ORDINAL = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th"}
 
 
 def _school_rank(config: CharacterConfig) -> int | None:
@@ -33,8 +33,9 @@ def _fight_card_side(config: CharacterConfig) -> dict[str, Any]:
     clan_name = clan_for(config.school)
     rank = _school_rank(config)
     school_line_parts = [config.school or "Ronin"]
-    if rank is not None:
-        school_line_parts.append(f"{_ORDINAL.get(rank, f'{rank}th')} Dan")
+    rank_str = format_school_rank(rank)
+    if rank_str is not None:
+        school_line_parts.append(rank_str)
     school_line_parts.append(f"{config.xp} xp")
     ribbon = []
     if "attack" in config.skills:

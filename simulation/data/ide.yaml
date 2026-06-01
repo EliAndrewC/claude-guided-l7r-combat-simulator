@@ -11,3 +11,6 @@ skills:
   attack: 5
   parry: 5
   tact: 5
+  double attack: 5
+  feint: 5
+  worldliness: 5

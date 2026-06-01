@@ -1179,3 +1179,23 @@ def clan_for(school: str | None) -> str:
     if not school:
         return "Ronin"
     return _CLAN_BY_SCHOOL.get(school, "Ronin")
+
+
+_RANK_ORDINAL = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th"}
+
+
+def format_school_rank(rank: int | None) -> str | None:
+    """Format a school rank as ``"<N>th Dan"``.
+
+    ``None`` rank (character has no school) returns ``None`` so callers
+    can omit the rank line entirely.  Ranks 1–5 use the proper ordinal
+    suffixes; out-of-range integers fall back to ``"<N>th Dan"`` (e.g.
+    ``"0th Dan"`` for a character missing one of their school knacks).
+
+    Single source of truth used by all the page views — prevents the
+    "0th Dan Dan" double-suffix bug that arose when the formatter was
+    duplicated across multiple call sites.
+    """
+    if rank is None:
+        return None
+    return f"{_RANK_ORDINAL.get(rank, f'{rank}th')} Dan"

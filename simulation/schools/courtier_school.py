@@ -152,8 +152,16 @@ class CourtierAttackSucceededListener(Listener):
                 target_id = event.action.target().character_id()
                 if target_id not in self._targets_triggered:
                     self._targets_triggered.add(target_id)
-                    tvp_event = events.GainTemporaryVoidPointsEvent(character, 1)
-                    # Trace attribution tag for future renderer work.
+                    # Set `source` so the trace formatter emits the
+                    # school attribution (Constitution Principle VII)
+                    # instead of a bare "gains +1 TVP" line — see
+                    # web/adapters/detailed_formatter.py::_entry_gain_tvp.
+                    tvp_event = events.GainTemporaryVoidPointsEvent(
+                        character, 1,
+                        source="Courtier 4th Dan: +1 TVP on first successful attack per target",
+                    )
+                    # Internal flag for any consumer that wants the
+                    # raw boolean rather than parsing the source string.
                     tvp_event._courtier_4th_dan = True  # type: ignore[attr-defined]
                     yield tvp_event
                     return

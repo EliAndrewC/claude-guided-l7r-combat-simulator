@@ -44,8 +44,33 @@ class TestHelpers(unittest.TestCase):
         self.assertEqual("3", _esc(3))
 
     def test_phase_badge_strips_prefix(self) -> None:
-        self.assertEqual("4", _phase_badge("Phase 4 |"))
-        self.assertEqual("0", _phase_badge("Phase 0"))
+        # Renders the full <span class="phase">P{N}</span> so callers
+        # can't reintroduce the doubled-"P" pattern (the historical
+        # "PAkodo" bug came from the caller prepending "P" to a fallback
+        # that returned the bare actor name).
+        self.assertEqual('<span class="phase">P4</span>', _phase_badge("Phase 4 |"))
+        self.assertEqual('<span class="phase">P0</span>', _phase_badge("Phase 0"))
+
+    def test_phase_badge_does_not_leak_actor_name(self) -> None:
+        """Regression: earlier shape did ``p.split(" ", 1)[1]`` which
+        returned ``"2 | Bayushi"`` (leaking the actor name into the
+        badge — visible as ``"P2 | Bayushi"`` next to a separate
+        actor cell)."""
+        out = _phase_badge("Phase 2 | Bayushi |")
+        self.assertEqual('<span class="phase">P2</span>', out)
+        self.assertNotIn("Bayushi", out)
+
+    def test_phase_badge_returns_empty_span_for_non_phase_prefix(self) -> None:
+        """Regression: parry / damage / wound-check entries carry
+        ``phase_prefix`` like ``"Akodo |"`` (no "Phase N" token).  Earlier
+        shape returned the bare actor name as the badge text, and
+        callers wrapped it as ``<span class="phase">P{badge}</span>`` —
+        producing visible ``"PAkodo"`` / ``"PBayushi"`` badges that
+        broke the phase-column reading order."""
+        out = _phase_badge("Akodo |")
+        self.assertEqual('<span class="phase"></span>', out)
+        self.assertNotIn("PAkodo", out)
+        self.assertNotIn("Akodo", out)
 
     def test_pill_class_for(self) -> None:
         self.assertEqual("pill weapon", _pill_class_for("katana"))
@@ -108,13 +133,18 @@ class TestChronicleRender(unittest.TestCase):
         self.assertIn(">99<", out)
 
     def test_render_status_block(self) -> None:
+        # Use the SAME key names the observer produces
+        # (`max_sw`/`max_vp`) — see web/adapters/combat_observer.py.
+        # An earlier draft of this test used `sw_threshold`/`vp_max`
+        # which matched a buggy renderer that read the wrong keys and
+        # always rendered `SW N/1` / `VP N/1`.
         entry = StatusBlockEntry(
             statuses={
-                "Akodo": {"lw": 10, "sw": 1, "sw_threshold": 8,
-                          "vp": 3, "vp_max": 4, "actions": [1, 2],
+                "Akodo": {"lw": 10, "sw": 1, "max_sw": 8,
+                          "vp": 3, "max_vp": 4, "actions": [1, 2],
                           "crippled": False},
-                "Kakita": {"lw": 0, "sw": 0, "sw_threshold": 10,
-                           "vp": 4, "vp_max": 4, "actions": [],
+                "Kakita": {"lw": 0, "sw": 0, "max_sw": 10,
+                           "vp": 4, "max_vp": 4, "actions": [],
                            "crippled": True},
             },
         )
@@ -123,6 +153,14 @@ class TestChronicleRender(unittest.TestCase):
         self.assertIn("Akodo", out)
         self.assertIn("Kakita", out)
         self.assertIn("crippled", out)  # CSS class on the crippled status
+        # Denominators must reflect the real thresholds, NOT the
+        # default `1` fallback (regression for trace-reader Issue 1).
+        self.assertIn(">1/8<", out)   # Akodo SW
+        self.assertIn(">3/4<", out)   # Akodo VP
+        self.assertIn(">0/10<", out)  # Kakita SW
+        self.assertNotIn(">1/1<", out)
+        self.assertNotIn(">3/1<", out)
+        self.assertNotIn(">4/1<", out)
 
     def test_render_initiative(self) -> None:
         entry = InitiativeEntry(entries=[

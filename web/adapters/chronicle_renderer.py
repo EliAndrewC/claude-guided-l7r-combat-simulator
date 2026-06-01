@@ -92,13 +92,27 @@ def _pill_class_for(source: str) -> str:
 
 
 def _phase_badge(prefix: str) -> str:
-    """Extract the "Phase N" prefix into a compact badge.  Falls back
-    to the literal prefix if the shape doesn't match — the events
-    that lack a phase prefix render empty here, which is fine."""
+    """Render the chronicle's `<span class="phase">P{N}</span>` for a
+    `"Phase N | <actor> |"` prefix.  Returns an empty `.phase` span
+    (preserving column layout) when the prefix doesn't carry a phase
+    number — common for follow-up entries (parry, damage, wound check)
+    whose `phase_prefix` is just `"<actor> |"`.
+
+    Earlier shapes did
+    ``p.split(" ", 1)[1]`` which returned ``"2 | Bayushi"`` (the actor
+    name leaked into the badge) and the no-Phase fallback returned
+    the bare actor name (rendering as ``"PAkodo"`` when combined with
+    the literal ``P`` glyph the caller used to prepend).  Both bugs
+    are fixed by parsing tokens explicitly and rendering the full
+    span here so callers can't reintroduce the doubled-P pattern."""
     p = prefix.strip().rstrip("|").strip()
     if p.lower().startswith("phase "):
-        return p.split(" ", 1)[1].rstrip(" |").strip()
-    return p  # pragma: no cover  # defensive: every detail-formatter entry uses "Phase N" form
+        parts = p.split()
+        if len(parts) >= 2:
+            digit = parts[1].strip("|").strip()
+            if digit:
+                return f'<span class="phase">P{_esc(digit)}</span>'
+    return '<span class="phase"></span>'
 
 
 # Canonical d10 silhouette — kite outline with rounded corners (radius 8).
@@ -229,9 +243,16 @@ class ChronicleRenderer:
         for name, status in entry.statuses.items():
             lw = status.get("lw", 0)
             sw = status.get("sw", 0)
-            sw_threshold = status.get("sw_threshold", 1)
+            # Observer stores these under `max_sw` / `max_vp` (see
+            # web/adapters/combat_observer.py::_status_snapshot).  An
+            # earlier draft of this renderer read them as
+            # `sw_threshold` / `vp_max`, which always missed and fell
+            # back to the default `1`, so every status block in the
+            # chronicle rendered as `SW N/1` and `VP N/1` — visibly
+            # nonsense (e.g. `2/1` with a 200%-width bar).
+            sw_threshold = status.get("max_sw", 1)
             vp = status.get("vp", 0)
-            vp_max = status.get("vp_max", 1)
+            vp_max = status.get("max_vp", 1)
             actions = status.get("actions", [])
             crippled = bool(status.get("crippled", False))
             who_cls = "crippled" if crippled else ""
@@ -348,7 +369,7 @@ class ChronicleRenderer:
         return (
             f'<div class="chronicle-evt {klass}">'
             f'<div class="meta">'
-            f'<span class="phase">P{_phase_badge(entry.phase_prefix)}</span>'
+            f'{_phase_badge(entry.phase_prefix)}'
             f'<span class="actor">{_esc(entry.actor_name)}</span>'
             f'</div>'
             f'<div class="body">{body}</div>'
@@ -388,7 +409,7 @@ class ChronicleRenderer:
         return (
             f'<div class="chronicle-evt">'
             f'<div class="meta">'
-            f'<span class="phase">P{_phase_badge(entry.phase_prefix)}</span>'
+            f'{_phase_badge(entry.phase_prefix)}'
             f'<span class="actor">{_esc(entry.actor_name)}</span>'
             '</div>'
             f'<div class="body">{body}</div>'
@@ -421,7 +442,7 @@ class ChronicleRenderer:
         return (
             f'<div class="chronicle-evt">'
             f'<div class="meta">'
-            f'<span class="phase">P{_phase_badge(entry.phase_prefix)}</span>'
+            f'{_phase_badge(entry.phase_prefix)}'
             f'<span class="actor">{_esc(entry.actor_name)}</span>'
             '</div>'
             f'<div class="body">{body}</div>'
@@ -452,7 +473,7 @@ class ChronicleRenderer:
         return (
             f'<div class="chronicle-evt crit">'
             f'<div class="meta">'
-            f'<span class="phase">P{_phase_badge(entry.phase_prefix)}</span>'
+            f'{_phase_badge(entry.phase_prefix)}'
             f'<span class="actor">{_esc(entry.attacker_name)}</span>'
             '</div>'
             f'<div class="body">{body}</div>'
@@ -471,7 +492,7 @@ class ChronicleRenderer:
         return (
             f'<div class="chronicle-evt crit">'
             f'<div class="meta">'
-            f'<span class="phase">P{_phase_badge(entry.phase_prefix)}</span>'
+            f'{_phase_badge(entry.phase_prefix)}'
             f'<span class="actor">{_esc(entry.target_name)}</span>'
             '</div>'
             f'<div class="body">{body}</div>'
@@ -510,7 +531,7 @@ class ChronicleRenderer:
         return (
             f'<div class="chronicle-evt">'
             f'<div class="meta">'
-            f'<span class="phase">P{_phase_badge(entry.phase_prefix)}</span>'
+            f'{_phase_badge(entry.phase_prefix)}'
             f'<span class="actor">{_esc(entry.character_name)}</span>'
             '</div>'
             f'<div class="body">{body}</div>'
