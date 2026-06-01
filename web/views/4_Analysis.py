@@ -12,7 +12,7 @@ from web.analysis.aggregator import StudySummary, compute_study_summary_with_tag
 from web.analysis.models import AnalysisDefinition, AnalysisResult
 from web.analysis.registry import get_builder, has_result, list_analyses, load_result
 from web.state import save_state
-from web.views._chronicle import render_masthead, render_section_head
+from web.views._chronicle import render_masthead, render_section_head, render_study_card
 
 render_masthead(active="Analysis")
 render_section_head("I", "Analysis", "ledger of studies")
@@ -28,26 +28,24 @@ selected_id = params.get("analysis")
 
 
 def _show_table_of_contents() -> None:
-    """Display a listing of all available analyses."""
-    st.write("Select an analysis to view results.")
+    """Display a listing of all available analyses as sumi-e study
+    cards with a View action button."""
     for aid in analysis_ids:
         builder = get_builder(aid)
         definition = builder()
         ready = has_result(aid)
-        status = "Results available" if ready else "Not yet run"
-
-        col_info, col_btn = st.columns([4, 1])
-        with col_info:
-            st.subheader(definition.title)
-            st.write(f"**Question:** {definition.question}")
-            st.write(definition.description)
-            st.caption(status)
-        with col_btn:
-            st.write("")  # spacer
-            if st.button("View", key=f"view_{aid}"):
-                st.query_params["analysis"] = aid
-                st.rerun()
-        st.divider()
+        status = "results ready" if ready else "not yet run"
+        if render_study_card(
+            title=definition.title,
+            question=definition.question,
+            description=definition.description,
+            status=status,
+            status_ready=ready,
+            button_label="View Results" if ready else "(no results)",
+            button_key=f"view_{aid}",
+        ):
+            st.query_params["analysis"] = aid
+            st.rerun()
 
 
 def _load_matchup_into_sim(matchup_id: str, matchup_configs: dict[str, Any]) -> None:

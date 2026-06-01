@@ -498,6 +498,150 @@ hr, [data-testid="stDivider"] {
   margin-top: 8px;
 }
 
+/* Character card — sumi-e roster panel */
+.chronicle-character {
+  background: var(--paper-2);
+  border: 1.5px solid var(--ink);
+  padding: 22px 26px 18px;
+  margin-bottom: 18px;
+  position: relative;
+}
+.chronicle-character .head {
+  border-bottom: 1px solid var(--ink-faded);
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+}
+.chronicle-character .clan {
+  font-family: 'Shippori Mincho', serif;
+  font-size: 12px; letter-spacing: 0.32em; text-transform: uppercase;
+  color: var(--seal);
+  margin-bottom: 4px;
+}
+.chronicle-character .clan .clan-en {
+  color: var(--ink-faded);
+  margin-left: 6px;
+}
+.chronicle-character .name {
+  font-family: 'Shippori Mincho', serif;
+  font-weight: 700; font-size: 30px; line-height: 1;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.chronicle-character .meta-row {
+  display: flex; gap: 10px; align-items: baseline;
+  font-family: 'Cormorant Garamond', serif; font-style: italic;
+}
+.chronicle-character .school {
+  font-size: 15px; color: var(--ink-soft); flex: 1;
+}
+.chronicle-character .rank-pip {
+  font-family: 'Shippori Mincho', serif; font-style: normal;
+  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  background: var(--ink); color: var(--paper);
+  padding: 2px 8px;
+}
+.chronicle-character .xp-tag {
+  font-family: 'JetBrains Mono', monospace; font-style: normal;
+  font-size: 11px; color: var(--ink-faded); letter-spacing: 0.04em;
+}
+.chronicle-character .stat-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px 8px;
+}
+.chronicle-character .stat {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.chronicle-character .stat .val {
+  font-family: 'Shippori Mincho', serif;
+  font-size: 22px; font-weight: 700; color: var(--ink); line-height: 1;
+}
+.chronicle-character .stat .label {
+  font-family: 'Shippori Mincho', serif;
+  font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-faded);
+}
+.chronicle-character .stat.ring-fire   .val { color: var(--seal); }
+.chronicle-character .stat.ring-water  .val { color: var(--crab-blue); }
+.chronicle-character .stat.ring-earth  .val { color: #6b4f2a; }
+.chronicle-character .stat.ring-air    .val { color: #5a6d7e; }
+.chronicle-character .ribbon {
+  margin-top: 14px; padding-top: 10px;
+  border-top: 1px solid var(--ink-faded);
+  display: flex; flex-wrap: wrap; gap: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px; color: var(--ink-soft); letter-spacing: 0.05em;
+}
+.chronicle-character .badges {
+  margin-top: 12px;
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.chronicle-character .badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 2px 8px;
+  background: var(--paper-3);
+  border: 1px solid var(--ink-faded);
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+}
+.chronicle-character .badge.adv {
+  border-color: var(--jade);
+  color: var(--jade);
+}
+.chronicle-character .badge.dis {
+  border-color: var(--seal);
+  color: var(--seal);
+}
+
+/* Study card — chronicle-styled analysis index entry */
+.chronicle-study {
+  background: var(--paper-2);
+  border: 1px solid var(--ink-faded);
+  border-left: 4px solid var(--ink);
+  padding: 18px 22px;
+  margin-bottom: 14px;
+}
+.chronicle-study .meta {
+  display: flex; align-items: baseline; gap: 14px;
+  margin-bottom: 10px;
+}
+.chronicle-study .title {
+  font-family: 'Shippori Mincho', serif;
+  font-weight: 700; font-size: 22px;
+  color: var(--ink);
+  letter-spacing: -0.005em;
+  flex: 1;
+}
+.chronicle-study .status {
+  font-family: 'Shippori Mincho', serif;
+  font-size: 9.5px; letter-spacing: 0.28em;
+  text-transform: uppercase;
+  padding: 2px 10px;
+}
+.chronicle-study .status.ready {
+  background: var(--ink);
+  color: var(--paper);
+}
+.chronicle-study .status.pending {
+  background: var(--paper-3);
+  color: var(--ink-faded);
+  border: 1px solid var(--ink-faded);
+}
+.chronicle-study .question {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 16px;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.chronicle-study .desc {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 14.5px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
 /* Round divider — visible between rounds in the trace */
 .chronicle-round-divider {
   display: flex; align-items: baseline; gap: 12px;
@@ -513,6 +657,209 @@ hr, [data-testid="stDivider"] {
 }
 .chronicle-round-divider .line {
   flex: 1; height: 1px; background: var(--ink); opacity: 0.3;
+}
+
+/* ── Chronicle event cards ──────────────────────────────────── */
+.chronicle-evt {
+  padding: 12px 18px 12px 22px;
+  border-left: 2px solid var(--ink-faded);
+  margin-bottom: 4px;
+  position: relative;
+}
+.chronicle-evt + .chronicle-evt { margin-top: -1px; }
+.chronicle-evt.crit  { border-left-color: var(--seal); background: rgba(179,38,30,0.05); }
+.chronicle-evt.heal  { border-left-color: var(--jade); }
+.chronicle-evt.death { border-left-color: var(--ink); background: var(--ink); color: var(--paper); }
+.chronicle-evt.fall  { border-left-color: var(--gold); background: rgba(176,134,66,0.07); }
+
+.chronicle-evt .meta {
+  display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px; color: var(--ink-faded);
+  letter-spacing: 0.08em; text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.chronicle-evt.death .meta { color: var(--gold); }
+.chronicle-evt .meta .phase { color: var(--seal); font-weight: 600; }
+.chronicle-evt .meta .actor {
+  font-family: 'Shippori Mincho', serif;
+  font-weight: 700; letter-spacing: 0.04em; font-size: 13px;
+  color: var(--ink); text-transform: none;
+}
+.chronicle-evt.death .meta .actor { color: var(--paper); }
+.chronicle-evt .meta .kind { color: var(--ink-soft); }
+
+.chronicle-evt .body {
+  font-family: 'Cormorant Garamond', serif; font-size: 16.5px;
+  color: var(--ink); line-height: 1.5;
+}
+.chronicle-evt .body .strong {
+  font-family: 'Shippori Mincho', serif; font-weight: 700;
+}
+.chronicle-evt .body .red { color: var(--seal); font-weight: 600; }
+.chronicle-evt .body .dim { color: var(--ink-faded); }
+.chronicle-evt.death .body { font-style: italic; font-size: 18px; }
+
+/* Dice tile row */
+.chronicle-evt .dice {
+  margin-top: 8px; display: flex; flex-wrap: wrap;
+  gap: 3px; align-items: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+}
+.chronicle-evt .die {
+  width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--ink);
+  background: var(--paper);
+  font-weight: 600;
+  color: var(--ink);
+}
+.chronicle-evt .die.dropped { opacity: 0.32; text-decoration: line-through; }
+.chronicle-evt .die.crit { background: var(--seal); color: var(--paper); border-color: var(--seal-deep); }
+.chronicle-evt .arrow {
+  color: var(--ink-faded); padding: 0 4px;
+}
+.chronicle-evt .total {
+  font-family: 'Shippori Mincho', serif;
+  font-size: 16px; font-weight: 700; letter-spacing: 0.02em;
+  color: var(--ink); padding: 0 6px;
+}
+.chronicle-evt .vs-tn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10.5px; color: var(--ink-faded);
+  margin-left: 8px; letter-spacing: 0.06em;
+  font-weight: normal;
+}
+
+/* Outcome stamp */
+.chronicle-evt .outcome {
+  margin-left: auto;
+  font-family: 'Shippori Mincho', serif;
+  font-size: 12px; letter-spacing: 0.22em;
+  text-transform: uppercase; padding: 4px 12px;
+  font-weight: 700;
+}
+.chronicle-evt .outcome.hit       { background: var(--seal); color: var(--paper); }
+.chronicle-evt .outcome.miss      { background: var(--paper-3); color: var(--ink-faded); border: 1px solid var(--ink-faded); }
+.chronicle-evt .outcome.succeeded { background: var(--ink); color: var(--paper); }
+.chronicle-evt .outcome.failed    { background: var(--paper-3); color: var(--ink-faded); border: 1px solid var(--ink-faded); }
+.chronicle-evt .outcome.won       { background: var(--gold); color: var(--ink); }
+.chronicle-evt .outcome.lost      { background: var(--paper-3); color: var(--ink-faded); border: 1px solid var(--ink-faded); }
+.chronicle-evt .outcome.passed    { background: var(--jade); color: var(--paper); }
+
+/* Modifier / breakdown pills */
+.chronicle-evt .pills {
+  margin-top: 8px;
+  display: flex; flex-wrap: wrap; gap: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+}
+.chronicle-evt .pill {
+  background: var(--paper);
+  border: 1px solid var(--ink-faded);
+  padding: 3px 9px;
+  display: inline-flex; gap: 6px; align-items: baseline;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+}
+.chronicle-evt .pill .v { font-weight: 700; color: var(--ink); }
+.chronicle-evt .pill .src {
+  font-size: 9.5px;
+  color: var(--ink-faded);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.chronicle-evt .pill.school {
+  background: rgba(179,38,30,0.04);
+  border-color: var(--seal);
+  color: var(--seal);
+}
+.chronicle-evt .pill.school .v { color: var(--seal); }
+.chronicle-evt .pill.school .src { color: var(--seal); }
+.chronicle-evt .pill.weapon {
+  border-color: var(--ink); color: var(--ink);
+}
+.chronicle-evt .pill.weapon .v { color: var(--ink); }
+
+/* Status snapshot inside trace */
+.chronicle-evt-status {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 12px; margin: 14px 0;
+  padding: 14px 18px;
+  background: var(--paper-2);
+  border: 1px solid var(--ink-faded);
+  border-left: 4px solid var(--ink);
+}
+.chronicle-evt-status .who {
+  font-family: 'Shippori Mincho', serif;
+  font-weight: 700; letter-spacing: 0.04em; font-size: 14px;
+  color: var(--ink);
+}
+.chronicle-evt-status .meta-bars {
+  display: flex; gap: 12px; margin-top: 6px;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--ink-soft);
+}
+.chronicle-evt-status .bar {
+  display: flex; flex-direction: column; gap: 2px; min-width: 78px;
+}
+.chronicle-evt-status .bar .label {
+  font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-faded);
+}
+.chronicle-evt-status .bar .track {
+  height: 6px; background: var(--paper-3); position: relative;
+  border: 1px solid var(--ink-faded); overflow: hidden;
+}
+.chronicle-evt-status .bar .fill { height: 100%; background: var(--ink); }
+.chronicle-evt-status .bar.lw .fill   { background: var(--seal); }
+.chronicle-evt-status .bar.sw .fill   { background: var(--seal-deep); }
+.chronicle-evt-status .bar.void .fill { background: var(--ink); }
+.chronicle-evt-status .bar .num {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600; color: var(--ink); font-size: 11.5px;
+}
+.chronicle-evt-status .who.crippled::after {
+  content: " · CRIPPLED";
+  color: var(--seal); font-weight: 700; font-size: 10px; letter-spacing: 0.18em;
+}
+
+/* Generic fallback event (delegated to BulletedRenderer) */
+.chronicle-evt-generic {
+  padding: 6px 16px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 15.5px;
+  color: var(--ink-soft);
+  border-left: 1px solid var(--paper-3);
+  line-height: 1.55;
+}
+.chronicle-evt-generic strong { color: var(--ink); }
+
+/* Initiative roll block */
+.chronicle-evt-initiative {
+  background: var(--paper-2);
+  border: 1px solid var(--ink-faded);
+  padding: 14px 18px;
+  margin: 12px 0 4px;
+}
+.chronicle-evt-initiative .h {
+  font-family: 'Shippori Mincho', serif;
+  font-weight: 700; font-size: 13px;
+  letter-spacing: 0.32em; text-transform: uppercase;
+  color: var(--seal); margin-bottom: 8px;
+}
+.chronicle-evt-initiative .row {
+  display: flex; gap: 10px; align-items: baseline;
+  font-family: 'Cormorant Garamond', serif; font-size: 15px;
+  margin: 4px 0;
+}
+.chronicle-evt-initiative .row .who {
+  font-family: 'Shippori Mincho', serif; font-weight: 700;
+  color: var(--ink); min-width: 100px;
+}
+.chronicle-evt-initiative .row .actions {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  color: var(--ink-soft); margin-left: auto;
 }
 </style>
 """
@@ -649,6 +996,88 @@ def open_trace_container() -> None:
 def close_trace_container() -> None:
     """Close the trace container.  Symmetric with ``open_trace_container``."""
     st.markdown('</div>', unsafe_allow_html=True)
+
+
+def render_character_card(d: dict[str, Any]) -> None:
+    """Render a single-character sumi-e card.
+
+    ``d`` accepts ``{"name", "clan", "clan_kanji", "school", "rank",
+    "xp", "rings", "ribbon", "advantages", "disadvantages"}``;
+    optional keys are omitted gracefully.
+    """
+    rings = "".join(
+        f'<div class="stat ring-{r}">'
+        f'<div class="val">{d.get("rings", {}).get(r, 2)}</div>'
+        f'<div class="label">{r.title()}</div>'
+        '</div>'
+        for r in _RING_ORDER
+    )
+    ribbon_items = d.get("ribbon", [])
+    ribbon = "".join(
+        f"<span>{html.escape(s)}</span>" for s in ribbon_items
+    )
+    rank = d.get("rank")
+    rank_html = (
+        f'<span class="rank-pip">{html.escape(str(rank))}</span>'
+        if rank is not None else ""
+    )
+    xp = d.get("xp")
+    xp_html = (
+        f'<span class="xp-tag">{html.escape(str(xp))} xp</span>'
+        if xp is not None else ""
+    )
+    school = d.get("school") or "Rōnin"
+    advs = d.get("advantages") or []
+    disadvs = d.get("disadvantages") or []
+    badge_html = ""
+    if advs or disadvs:
+        adv_pills = "".join(
+            f'<span class="badge adv">{html.escape(a)}</span>' for a in advs
+        )
+        dis_pills = "".join(
+            f'<span class="badge dis">{html.escape(d_)}</span>' for d_ in disadvs
+        )
+        badge_html = f'<div class="badges">{adv_pills}{dis_pills}</div>'
+    st.markdown(
+        '<div class="chronicle-character">'
+        '<div class="head">'
+        f'<div class="clan">{html.escape(d.get("clan_kanji", ""))} '
+        f'<span class="clan-en">{html.escape(d.get("clan", ""))}</span></div>'
+        f'<div class="name">{html.escape(d.get("name", ""))}</div>'
+        '<div class="meta-row">'
+        f'<span class="school">{html.escape(school)}</span>'
+        f'{rank_html}{xp_html}'
+        '</div>'
+        '</div>'
+        f'<div class="stat-grid">{rings}</div>'
+        f'<div class="ribbon">{ribbon}</div>'
+        f'{badge_html}'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def render_study_card(
+    title: str, question: str, description: str,
+    status: str, status_ready: bool, button_label: str, button_key: str,
+) -> bool:
+    """Render a sumi-e study summary panel with a Streamlit-driven
+    "View" button.  Returns the button's click value so callers can
+    wire navigation.
+    """
+    status_class = "ready" if status_ready else "pending"
+    st.markdown(
+        '<div class="chronicle-study">'
+        '<div class="meta">'
+        f'<span class="title">{html.escape(title)}</span>'
+        f'<span class="status {status_class}">{html.escape(status)}</span>'
+        '</div>'
+        f'<div class="question">{html.escape(question)}</div>'
+        f'<div class="desc">{html.escape(description)}</div>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    return st.button(button_label, key=button_key)
 
 
 # ── Clan / kanji lookup ──────────────────────────────────────────

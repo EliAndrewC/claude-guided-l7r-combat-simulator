@@ -3,64 +3,18 @@ from typing import Any
 import streamlit as st
 
 from simulation.schools.factory import get_school
-from web.adapters.bulleted_renderer import BulletedRenderer, ExpandableSegment, Segment, TextSegment
+from web.adapters.chronicle_renderer import ChronicleRenderer
 from web.adapters.engine_adapter import is_duel_eligible, run_batch, run_duel_batch, run_duel_single, run_single
 from web.models import CharacterConfig
 from web.views._chronicle import (
     clan_for,
-    close_trace_container,
-    open_trace_container,
     render_fight_card,
     render_masthead,
-    render_round_divider,
     render_section_head,
 )
 
 RING_ORDER = ["air", "earth", "fire", "water", "void"]
 _ORDINAL = {1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th"}
-
-
-@st.dialog("Roll breakdown", width="large")
-def _show_breakdown(markdown_content: str) -> None:
-    """Open a modal dialog containing one roll's bulleted breakdown."""
-    st.markdown(markdown_content)
-
-
-def _render_trace_segments(segments: list[Segment], scope: str) -> None:
-    """Render a segmented trace: text inline, expandable entries as
-    tertiary-button links that pop a modal showing the full breakdown.
-
-    ``scope`` is appended to button keys so different tabs (single
-    combat vs duel) don't collide on widget identity.  When a text
-    segment begins a new round (``## Round N``), inject a brushwork
-    round-divider in its place so the chronicle reads as a scroll.
-    """
-    for i, seg in enumerate(segments):
-        if isinstance(seg, TextSegment):
-            content = seg.content
-            # Detect "## Round N" headers emitted by BulletedRenderer
-            # and replace them with a sumi-e divider.  Falls back to
-            # the raw markdown for any other header shape.
-            stripped = content.strip()
-            if stripped.startswith("## Round "):
-                try:
-                    n = int(stripped.split("## Round ", 1)[1].split("\n", 1)[0].strip())
-                    render_round_divider(n)
-                    rest = stripped.split("\n", 1)[1] if "\n" in stripped else ""
-                    if rest.strip():
-                        st.markdown(rest)
-                    continue
-                except (ValueError, IndexError):
-                    pass
-            st.markdown(content)
-        elif isinstance(seg, ExpandableSegment):
-            if st.button(
-                seg.compact,
-                key=f"trace_{scope}_{i}",
-                type="tertiary",
-                help="Click for the full per-source breakdown",
-            ):
-                _show_breakdown(seg.full)
 
 
 def _school_rank(config: CharacterConfig) -> int | None:
@@ -233,15 +187,13 @@ else:
                 f"{result.duration_rounds} rounds · {result.duration_phases} phases",
             )
 
-            # Play-by-play — compact headers + click-to-expand modal
-            # for the per-source breakdowns (spec 007 FR-023/FR-024;
-            # 2026-05-30 UX refactor: replace inline bulleted lists
-            # with clickable tertiary buttons opening a modal).
+            # Play-by-play — sumi-e chronicle event cards rendered
+            # as HTML.  Iteration 3 (2026-06-01) replaces the legacy
+            # BulletedRenderer + modal-click pattern with bespoke
+            # event cards for each combat moment.
             with st.expander("Battle Chronicle", expanded=True):
-                open_trace_container()
-                segments = BulletedRenderer().render_segments(result.trace_entries)
-                _render_trace_segments(segments, scope="single")
-                close_trace_container()
+                html = ChronicleRenderer().render(result.trace_entries)
+                st.markdown(html, unsafe_allow_html=True)
 
             # Features
             with st.expander("Trial Statistics"):
@@ -271,10 +223,8 @@ else:
                 render_section_head("II", f"Victor — {winner_label}")
 
                 with st.expander("Battle Chronicle", expanded=True):
-                    open_trace_container()
-                    segments = BulletedRenderer().render_segments(duel_result.trace_entries)
-                    _render_trace_segments(segments, scope="duel")
-                    close_trace_container()
+                    html = ChronicleRenderer().render(duel_result.trace_entries)
+                    st.markdown(html, unsafe_allow_html=True)
 
                 with st.expander("Trial Statistics"):
                     for k, v in sorted(duel_result.features.items()):
