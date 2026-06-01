@@ -99,7 +99,7 @@ class TestChronicleRender(unittest.TestCase):
     def test_render_round_header(self) -> None:
         out = self.r.render([RoundHeaderEntry(round_number=2)])
         self.assertIn("chronicle-round-divider", out)
-        self.assertIn("弐", out)  # 2 → 弐
+        self.assertIn(">II<", out)  # Roman numeral 2
         self.assertIn("Round 2", out)
 
     def test_round_header_falls_back_to_arabic_for_unmapped(self) -> None:

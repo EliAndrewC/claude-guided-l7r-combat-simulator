@@ -50,9 +50,11 @@ from web.adapters.trace_entries import (
     WoundCheckEntry,
 )
 
-_ROUND_KANJI = {
-    1: "壱", 2: "弐", 3: "参", 4: "肆", 5: "伍",
-    6: "陸", 7: "漆", 8: "捌", 9: "玖", 10: "拾",
+_ROMAN_NUMERALS = {
+    1: "I", 2: "II", 3: "III", 4: "IV", 5: "V",
+    6: "VI", 7: "VII", 8: "VIII", 9: "IX", 10: "X",
+    11: "XI", 12: "XII", 13: "XIII", 14: "XIV", 15: "XV",
+    16: "XVI", 17: "XVII", 18: "XVIII", 19: "XIX", 20: "XX",
 }
 
 # Modifier sources whose names contain these substrings get the
@@ -184,21 +186,21 @@ class ChronicleRenderer:
         if isinstance(entry, WoundCheckEntry):
             return self._render_wound_check(entry)
         if isinstance(entry, DeathEntry):
-            return self._render_terminal(entry, "death", "❀ falls", entry.character_name)
+            return self._render_terminal(entry, "death", "✖ falls", entry.character_name)
         if isinstance(entry, UnconsciousEntry):
-            return self._render_terminal(entry, "fall", "失 falls unconscious", entry.character_name)
+            return self._render_terminal(entry, "fall", "✶ falls unconscious", entry.character_name)
         if isinstance(entry, SurrenderEntry):
-            return self._render_terminal(entry, "fall", "降 surrenders", entry.character_name)
+            return self._render_terminal(entry, "fall", "❋ surrenders", entry.character_name)
         return self._render_generic(entry)
 
     # ── Specific renderers ──────────────────────────────────────
 
     def _render_round(self, entry: RoundHeaderEntry) -> str:
         n = entry.round_number
-        kanji = _ROUND_KANJI.get(n, str(n))
+        roman = _ROMAN_NUMERALS.get(n, str(n))
         return (
             '<div class="chronicle-round-divider">'
-            f'<span class="kanji">{_esc(kanji)}</span>'
+            f'<span class="roman-numeral">{_esc(roman)}</span>'
             f'<span class="roman">Round {_esc(n)}</span>'
             '<span class="line"></span>'
             '</div>'

@@ -10,7 +10,7 @@ from web.adapters.character_adapter import load_data_directory
 from web.state import _validate_groups, clear_state, restore_state, save_state, set_session_cookie
 from web.views._chronicle import inject_theme
 
-st.set_page_config(page_title="合戦譜 GASSEN-FU — L7R Combat Chronicle", page_icon="⚔️", layout="wide")
+st.set_page_config(page_title="L7R Combat Chronicle", page_icon="⚔️", layout="wide")
 
 # Inject the sumi-e theme (paper background, ink typography, vermillion
 # seal accents) on every page.  See web/views/_chronicle.py for the

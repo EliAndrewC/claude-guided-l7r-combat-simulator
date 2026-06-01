@@ -30,7 +30,7 @@ def _school_rank(config: CharacterConfig) -> int | None:
 def _character_card_dict(config: CharacterConfig) -> dict[str, object]:
     """Pack a CharacterConfig into the dict shape ``render_character_card``
     expects."""
-    clan_name, clan_kanji = clan_for(config.school)
+    clan_name = clan_for(config.school)
     rank = _school_rank(config)
     rank_str = _ORDINAL.get(rank, f"{rank}th Dan") if rank is not None else None
     if rank_str:
@@ -45,7 +45,6 @@ def _character_card_dict(config: CharacterConfig) -> dict[str, object]:
         ribbon.append(weapon.upper())
     return {
         "clan": clan_name,
-        "clan_kanji": clan_kanji,
         "name": config.name,
         "school": config.school or f"{config.char_type.title()} character",
         "rank": rank_str,
@@ -213,18 +212,18 @@ if st.session_state.characters:
     # Group characters by clan so the roster reads like a clan registry.
     by_clan: dict[str, list[CharacterConfig]] = {}
     for char_name, config in st.session_state.characters.items():
-        clan_name, _ = clan_for(config.school)
+        clan_name = clan_for(config.school)
         by_clan.setdefault(clan_name, []).append(config)
 
     for clan_name in sorted(by_clan.keys()):
         members = by_clan[clan_name]
-        clan_kanji = clan_for(members[0].school)[1]
         st.markdown(
-            "<div style='margin-top:24px;display:flex;align-items:baseline;gap:12px;"
+            "<div style='margin-top:24px;display:flex;align-items:baseline;gap:14px;"
             "border-bottom:1px solid var(--ink-faded);padding-bottom:8px;'>"
-            f"<span style='font-family:Shippori Mincho,serif;font-size:24px;color:var(--seal);'>{clan_kanji}</span>"
-            f"<span style='font-family:Shippori Mincho,serif;font-size:14px;letter-spacing:0.36em;text-transform:uppercase;color:var(--ink);'>{clan_name}</span>"
-            f"<span style='font-family:JetBrains Mono,monospace;font-size:11px;color:var(--ink-faded);'>{len(members)}</span>"
+            f"<span style='font-family:Shippori Mincho,serif;font-size:22px;font-weight:700;letter-spacing:0.36em;text-transform:uppercase;color:var(--ink);'>{clan_name}</span>"
+            f"<span style='font-family:Shippori Mincho,serif;font-size:11px;letter-spacing:0.32em;text-transform:uppercase;color:var(--seal);'>clan</span>"
+            f"<span style='flex:1;height:1px;background:var(--ink-faded);opacity:0.5;'></span>"
+            f"<span style='font-family:JetBrains Mono,monospace;font-size:11px;color:var(--ink-faded);'>{len(members)} bushi</span>"
             "</div>",
             unsafe_allow_html=True,
         )

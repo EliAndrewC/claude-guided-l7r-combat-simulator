@@ -30,9 +30,9 @@ def _school_rank(config: CharacterConfig) -> int | None:
 
 def _fight_card_side(config: CharacterConfig) -> dict[str, Any]:
     """Build a ``render_fight_card`` side dict from a CharacterConfig."""
-    clan_name, clan_kanji = clan_for(config.school)
+    clan_name = clan_for(config.school)
     rank = _school_rank(config)
-    school_line_parts = [config.school or "Rōnin"]
+    school_line_parts = [config.school or "Ronin"]
     if rank is not None:
         school_line_parts.append(f"{_ORDINAL.get(rank, f'{rank}th')} Dan")
     school_line_parts.append(f"{config.xp} xp")
@@ -49,7 +49,6 @@ def _fight_card_side(config: CharacterConfig) -> dict[str, Any]:
                    "gongfu": "0k3"}
     ribbon.append(f"{weapon.upper()} {weapon_dice.get(weapon, '?k?')}")
     return {
-        "clan_kanji": clan_kanji,
         "clan": clan_name,
         "name": config.name.upper(),
         "school": " · ".join(school_line_parts),
@@ -164,7 +163,7 @@ else:
                     _fight_card_side(characters[0]),
                     _fight_card_side(characters[1]),
                     sub_label="single combat",
-                    stamp_kanji="決",
+                    stamp="I",
                 )
             else:
                 st.subheader("Combatants")
@@ -174,7 +173,7 @@ else:
                         st.markdown(f"**{config.name}**")
                         side = _fight_card_side(config)
                         st.markdown(
-                            f"_{side['clan_kanji']} {side['clan']}_  \n"
+                            f"_{side['clan']}_  \n"
                             f"_{side['school']}_  \n"
                             f"_{' · '.join(side['ribbon'])}_"
                         )
@@ -217,7 +216,7 @@ else:
                         _fight_card_side(characters[0]),
                         _fight_card_side(characters[1]),
                         sub_label="iaijutsu duel",
-                        stamp_kanji="斬",
+                        stamp="D",
                     )
                 winner_label = test_label if duel_result.winner == 1 else control_label
                 render_section_head("II", f"Victor — {winner_label}")

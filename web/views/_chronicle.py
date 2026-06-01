@@ -317,15 +317,16 @@ hr, [data-testid="stDivider"] {
 .chronicle-masthead .wordmark {
   display: flex; flex-direction: column; align-items: center; gap: 2px;
 }
-.chronicle-masthead .wordmark .kanji {
+.chronicle-masthead .wordmark .wordmark-title {
   font-family: 'Shippori Mincho', serif;
-  font-size: 34px;
+  font-size: 38px;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.2em;
   color: var(--ink);
   line-height: 1;
+  text-indent: 0.2em;
 }
-.chronicle-masthead .wordmark .romaji {
+.chronicle-masthead .wordmark .wordmark-sub {
   font-family: 'Shippori Mincho', serif;
   font-size: 10px;
   letter-spacing: 0.5em;
@@ -648,8 +649,9 @@ hr, [data-testid="stDivider"] {
   margin: 24px 0 12px;
   font-family: 'Shippori Mincho', serif;
 }
-.chronicle-round-divider .kanji {
-  font-size: 28px; font-weight: 800; color: var(--ink);
+.chronicle-round-divider .roman-numeral {
+  font-size: 28px; font-weight: 800; color: var(--seal);
+  letter-spacing: 0.06em;
 }
 .chronicle-round-divider .roman {
   font-size: 12px; letter-spacing: 0.36em; text-transform: uppercase;
@@ -883,25 +885,20 @@ def render_masthead(active: str) -> None:
     already drives actual routing; this masthead is decorative,
     establishing identity without competing with the live tab strip.
     """
-    nav = [
-        ("Combat Setup", "設定"),
-        ("Run Simulation", "戦"),
-        ("Characters", "侍"),
-        ("Analysis", "記録"),
-    ]
+    nav = ["Combat Setup", "Run Simulation", "Characters", "Analysis"]
     mid = len(nav) // 2
-    def _li(items: list[tuple[str, str]]) -> str:
+    def _li(items: list[str]) -> str:
         return " · ".join(
             f'<span style="{"color:var(--ink);border-bottom:1.5px solid var(--seal);padding-bottom:2px;" if label == active else ""}">'
-            f'{html.escape(kanji)} {html.escape(label)}</span>'
-            for label, kanji in items
+            f'{html.escape(label)}</span>'
+            for label in items
         )
     block = (
         '<div class="chronicle-masthead">'
         f'<nav class="nav-left">{_li(nav[:mid])}</nav>'
         '<div class="wordmark">'
-        '<div class="kanji">合戦譜 GASSEN-FU</div>'
-        '<div class="romaji">l7r combat chronicle</div>'
+        '<div class="wordmark-title">L7R</div>'
+        '<div class="wordmark-sub">combat chronicle</div>'
         '</div>'
         f'<nav class="nav-right">{_li(nav[mid:])}</nav>'
         '</div>'
@@ -932,12 +929,12 @@ def render_fight_card(
     left: dict[str, Any],
     right: dict[str, Any],
     sub_label: str = "single combat",
-    stamp_kanji: str = "決",
+    stamp: str = "I",
 ) -> None:
     """Render the vs-styled fight card.
 
-    Each side dict is ``{"clan_kanji": str, "clan": str, "name": str,
-    "school": str, "rings": dict, "ribbon": list[str]}``.
+    Each side dict is ``{"clan": str, "name": str, "school": str,
+    "rings": dict, "ribbon": list[str]}``.
     """
     def _side(d: dict[str, Any], side: str) -> str:
         stats = "".join(
@@ -950,7 +947,7 @@ def render_fight_card(
         ribbon = "".join(f"<span>{html.escape(s)}</span>" for s in d.get("ribbon", []))
         return (
             f'<div class="fighter {side}">'
-            f'<div class="clan">{html.escape(d.get("clan_kanji", ""))} — {html.escape(d.get("clan", ""))}</div>'
+            f'<div class="clan">{html.escape(d.get("clan", ""))}</div>'
             f'<div class="name">{html.escape(d.get("name", ""))}</div>'
             f'<div class="school">{html.escape(d.get("school", ""))}</div>'
             f'<div class="stat-grid">{stats}</div>'
@@ -963,7 +960,7 @@ def render_fight_card(
         '<div class="vs">'
         '<div class="label">VS</div>'
         f'<div class="sub">{html.escape(sub_label)}</div>'
-        f'<div class="stamp">{html.escape(stamp_kanji)}</div>'
+        f'<div class="stamp">{html.escape(stamp)}</div>'
         '</div>'
         f'{_side(right, "right")}'
         '</div>',
@@ -971,16 +968,27 @@ def render_fight_card(
     )
 
 
+_ROMAN_NUMERALS = {
+    1: "I", 2: "II", 3: "III", 4: "IV", 5: "V",
+    6: "VI", 7: "VII", 8: "VIII", 9: "IX", 10: "X",
+    11: "XI", 12: "XII", 13: "XIII", 14: "XIV", 15: "XV",
+    16: "XVI", 17: "XVII", 18: "XVIII", 19: "XIX", 20: "XX",
+}
+
+
+def to_roman(n: int) -> str:
+    """Return the Roman numeral for ``n`` (1–20), falling back to the
+    arabic form for larger values."""
+    return _ROMAN_NUMERALS.get(n, str(n))
+
+
 def render_round_divider(number: int) -> None:
-    """Render a small brushwork divider between rounds."""
-    kanji_map = {
-        1: "壱", 2: "弐", 3: "参", 4: "肆", 5: "伍",
-        6: "陸", 7: "漆", 8: "捌", 9: "玖", 10: "拾",
-    }
-    kanji = kanji_map.get(number, str(number))
+    """Render a small brushwork divider between rounds, with the
+    round number rendered in Roman numerals (I, II, III, …)."""
+    roman = to_roman(number)
     st.markdown(
         '<div class="chronicle-round-divider">'
-        f'<span class="kanji">{html.escape(kanji)}</span>'
+        f'<span class="roman-numeral">{html.escape(roman)}</span>'
         f'<span class="roman">Round {html.escape(str(number))}</span>'
         '<span class="line"></span>'
         '</div>',
@@ -1001,9 +1009,9 @@ def close_trace_container() -> None:
 def render_character_card(d: dict[str, Any]) -> None:
     """Render a single-character sumi-e card.
 
-    ``d`` accepts ``{"name", "clan", "clan_kanji", "school", "rank",
-    "xp", "rings", "ribbon", "advantages", "disadvantages"}``;
-    optional keys are omitted gracefully.
+    ``d`` accepts ``{"name", "clan", "school", "rank", "xp",
+    "rings", "ribbon", "advantages", "disadvantages"}``; optional
+    keys are omitted gracefully.
     """
     rings = "".join(
         f'<div class="stat ring-{r}">'
@@ -1026,7 +1034,7 @@ def render_character_card(d: dict[str, Any]) -> None:
         f'<span class="xp-tag">{html.escape(str(xp))} xp</span>'
         if xp is not None else ""
     )
-    school = d.get("school") or "Rōnin"
+    school = d.get("school") or "Ronin"
     advs = d.get("advantages") or []
     disadvs = d.get("disadvantages") or []
     badge_html = ""
@@ -1041,8 +1049,7 @@ def render_character_card(d: dict[str, Any]) -> None:
     st.markdown(
         '<div class="chronicle-character">'
         '<div class="head">'
-        f'<div class="clan">{html.escape(d.get("clan_kanji", ""))} '
-        f'<span class="clan-en">{html.escape(d.get("clan", ""))}</span></div>'
+        f'<div class="clan">{html.escape(d.get("clan", ""))}</div>'
         f'<div class="name">{html.escape(d.get("name", ""))}</div>'
         '<div class="meta-row">'
         f'<span class="school">{html.escape(school)}</span>'
@@ -1084,37 +1091,37 @@ def render_study_card(
 
 
 _CLAN_BY_SCHOOL = {
-    "Akodo Bushi School":              ("Lion",        "獅子"),
-    "Bayushi Bushi School":            ("Scorpion",    "蠍"),
-    "Brotherhood of Shinsei Monk School": ("Brotherhood", "兄弟"),
-    "Courtier School":                  ("Imperial",    "宮廷"),
-    "Daidoji Yojimbo School":          ("Crane",       "鶴"),
-    "Doji Artisan School":             ("Crane",       "鶴"),
-    "Hida Bushi School":               ("Crab",        "蟹"),
-    "Hiruma Scout School":             ("Crab",        "蟹"),
-    "Ide Diplomat School":             ("Unicorn",     "麒麟"),
-    "Ikoma Bard School":               ("Lion",        "獅子"),
-    "Isawa Duelist School":            ("Phoenix",     "鳳凰"),
-    "Isawa Ishi School":               ("Phoenix",     "鳳凰"),
-    "Kakita Bushi School":             ("Crane",       "鶴"),
-    "Kitsuki Magistrate School":       ("Dragon",      "龍"),
-    "Kuni Witch Hunter School":        ("Crab",        "蟹"),
-    "Matsu Bushi School":              ("Lion",        "獅子"),
-    "Merchant School":                 ("Merchant",    "商"),
-    "Mirumoto Bushi School":           ("Dragon",      "龍"),
-    "Otaku Bushi School":              ("Unicorn",     "麒麟"),
-    "Priest School":                   ("Temple",      "寺"),
-    "Shiba Bushi School":              ("Phoenix",     "鳳凰"),
-    "Shinjo Bushi School":             ("Unicorn",     "麒麟"),
-    "Shosuro Actor School":            ("Scorpion",    "蠍"),
-    "Togashi Ise Zumi School":         ("Dragon",      "龍"),
-    "Yogo Warden School":              ("Scorpion",    "蠍"),
+    "Akodo Bushi School":              "Lion",
+    "Bayushi Bushi School":            "Scorpion",
+    "Brotherhood of Shinsei Monk School": "Brotherhood",
+    "Courtier School":                  "Imperial",
+    "Daidoji Yojimbo School":          "Crane",
+    "Doji Artisan School":             "Crane",
+    "Hida Bushi School":               "Crab",
+    "Hiruma Scout School":             "Crab",
+    "Ide Diplomat School":             "Unicorn",
+    "Ikoma Bard School":               "Lion",
+    "Isawa Duelist School":            "Phoenix",
+    "Isawa Ishi School":               "Phoenix",
+    "Kakita Bushi School":             "Crane",
+    "Kitsuki Magistrate School":       "Dragon",
+    "Kuni Witch Hunter School":        "Crab",
+    "Matsu Bushi School":              "Lion",
+    "Merchant School":                 "Merchant",
+    "Mirumoto Bushi School":           "Dragon",
+    "Otaku Bushi School":              "Unicorn",
+    "Priest School":                   "Temple",
+    "Shiba Bushi School":              "Phoenix",
+    "Shinjo Bushi School":             "Unicorn",
+    "Shosuro Actor School":            "Scorpion",
+    "Togashi Ise Zumi School":         "Dragon",
+    "Yogo Warden School":              "Scorpion",
 }
 
 
-def clan_for(school: str | None) -> tuple[str, str]:
-    """Return ``(clan_name, clan_kanji)`` for a school name.  Falls
-    back to ``("Rōnin", "浪人")`` for unknown / blank inputs."""
+def clan_for(school: str | None) -> str:
+    """Return the clan name for a school name.  Falls back to
+    ``"Ronin"`` for unknown / blank inputs."""
     if not school:
-        return ("Rōnin", "浪人")
-    return _CLAN_BY_SCHOOL.get(school, ("Rōnin", "浪人"))
+        return "Ronin"
+    return _CLAN_BY_SCHOOL.get(school, "Ronin")

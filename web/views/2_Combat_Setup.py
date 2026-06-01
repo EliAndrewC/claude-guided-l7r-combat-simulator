@@ -26,9 +26,9 @@ def _school_rank(config: CharacterConfig) -> int | None:
 
 
 def _fight_card_side(config: CharacterConfig) -> dict[str, Any]:
-    clan_name, clan_kanji = clan_for(config.school)
+    clan_name = clan_for(config.school)
     rank = _school_rank(config)
-    parts = [config.school or "Rōnin"]
+    parts = [config.school or "Ronin"]
     if rank is not None:
         parts.append(f"{_ORDINAL.get(rank, f'{rank}th')} Dan")
     parts.append(f"{config.xp} xp")
@@ -45,7 +45,6 @@ def _fight_card_side(config: CharacterConfig) -> dict[str, Any]:
                    "gongfu": "0k3"}
     ribbon.append(f"{weapon.upper()} {weapon_dice.get(weapon, '?k?')}")
     return {
-        "clan_kanji": clan_kanji,
         "clan": clan_name,
         "name": config.name.upper(),
         "school": " · ".join(parts),
@@ -123,7 +122,7 @@ else:
             _fight_card_side(st.session_state.characters[control_names[0]]),
             _fight_card_side(st.session_state.characters[test_names[0]]),
             sub_label="muster",
-            stamp_kanji="陣",
+            stamp="·",
         )
     elif st.session_state.control_group and st.session_state.test_group:
         # Multi-character: show side rosters as compact lines.
@@ -138,11 +137,10 @@ else:
             )
             for n in control_names:
                 cfg = st.session_state.characters[n]
-                clan_name, clan_kanji = clan_for(cfg.school)
+                clan_name = clan_for(cfg.school)
                 st.markdown(
                     f"<div style='font-family:Cormorant Garamond,serif;font-size:17px;'>"
-                    f"<span style='color:var(--seal);font-family:Shippori Mincho,serif;'>{clan_kanji}</span> "
-                    f"<b>{cfg.name}</b> <span style='color:var(--ink-faded)'>· {clan_name} · {cfg.school or 'Rōnin'}</span></div>",
+                    f"<b>{cfg.name}</b> <span style='color:var(--ink-faded)'>· {clan_name} · {cfg.school or 'Ronin'}</span></div>",
                     unsafe_allow_html=True,
                 )
         with c2:
@@ -154,11 +152,10 @@ else:
             )
             for n in test_names:
                 cfg = st.session_state.characters[n]
-                clan_name, clan_kanji = clan_for(cfg.school)
+                clan_name = clan_for(cfg.school)
                 st.markdown(
                     f"<div style='text-align:right;font-family:Cormorant Garamond,serif;font-size:17px;'>"
-                    f"<span style='color:var(--ink-faded)'>{cfg.school or 'Rōnin'} · {clan_name} ·</span> "
-                    f"<b>{cfg.name}</b> "
-                    f"<span style='color:var(--seal);font-family:Shippori Mincho,serif;'>{clan_kanji}</span></div>",
+                    f"<span style='color:var(--ink-faded)'>{cfg.school or 'Ronin'} · {clan_name} ·</span> "
+                    f"<b>{cfg.name}</b></div>",
                     unsafe_allow_html=True,
                 )
