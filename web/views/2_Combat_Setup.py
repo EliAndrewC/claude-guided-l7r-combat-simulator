@@ -2,8 +2,10 @@ import streamlit as st
 
 from web.models import GroupConfig
 from web.state import save_state
+from web.views._chronicle import render_masthead, render_section_head
 
-st.title("Combat Setup")
+render_masthead(active="Combat Setup")
+render_section_head("I", "Combat Setup", "muster the bushi")
 
 available_names = sorted(st.session_state.characters.keys())
 

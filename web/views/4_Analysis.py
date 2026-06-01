@@ -12,8 +12,10 @@ from web.analysis.aggregator import StudySummary, compute_study_summary_with_tag
 from web.analysis.models import AnalysisDefinition, AnalysisResult
 from web.analysis.registry import get_builder, has_result, list_analyses, load_result
 from web.state import save_state
+from web.views._chronicle import render_masthead, render_section_head
 
-st.title("Analysis")
+render_masthead(active="Analysis")
+render_section_head("I", "Analysis", "ledger of studies")
 
 analysis_ids = list_analyses()
 if not analysis_ids:

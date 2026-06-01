@@ -6,6 +6,7 @@ from simulation.mechanics.skills import ADVANCED_SKILLS, BASIC_SKILLS
 from web.adapters.character_adapter import config_to_character
 from web.models import CharacterConfig
 from web.state import save_state
+from web.views._chronicle import render_masthead, render_section_head
 
 SCHOOL_NAMES = [
     "Akodo Bushi School", "Bayushi Bushi School",
@@ -71,10 +72,11 @@ STRATEGIES_BY_EVENT = {
     ],
 }
 
-st.title("Characters")
+render_masthead(active="Characters")
+render_section_head("I", "Characters", "the roster")
 
 # --- Create new character ---
-st.header("Create New Character")
+render_section_head("II", "Create New Character", "")
 with st.form("new_character_form"):
     name = st.text_input("Name")
     xp = st.number_input("XP", min_value=1, value=200, step=10)
@@ -155,7 +157,7 @@ with st.form("new_character_form"):
                 st.error(f"Invalid character: {e}")
 
 # --- Character list ---
-st.header("Current Characters")
+render_section_head("III", "Current Characters", "")
 if st.session_state.characters:
     for char_name, config in st.session_state.characters.items():
         with st.expander(f"{config.name} ({config.char_type}, {config.xp} XP)"):
