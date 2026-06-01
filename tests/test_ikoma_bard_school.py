@@ -671,14 +671,20 @@ class TestIkomaFifthDanCancelAttack(unittest.TestCase):
         school.apply_rank_five_ability(self.ikoma)
 
     def test_cancel_opponent_attack(self):
-        """When an opponent attacks the Ikoma, the 5th Dan ability can
-        cancel the attack (set it as parried) using a tracker use."""
+        """When an opponent attacks the Ikoma, the 5th Dan ability
+        cancels the attack and fires a free Ikoma counter-attack."""
         self._setup_combat()
 
         # Rig enemy attack roll: hits Ikoma
         enemy_rp = CalvinistRollProvider()
         enemy_rp.put_skill_roll("attack", 25)
         self.enemy.set_roll_provider(enemy_rp)
+
+        # Rig Ikoma counter-attack roll: hits enemy TN (20) but below
+        # saved parry roll (25) — counter is parried by the forced parry.
+        ikoma_rp = CalvinistRollProvider()
+        ikoma_rp.put_skill_roll("attack", 20)
+        self.ikoma.set_roll_provider(ikoma_rp)
 
         ia = InitiativeAction([1], 1)
         attack = actions.AttackAction(
@@ -688,7 +694,7 @@ class TestIkomaFifthDanCancelAttack(unittest.TestCase):
         engine = CombatEngine(self.context)
         engine.event(take_event)
 
-        # The attack should be cancelled (parried)
+        # The opponent's attack should be cancelled (parried)
         self.assertTrue(attack.parried())
 
         # The Ikoma should not have taken any damage
@@ -705,6 +711,11 @@ class TestIkomaFifthDanCancelAttack(unittest.TestCase):
         enemy_rp = CalvinistRollProvider()
         enemy_rp.put_skill_roll("attack", 25)
         self.enemy.set_roll_provider(enemy_rp)
+
+        # Rig Ikoma counter-attack to be parried (roll < saved 25).
+        ikoma_rp = CalvinistRollProvider()
+        ikoma_rp.put_skill_roll("attack", 20)
+        self.ikoma.set_roll_provider(ikoma_rp)
 
         ia = InitiativeAction([1], 1)
         attack = actions.AttackAction(
@@ -809,3 +820,224 @@ class TestIkomaFifthDanCancelAttack(unittest.TestCase):
         # Tracker should still have full uses
         factory = self.ikoma.take_action_event_factory()
         self.assertEqual(2, factory._tracker.uses_remaining())
+
+
+class TestIkomaFifthDanCounterAttack(unittest.TestCase):
+    """5th Dan free counter-attack after cancelling an opponent's attack.
+
+    The cancelled attack roll value becomes the forced parry roll
+    defending against the counter:
+      - if saved_roll >= ikoma_attack_roll  -> counter parried
+      - if saved_roll <  ikoma_attack_roll  -> counter hits, damage rolls
+    """
+
+    def _setup_combat(self):
+        self.ikoma = Character("Ikoma")
+        self.ikoma.set_ring("fire", 4)
+        self.ikoma.set_ring("water", 3)
+        self.ikoma.set_skill("attack", 3)
+        self.ikoma.set_skill("parry", 3)
+        self.ikoma.set_actions([4, 8])
+
+        self.enemy = Character("Enemy")
+        self.enemy.set_ring("fire", 3)
+        self.enemy.set_skill("attack", 3)
+        self.enemy.set_skill("parry", 3)
+        self.enemy.set_actions([1])
+
+        group1 = Group("Lion", self.ikoma)
+        group2 = Group("Enemies", self.enemy)
+        self.context = EngineContext([group1, group2], round=1, phase=1)
+        self.context.initialize()
+
+        school = ikoma_bard_school.IkomaBardSchool()
+        school.apply_special_ability(self.ikoma)
+        school.apply_rank_five_ability(self.ikoma)
+
+    def test_counter_attack_hits_when_roll_exceeds_saved(self):
+        """When the Ikoma's counter-attack rolls higher than the saved
+        opponent roll, the counter hits and damage is dealt."""
+        self._setup_combat()
+
+        enemy_rp = CalvinistRollProvider()
+        enemy_rp.put_skill_roll("attack", 25)
+        enemy_rp.put_wound_check_roll(50)  # survive Ikoma counter damage
+        self.enemy.set_roll_provider(enemy_rp)
+
+        # Ikoma counter: 30 > saved 25 -> hits and damages enemy.
+        ikoma_rp = CalvinistRollProvider()
+        ikoma_rp.put_skill_roll("attack", 30)
+        ikoma_rp.put_damage_roll(20)
+        self.ikoma.set_roll_provider(ikoma_rp)
+
+        ia = InitiativeAction([1], 1)
+        attack = actions.AttackAction(
+            self.enemy, self.ikoma, "attack", ia, self.context,
+        )
+        engine = CombatEngine(self.context)
+        engine.event(events.TakeAttackActionEvent(attack))
+
+        # Opponent's attack cancelled.
+        self.assertTrue(attack.parried())
+        self.assertEqual(0, self.ikoma.lw())
+        # Enemy took damage from counter-attack.
+        self.assertTrue(self.enemy.lw() > 0 or self.enemy.sw() > 0)
+
+    def test_counter_attack_parried_when_roll_below_saved(self):
+        """When the Ikoma's counter-attack rolls at or below the saved
+        opponent roll, the counter is parried (no damage to enemy)."""
+        self._setup_combat()
+
+        enemy_rp = CalvinistRollProvider()
+        enemy_rp.put_skill_roll("attack", 30)
+        self.enemy.set_roll_provider(enemy_rp)
+
+        # Ikoma counter: 28 < saved 30 -> parried, no damage.
+        ikoma_rp = CalvinistRollProvider()
+        ikoma_rp.put_skill_roll("attack", 28)
+        self.ikoma.set_roll_provider(ikoma_rp)
+
+        ia = InitiativeAction([1], 1)
+        attack = actions.AttackAction(
+            self.enemy, self.ikoma, "attack", ia, self.context,
+        )
+        engine = CombatEngine(self.context)
+        engine.event(events.TakeAttackActionEvent(attack))
+
+        self.assertTrue(attack.parried())
+        self.assertEqual(0, self.ikoma.lw())
+        # Enemy took no damage — counter was parried by saved roll.
+        self.assertEqual(0, self.enemy.lw())
+        self.assertEqual(0, self.enemy.sw())
+
+    def test_counter_attack_parried_when_roll_equals_saved(self):
+        """Tie favors the parry: saved == ikoma_roll -> parried."""
+        self._setup_combat()
+
+        enemy_rp = CalvinistRollProvider()
+        enemy_rp.put_skill_roll("attack", 25)
+        self.enemy.set_roll_provider(enemy_rp)
+
+        ikoma_rp = CalvinistRollProvider()
+        ikoma_rp.put_skill_roll("attack", 25)
+        self.ikoma.set_roll_provider(ikoma_rp)
+
+        ia = InitiativeAction([1], 1)
+        attack = actions.AttackAction(
+            self.enemy, self.ikoma, "attack", ia, self.context,
+        )
+        engine = CombatEngine(self.context)
+        engine.event(events.TakeAttackActionEvent(attack))
+
+        self.assertTrue(attack.parried())
+        self.assertEqual(0, self.enemy.lw())
+        self.assertEqual(0, self.enemy.sw())
+
+    def test_counter_attack_misses_when_below_enemy_tn(self):
+        """If the Ikoma's counter-attack rolls below the enemy's TN to
+        hit, the counter misses (no damage, no parry comparison needed)."""
+        self._setup_combat()
+        # Enemy parry skill 3 -> TN to hit = 5 * (1 + 3) = 20.
+
+        enemy_rp = CalvinistRollProvider()
+        enemy_rp.put_skill_roll("attack", 25)
+        self.enemy.set_roll_provider(enemy_rp)
+
+        # Counter rolls 15 < TN 20 -> miss.
+        ikoma_rp = CalvinistRollProvider()
+        ikoma_rp.put_skill_roll("attack", 15)
+        self.ikoma.set_roll_provider(ikoma_rp)
+
+        ia = InitiativeAction([1], 1)
+        attack = actions.AttackAction(
+            self.enemy, self.ikoma, "attack", ia, self.context,
+        )
+        engine = CombatEngine(self.context)
+        engine.event(events.TakeAttackActionEvent(attack))
+
+        self.assertTrue(attack.parried())
+        # Counter missed: enemy untouched, but counter was not "parried"
+        # — it missed outright.
+        self.assertEqual(0, self.enemy.lw())
+        self.assertEqual(0, self.enemy.sw())
+
+    def test_counter_attack_spends_ikoma_lowest_action_die(self):
+        """The counter-attack costs the Ikoma's lowest available action
+        die (interrupt-timing, like other interrupt counterattacks)."""
+        self._setup_combat()
+        # Ikoma starts with [4, 8] from _setup_combat.
+        self.assertEqual([4, 8], list(self.ikoma.actions()))
+
+        enemy_rp = CalvinistRollProvider()
+        enemy_rp.put_skill_roll("attack", 25)
+        self.enemy.set_roll_provider(enemy_rp)
+
+        ikoma_rp = CalvinistRollProvider()
+        ikoma_rp.put_skill_roll("attack", 20)
+        self.ikoma.set_roll_provider(ikoma_rp)
+
+        ia = InitiativeAction([1], 1)
+        attack = actions.AttackAction(
+            self.enemy, self.ikoma, "attack", ia, self.context,
+        )
+        engine = CombatEngine(self.context)
+        engine.event(events.TakeAttackActionEvent(attack))
+
+        # Lowest die (4) should have been spent on the counter; 8 remains.
+        self.assertEqual([8], list(self.ikoma.actions()))
+
+    def test_no_counter_when_ikoma_has_no_action_dice(self):
+        """If the Ikoma has no action dice left, the 5th Dan defensive
+        trigger cannot fire — the opponent's attack proceeds to damage
+        and the tracker is not consumed."""
+        self._setup_combat()
+        self.ikoma.set_actions([])  # no dice to spend
+
+        enemy_rp = CalvinistRollProvider()
+        enemy_rp.put_skill_roll("attack", 25)
+        enemy_rp.put_damage_roll(20)
+        self.enemy.set_roll_provider(enemy_rp)
+
+        ikoma_rp = CalvinistRollProvider()
+        ikoma_rp.put_wound_check_roll(50)  # survive the un-cancelled hit
+        self.ikoma.set_roll_provider(ikoma_rp)
+
+        ia = InitiativeAction([1], 1)
+        attack = actions.AttackAction(
+            self.enemy, self.ikoma, "attack", ia, self.context,
+        )
+        engine = CombatEngine(self.context)
+        engine.event(events.TakeAttackActionEvent(attack))
+
+        # Attack lands; no cancel happened.
+        self.assertFalse(attack.parried())
+        # Tracker untouched (we didn't "use" the SA).
+        factory = self.ikoma.take_action_event_factory()
+        self.assertEqual(2, factory._tracker.uses_remaining())
+
+    def test_counter_attack_does_not_spend_enemy_action_die(self):
+        """The forced parry is automatic (uses saved roll) — the
+        opponent does not spend an action die on it."""
+        self._setup_combat()
+        # Give enemy a second action die so we can detect drains beyond
+        # the one initially used for the attack.
+        self.enemy.set_actions([1, 5])
+
+        enemy_rp = CalvinistRollProvider()
+        enemy_rp.put_skill_roll("attack", 25)
+        self.enemy.set_roll_provider(enemy_rp)
+
+        ikoma_rp = CalvinistRollProvider()
+        ikoma_rp.put_skill_roll("attack", 20)
+        self.ikoma.set_roll_provider(ikoma_rp)
+
+        ia = InitiativeAction([1], 1)
+        attack = actions.AttackAction(
+            self.enemy, self.ikoma, "attack", ia, self.context,
+        )
+        engine = CombatEngine(self.context)
+        engine.event(events.TakeAttackActionEvent(attack))
+
+        # The unused [5] die must survive: forced parry uses the saved
+        # roll value, so the engine must not drain a second die for it.
+        self.assertIn(5, self.enemy.actions())

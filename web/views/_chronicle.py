@@ -97,13 +97,14 @@ h1, h2, h3, h4, h5, h6,
   font-weight: 700;
 }
 [data-testid="stMarkdownContainer"] p,
-[data-testid="stMarkdownContainer"] li,
-[data-testid="stMarkdownContainer"] span:not(.chronicle-strong):not(.chronicle-red) {
+[data-testid="stMarkdownContainer"] li {
   font-family: 'Cormorant Garamond', Georgia, serif;
   font-size: 17px;
   line-height: 1.55;
   color: var(--ink-soft);
 }
+/* Bare spans inside markdown come from our custom HTML (status pills, ribbon
+   chips, etc.) and own their colors/fonts — don't force a default. */
 [data-testid="stMarkdownContainer"] strong { color: var(--ink); }
 [data-testid="stMarkdownContainer"] code {
   font-family: 'JetBrains Mono', monospace !important;
@@ -151,6 +152,19 @@ h1, h2, h3, h4, h5, h6,
 .stButton > button:focus, .stDownloadButton > button:focus, .stFormSubmitButton > button:focus {
   box-shadow: 0 0 0 2px var(--paper), 0 0 0 3px var(--seal) !important;
   outline: none !important;
+}
+/* Button labels are nested inside stMarkdownContainer, whose <p> rule above
+   would otherwise force them to --ink-soft (dark-on-dark).  Make them inherit
+   from the button so they stay legible at rest, on hover, and in the sidebar. */
+.stButton > button [data-testid="stMarkdownContainer"] p,
+.stButton > button [data-testid="stMarkdownContainer"] span,
+.stDownloadButton > button [data-testid="stMarkdownContainer"] p,
+.stDownloadButton > button [data-testid="stMarkdownContainer"] span,
+.stFormSubmitButton > button [data-testid="stMarkdownContainer"] p,
+.stFormSubmitButton > button [data-testid="stMarkdownContainer"] span,
+[data-testid="stSidebar"] .stButton > button [data-testid="stMarkdownContainer"] * {
+  color: inherit !important;
+  -webkit-text-fill-color: inherit !important;
 }
 
 /* Tertiary buttons — used by the combat trace as click-for-modal
@@ -437,14 +451,22 @@ hr, [data-testid="stDivider"] {
   text-transform: uppercase; margin-top: 6px; color: var(--gold);
 }
 .chronicle-card .vs .stamp {
-  position: absolute; bottom: -22px; left: 50%;
+  position: absolute; bottom: -28px; left: 50%;
   transform: translateX(-50%) rotate(-8deg);
-  width: 60px; height: 60px; background: var(--seal);
-  border: 3px solid var(--seal-deep); border-radius: 4px;
+  width: 60px; height: 70px;
+  filter: drop-shadow(0 2px 8px rgba(122,26,20,0.35));
+}
+.chronicle-card .vs .stamp svg { display: block; width: 100%; height: 100%; }
+.chronicle-card .vs .stamp path {
+  fill: var(--seal);
+  stroke: var(--seal-deep);
+  stroke-width: 5;
+  stroke-linejoin: round;
+}
+.chronicle-card .vs .stamp text {
+  fill: var(--paper);
   font-family: 'Shippori Mincho', serif;
-  color: var(--paper); font-weight: 800; font-size: 28px;
-  line-height: 60px; text-align: center;
-  box-shadow: 0 2px 12px rgba(122,26,20,0.35);
+  font-weight: 800; font-size: 56px;
 }
 
 /* Status snapshot — compact between-phase HUD */
@@ -709,15 +731,28 @@ hr, [data-testid="stDivider"] {
   font-family: 'JetBrains Mono', monospace; font-size: 12px;
 }
 .chronicle-evt .die {
-  width: 24px; height: 24px;
+  width: 22px; height: 26px;
   display: inline-flex; align-items: center; justify-content: center;
-  border: 1px solid var(--ink);
-  background: var(--paper);
-  font-weight: 600;
-  color: var(--ink);
 }
-.chronicle-evt .die.dropped { opacity: 0.32; text-decoration: line-through; }
-.chronicle-evt .die.crit { background: var(--seal); color: var(--paper); border-color: var(--seal-deep); }
+.chronicle-evt .die svg { width: 100%; height: 100%; display: block; }
+.chronicle-evt .die path {
+  fill: var(--paper);
+  stroke: var(--ink);
+  stroke-width: 4;
+  stroke-linejoin: round;
+}
+.chronicle-evt .die text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 52px; font-weight: 700;
+  fill: var(--ink);
+}
+.chronicle-evt .die.dropped { opacity: 0.32; }
+.chronicle-evt .die.dropped path { fill: var(--paper-3); }
+.chronicle-evt .die.crit path {
+  fill: var(--seal);
+  stroke: var(--seal-deep);
+}
+.chronicle-evt .die.crit text { fill: var(--paper); }
 .chronicle-evt .arrow {
   color: var(--ink-faded); padding: 0 4px;
 }
@@ -924,6 +959,16 @@ def render_section_head(num: str, title: str, meta: str = "") -> None:
 
 _RING_ORDER = ["air", "earth", "fire", "water", "void"]
 
+# Canonical d10 silhouette — kite outline with rounded corners (radius 8).
+# Top apex 70°, other three corners ~96.67°; viewBox 100×116.  Shape and
+# coordinates match the dice animation in EliAndrewC/character-sheet so the
+# stamp on the matchup card reads as the same die as the rolls in the trace.
+_D10_PATH = (
+    "M 54.59 6.55 L 95.41 64.85 Q 100 71.4 94.03 76.73 "
+    "L 55.97 110.67 Q 50 116 44.03 110.67 L 5.97 76.73 "
+    "Q 0 71.4 4.59 64.85 L 45.41 6.55 Q 50 0 54.59 6.55 Z"
+)
+
 
 def render_fight_card(
     left: dict[str, Any],
@@ -954,13 +999,22 @@ def render_fight_card(
             f'<div class="ribbon">{ribbon}</div>'
             '</div>'
         )
+    # d10 silhouette: canonical kite path (matches the dice elsewhere in the
+    # chronicle so the matchup "die" reads as the same shape as the rolls).
+    stamp_svg = (
+        '<svg viewBox="0 0 100 116" xmlns="http://www.w3.org/2000/svg">'
+        f'<path d="{_D10_PATH}" />'
+        '<text x="50" y="65" text-anchor="middle" dominant-baseline="central">'
+        f'{html.escape(stamp)}</text>'
+        '</svg>'
+    )
     st.markdown(
         '<div class="chronicle-card">'
         f'{_side(left, "left")}'
         '<div class="vs">'
         '<div class="label">VS</div>'
         f'<div class="sub">{html.escape(sub_label)}</div>'
-        f'<div class="stamp">{html.escape(stamp)}</div>'
+        f'<div class="stamp">{stamp_svg}</div>'
         '</div>'
         f'{_side(right, "right")}'
         '</div>',

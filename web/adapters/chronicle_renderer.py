@@ -101,10 +101,20 @@ def _phase_badge(prefix: str) -> str:
     return p  # pragma: no cover  # defensive: every detail-formatter entry uses "Phase N" form
 
 
+# Canonical d10 silhouette — kite outline with rounded corners (radius 8).
+# Top apex 70°, other three corners ~96.67°; viewBox 100×116.  Shape and
+# coordinates match the dice animation in EliAndrewC/character-sheet.
+_D10_PATH = (
+    "M 54.59 6.55 L 95.41 64.85 Q 100 71.4 94.03 76.73 "
+    "L 55.97 110.67 Q 50 116 44.03 110.67 L 5.97 76.73 "
+    "Q 0 71.4 4.59 64.85 L 45.41 6.55 Q 50 0 54.59 6.55 Z"
+)
+
+
 def _render_dice(dice: list[int], kept: int) -> str:
-    """Render the dice list as a row of tiles, kept dice bold, dropped
-    dice struck-through, 10s as 'crit'.  ``dice`` is assumed sorted
-    descending (the formatter's convention)."""
+    """Render the dice list as a row of d10s, kept dice solid, dropped
+    dice faded, 10s as 'crit'.  ``dice`` is assumed sorted descending
+    (the formatter's convention)."""
     if not dice:
         return ""
     cells = []
@@ -114,7 +124,15 @@ def _render_dice(dice: list[int], kept: int) -> str:
             classes.append("dropped")
         elif d >= 10:
             classes.append("crit")
-        cells.append(f'<span class="{" ".join(classes)}">{_esc(d)}</span>')
+        cells.append(
+            f'<span class="{" ".join(classes)}">'
+            '<svg viewBox="0 0 100 116" xmlns="http://www.w3.org/2000/svg">'
+            f'<path d="{_D10_PATH}" />'
+            f'<text x="50" y="65" text-anchor="middle" '
+            f'dominant-baseline="central">{_esc(d)}</text>'
+            '</svg>'
+            '</span>'
+        )
     return "".join(cells)
 
 

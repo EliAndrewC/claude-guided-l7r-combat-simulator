@@ -122,7 +122,7 @@ else:
             _fight_card_side(st.session_state.characters[control_names[0]]),
             _fight_card_side(st.session_state.characters[test_names[0]]),
             sub_label="muster",
-            stamp="·",
+            stamp="1",
         )
     elif st.session_state.control_group and st.session_state.test_group:
         # Multi-character: show side rosters as compact lines.

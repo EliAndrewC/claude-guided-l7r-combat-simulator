@@ -1,53 +1,29 @@
 # L7R Combat Simulator
 
+## Live site
+
+This can be found at https://l7r-combat-sim.fly.dev/
+
 ## Development
 
-```bash
-podman run --interactive --tty --rm \
-  --name claude-guided \
-  --user 1001:1001 \
-  --userns keep-id \
-  --env HOME=/home/user \
-  --tmpfs /home/user:rw \
-  --volume "$(pwd)":/workspace \
-  --workdir /workspace \
-  --publish 8502:8501 \
-  --memory 8GB \
-  --memory-swap 8G \
-  docker.io/docker/sandbox-templates:claude-code \
-  bash
 ```
-
-## Fly.io Deployment
-
-The app is deployed to https://l7r-combat-sim.fly.dev/ via Fly.io.
-
-### Authenticating in a new container
-
-flyctl is not installed globally; it needs to be installed and authenticated
-each time a new container is created.
-
-1. **Install flyctl:**
-   ```bash
-   curl -L https://fly.io/install.sh | sh
-   ```
-   This installs to `~/.fly/bin/flyctl`.
-
-2. **Authenticate via web login:**
-   ```bash
-   ~/.fly/bin/flyctl auth login
-   ```
-   This will print a URL (since the container has no browser). Open that URL
-   in your local browser and complete the SSO login. The CLI will detect the
-   successful login automatically.
-
-3. **Verify:**
-   ```bash
-   ~/.fly/bin/flyctl auth whoami
-   ```
-
-### Deploying
-
-```bash
-~/.fly/bin/flyctl deploy
+podman run --interactive --tty --rm \
+    --name combat-simulator \
+    --uidmap 0:1:1000 \
+    --uidmap 1000:0:1 \
+    --uidmap 1001:1001:64536 \
+    --gidmap 0:1:1000 \
+    --gidmap 1000:0:1 \
+    --gidmap 1001:1001:64536 \
+    --env HOME=/home/agent \
+    --volume "$(pwd)":/workspace:Z \
+    --volume /home/eli/l7r:/host-l7r-repo:Z \
+    --volume "$HOME/.claude":/home/agent/.claude:z \
+    --volume "$HOME/.claude.json":/home/agent/.claude.json:z \
+    --workdir /workspace \
+    --memory 8g \
+    --memory-swap 8G \
+    --publish 8501 \
+    docker.io/docker/sandbox-templates:claude-code \
+    bash
 ```

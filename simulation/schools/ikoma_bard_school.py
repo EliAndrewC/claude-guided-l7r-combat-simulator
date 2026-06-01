@@ -14,8 +14,15 @@
 # 2nd Dan: Free raise on attack
 # 3rd Dan: AP system -- ap_base_skill = "bragging", ap_skills = ["attack", "wound check"]
 # 4th Dan: Ring+1/discount; unparried attack without extra kept damage dice -> roll 10 damage dice
-# 5th Dan: Use special ability or oppose knack an extra time per round;
-#          may cancel opponent's attack and use their roll as parry.
+# 5th Dan: Use special ability or oppose knack an extra time per round.
+#          After seeing the result of any attack roll made against you
+#          (before damage is rolled), may use the Special Ability to
+#          cancel that attack and make a counter-attack against the
+#          attacker.  The Ikoma spends an action die for the counter
+#          (lowest available, interrupt-timing).  The cancelled attack
+#          roll value is used as the parry roll defending against the
+#          counter — no fresh parry roll is made and the opponent does
+#          not spend an action die on it.
 #
 
 from collections.abc import Iterator
@@ -254,12 +261,17 @@ class IkomaTakeActionEventFactory(DefaultTakeActionEventFactory):
 # ──────────────────────────────────────────────────────────────────
 
 class IkomaFifthDanAttackRolledListener(Listener):
-    """5th Dan listener: when an opponent attacks the Ikoma and the tracker
-    has uses remaining, cancel the attack (set it as parried).
+    """5th Dan listener: when an opponent attacks the Ikoma and the
+    tracker has uses remaining, cancel the attack AND fire an Ikoma
+    counter-attack against the attacker.  The Ikoma spends their
+    lowest available action die for the counter (interrupt-timing).
+    The cancelled attack roll value is used as the forced parry roll
+    defending against the counter — no fresh parry roll, no opponent
+    action die spent.
 
-    This replaces the default AttackRolledListener for the Ikoma character.
-    It preserves the default behavior (observe roll, consult interrupt strategy)
-    while adding the 5th Dan cancel ability.
+    Replaces the default AttackRolledListener for the Ikoma character;
+    preserves default behavior (observe roll, consult interrupt
+    strategy) when 5th Dan does not fire.
     """
 
     def __init__(self, ikoma: Any, tracker: Any) -> None:
@@ -269,7 +281,7 @@ class IkomaFifthDanAttackRolledListener(Listener):
 
     def handle(self, character: Any, event: Any, context: Any) -> Iterator[Any]:
         if isinstance(event, AttackRolledEvent):
-            # 5th Dan cancel: when an opponent attacks the Ikoma
+            # 5th Dan defensive trigger: opponent's attack lands on Ikoma.
             if (
                 character == self._ikoma
                 and event.action.target() == self._ikoma
@@ -278,18 +290,89 @@ class IkomaFifthDanAttackRolledListener(Listener):
                 and not event.action.parried()
                 and self._tracker is not None
                 and self._tracker.has_uses()
+                and self._ikoma.is_fighting()
+                and len(self._ikoma.actions()) > 0
             ):
-                # Cancel the attack
+                attacker = event.action.subject()
+                saved_roll = event.action.skill_roll()
+                assert saved_roll is not None
+                # Cancel the opponent's attack.
                 event.action.set_parried()
                 self._tracker.use()
                 logger.info(
                     f"{self._ikoma.name()} (Ikoma 5th Dan) cancels "
-                    f"{event.action.subject().name()}'s attack"
+                    f"{attacker.name()}'s attack (roll {saved_roll}); "
+                    f"counter-attacking with forced parry = {saved_roll}"
                 )
-                yield from ()
+                # Counter-attack: spend the Ikoma's lowest available
+                # action die (interrupt-timing).  The forced parry uses
+                # the cancelled attack roll, so the opponent spends
+                # nothing additional on defense.
+                lowest_die = min(self._ikoma.actions())
+                interrupt_ia = InitiativeAction(
+                    [lowest_die], context.phase(), is_interrupt=True,
+                )
+                counter = AttackAction(
+                    self._ikoma, attacker, "attack", interrupt_ia, context,
+                )
+                yield SpendActionEvent(self._ikoma, "attack", interrupt_ia)
+                yield IkomaFifthDanCounterAttackEvent(counter, saved_roll)
                 return
             # Default behavior for all other cases
             yield from self._default_listener.handle(character, event, context)
+
+
+# ──────────────────────────────────────────────────────────────────
+# 5th Dan counter-attack: free attack with parry roll fixed to
+# the cancelled opponent attack roll value
+# ──────────────────────────────────────────────────────────────────
+
+class IkomaFifthDanCounterAttackEvent(TakeAttackActionEvent):
+    """Ikoma counter-attack triggered by the 5th Dan cancel.
+
+    Plays like a normal attack (declare → roll → succeed/fail → damage)
+    but the forced parry uses a fixed roll value: the cancelled
+    opponent attack roll.  If ``fixed_parry_roll >= ikoma_attack_roll``
+    the counter is parried; otherwise it proceeds to damage.
+
+    The Ikoma spends an action die for this counter (handled by the
+    listener that yields this event).  The opponent does not spend an
+    action die on the parry — the "parry" is automatic, using the
+    value already rolled on their cancelled attack.
+    """
+
+    def __init__(self, action: Any, fixed_parry_roll: int) -> None:
+        super().__init__(action)
+        self._fixed_parry_roll = fixed_parry_roll
+
+    def play(self, context: Any) -> Iterator[Any]:
+        yield self._declare_attack()
+        if not self.action.subject().is_fighting():  # pragma: no cover  # defensive: listener already gated on is_fighting
+            return
+        yield from self._roll_attack(context)
+        if self.action.parried():  # pragma: no cover  # defensive: no listener parries the counter-attack itself
+            yield self._failed()
+            return
+        if self.action.is_hit():
+            ikoma_roll = self.action.skill_roll()
+            assert ikoma_roll is not None
+            if self._fixed_parry_roll >= ikoma_roll:
+                # Forced parry succeeds — counter-attack parried.
+                self.action.set_parry_attempted()
+                self.action.set_parried()
+                logger.info(
+                    f"Ikoma 5th Dan counter-attack parried: forced parry "
+                    f"{self._fixed_parry_roll} >= attack roll {ikoma_roll}"
+                )
+                yield self._failed()
+                return
+            yield self._succeeded()
+            if self.action.parried():  # pragma: no cover  # defensive: no listener cancels after success here
+                return
+            if self.action.target().is_fighting():
+                yield self._roll_damage()
+        else:
+            yield self._failed()
 
 
 # ──────────────────────────────────────────────────────────────────
