@@ -55,18 +55,21 @@ def _build_character(school_key: str, name: str) -> Character:
 
 
 def _run_calibration_combat() -> list[str]:
-    """Run the trace-auditor calibration combat: Bayushi vs Akodo at seed=1234.
+    """Run the trace-auditor calibration combat: Bayushi vs Akodo at seed=0.
 
     Returns the rendered trace lines. This is the canonical recipe used
     by every test in this module so the assertions all reference the
     same multi-round combat.
 
-    2026-05-30: re-anchored to seed=22 after the rules/03-combat.md
-    failed-parry-reduction update made the seed=1234 combat too short
-    (2-round Bayushi blowout) to exercise the events these tests
-    target (VP-on-attack damage attribution, etc.).
+    Re-anchored twice as upstream changes shifted the deterministic
+    combat: first to seed=22 (2026-05-30, after the rules/03-combat.md
+    failed-parry-reduction update made the prior combat too short), then
+    to seed=0 (2026-06-14, after the template builder's combat-XP split
+    changed from 80% to 75% — see ``COMBAT_XP_FRACTION`` — which shifted
+    the Bayushi/Akodo 300-XP builds so the prior seed no longer produced
+    a VP-on-attack damage line for T030).
     """
-    random.seed(75)
+    random.seed(0)
     bayushi = _build_character("bayushi", "Bayushi")
     akodo = _build_character("akodo", "Akodo")
     ctx = EngineContext([Group("Scorpion", bayushi), Group("Lion", akodo)])

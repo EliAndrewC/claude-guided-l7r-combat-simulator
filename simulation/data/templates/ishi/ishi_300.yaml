@@ -1,11 +1,11 @@
 # XP Breakdown (300 XP total):
-#   Combat budget: 240 XP (80%), Non-combat reserve: 60 XP (20%)
+#   Combat budget: 225 XP (75%), Non-combat reserve: 75 XP (25%)
 #   Free: void ring starts at 3 (school ring); school knacks start at 1; attack/parry start at 1
 #   Free: void +1 free at 4th Dan
 #   Rings (120 XP): water 2→4 (35), earth 2→4 (35), void 4→5 (20), air 2→3 (15), fire 2→3 (15)
-#   School knacks (64 XP): absorb void 1→5 (28), kharmic spin 1→4 (18), otherworldliness 1→4 (18)
+#   School knacks (54 XP): absorb void 1→4 (18), kharmic spin 1→4 (18), otherworldliness 1→4 (18)
 #   Attack/Parry (36 XP): attack 1→4 (18), parry 1→4 (18)
-#   Combat total: 220 XP
+#   Combat total: 210 XP
 #
 name: Ishi
 xp: 300
@@ -20,7 +20,7 @@ skills:
   attack: 4
   parry: 4
   precepts: 5
-  absorb void: 5
+  absorb void: 4
   kharmic spin: 4
   otherworldliness: 4
 template_tier: '300'

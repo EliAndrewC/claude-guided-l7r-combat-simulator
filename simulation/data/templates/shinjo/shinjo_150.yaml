@@ -1,11 +1,11 @@
 # XP Breakdown (150 XP total):
-#   Combat budget: 120 XP (80%), Non-combat reserve: 30 XP (20%)
+#   Combat budget: 112 XP (75%), Non-combat reserve: 38 XP (25%)
 #   Free: air ring starts at 3 (school ring); school knacks start at 1; attack/parry start at 1
 #   Free: air +1 free at 4th Dan
-#   Rings (30 XP): earth 2→3 (15), void 2→3 (15)
+#   Rings (15 XP): earth 2→3 (15)
 #   School knacks (54 XP): double attack 1→4 (18), iaijutsu 1→4 (18), lunge 1→4 (18)
 #   Attack/Parry (36 XP): attack 1→4 (18), parry 1→4 (18)
-#   Combat total: 120 XP
+#   Combat total: 105 XP
 #
 name: Shinjo
 xp: 150
@@ -15,7 +15,7 @@ rings:
   earth: 3
   fire: 2
   water: 2
-  void: 3
+  void: 2
 skills:
   attack: 4
   parry: 4

@@ -3,7 +3,7 @@
 Uses CharacterBuilder to validate each purchase, producing CharacterConfig
 objects that can be serialized to YAML template files.
 
-Reserves 20% of XP for non-combat skills and tracks spending by category
+Reserves 25% of XP for non-combat skills and tracks spending by category
 to produce XP breakdown comments in the output YAML.
 """
 
@@ -23,7 +23,11 @@ from simulation.templates.strategies import (
 )
 from web.models import CharacterConfig
 
-COMBAT_XP_FRACTION = 0.8
+# Fraction of earned XP a typical character spends on combat (rings,
+# school knacks, attack/parry). Set to 0.75 on 2026-06-14 from the
+# measured average across the 10 players in the GM's campaign (was 0.8,
+# a prior estimate). The remaining 25% is reserved for non-combat skills.
+COMBAT_XP_FRACTION = 0.75
 
 SCHOOL_KNACK_LOOKUP: dict[str, list[str]] = {
     "Akodo Bushi School": ["double attack", "feint", "iaijutsu"],
@@ -107,10 +111,12 @@ def _format_breakdown_comments(breakdown: dict[str, Any]) -> str:
     non_combat = breakdown["non_combat_xp"]
     spent = breakdown["combat_spent"]
 
+    combat_pct = round(COMBAT_XP_FRACTION * 100)
+    non_combat_pct = 100 - combat_pct
     lines.append(f"# XP Breakdown ({total} XP total):")
     lines.append(
-        f"#   Combat budget: {budget} XP (80%), "
-        f"Non-combat reserve: {non_combat} XP (20%)"
+        f"#   Combat budget: {budget} XP ({combat_pct}%), "
+        f"Non-combat reserve: {non_combat} XP ({non_combat_pct}%)"
     )
 
     for note in breakdown["free_notes"]:
@@ -152,7 +158,7 @@ def generate_template(
 ) -> tuple[CharacterConfig, dict[str, Any]]:
     """Generate a CharacterConfig for a school/profession at the given XP tier.
 
-    Reserves 20% of XP for non-combat skills. School characters get attack
+    Reserves 25% of XP for non-combat skills. School characters get attack
     and parry at rank 1 for free.
 
     Args:

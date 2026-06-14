@@ -1,11 +1,11 @@
 # XP Breakdown (250 XP total):
-#   Combat budget: 200 XP (80%), Non-combat reserve: 50 XP (20%)
+#   Combat budget: 187 XP (75%), Non-combat reserve: 63 XP (25%)
 #   Free: water ring starts at 3 (school ring); school knacks start at 1; attack/parry start at 1
 #   Free: water +1 free at 4th Dan
 #   Rings (80 XP): earth 2→4 (35), void 2→3 (15), fire 2→3 (15), air 2→3 (15)
-#   School knacks (64 XP): discern honor 1→5 (28), oppose knowledge 1→4 (18), oppose social 1→4 (18)
+#   School knacks (54 XP): discern honor 1→4 (18), oppose knowledge 1→4 (18), oppose social 1→4 (18)
 #   Attack/Parry (36 XP): attack 1→4 (18), parry 1→4 (18)
-#   Combat total: 180 XP
+#   Combat total: 170 XP
 #
 name: Ikoma Bard
 xp: 250
@@ -20,7 +20,7 @@ skills:
   attack: 4
   parry: 4
   bragging: 5
-  discern honor: 5
+  discern honor: 4
   oppose knowledge: 4
   oppose social: 4
 template_tier: '250'

@@ -1,21 +1,21 @@
 # XP Breakdown (250 XP total):
-#   Combat budget: 200 XP (80%), Non-combat reserve: 50 XP (20%)
+#   Combat budget: 187 XP (75%), Non-combat reserve: 63 XP (25%)
 #   Free: attack/parry start at 1
-#   Rings (175 XP): earth 2→4 (35), fire 2→4 (35), water 2→4 (35), void 2→4 (35), air 2→4 (35)
-#   Attack/Parry (20 XP): attack 1→3 (10), parry 1→3 (10)
-#   Combat total: 195 XP
+#   Rings (155 XP): earth 2→4 (35), fire 2→4 (35), water 2→4 (35), void 2→4 (35), air 2→3 (15)
+#   Attack/Parry (28 XP): attack 1→4 (18), parry 1→3 (10)
+#   Combat total: 183 XP
 #
 name: Ninja
 xp: 250
 profession: Ninja
 rings:
-  air: 4
+  air: 3
   earth: 4
   fire: 4
   water: 4
   void: 4
 skills:
-  attack: 3
+  attack: 4
   parry: 3
 abilities:
   defense bonus: 2

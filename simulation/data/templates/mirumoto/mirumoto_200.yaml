@@ -1,25 +1,25 @@
 # XP Breakdown (200 XP total):
-#   Combat budget: 160 XP (80%), Non-combat reserve: 40 XP (20%)
+#   Combat budget: 150 XP (75%), Non-combat reserve: 50 XP (25%)
 #   Free: void ring starts at 3 (school ring); school knacks start at 1; attack/parry start at 1
 #   Free: void +1 free at 4th Dan
-#   Rings (65 XP): air 2→4 (35), water 2→3 (15), earth 2→3 (15)
-#   School knacks (54 XP): counterattack 1→4 (18), double attack 1→4 (18), iaijutsu 1→4 (18)
+#   Rings (50 XP): air 2→4 (35), water 2→3 (15)
+#   School knacks (64 XP): counterattack 1→5 (28), double attack 1→4 (18), iaijutsu 1→4 (18)
 #   Attack/Parry (36 XP): attack 1→4 (18), parry 1→4 (18)
-#   Combat total: 155 XP
+#   Combat total: 150 XP
 #
 name: Mirumoto
 xp: 200
 school: Mirumoto Bushi School
 rings:
   air: 4
-  earth: 3
+  earth: 2
   fire: 2
   water: 3
   void: 4
 skills:
   attack: 4
   parry: 4
-  counterattack: 4
+  counterattack: 5
   double attack: 4
   iaijutsu: 4
 template_tier: '200'
