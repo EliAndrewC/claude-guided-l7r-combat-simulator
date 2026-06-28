@@ -8,7 +8,7 @@
 ## 1. Verify knack list fix
 
 ```bash
-PYTHONPATH=/workspace env/bin/python -c "
+PYTHONPATH=/simulator env/bin/python -c "
 from simulation.schools.factory import school_factory
 s = school_factory('Hida Bushi School')
 print(s.school_knacks())
@@ -30,7 +30,7 @@ Expected: zero matches in any of these three files (the lunge knack belongs to O
 Build a 3rd-Dan Hida with attack skill = 4; have them counterattack against a known attack with predestined dice (one die comes up at 3, others at 8-10):
 
 ```bash
-PYTHONPATH=/workspace env/bin/python -c "
+PYTHONPATH=/simulator env/bin/python -c "
 # Stripped down combat with deterministic provider
 # (orchestrator to provide a probe script)
 "

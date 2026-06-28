@@ -8,7 +8,7 @@
 ## 1. Verify cross-renderer consistency (Issue 1)
 
 ```bash
-PYTHONPATH=/workspace env/bin/python /tmp/probe_dual.py 2>&1 | diff <(grep "in excess of 10k10" /tmp/probe_dual.py.text) <(grep "in excess of 10k10" /tmp/probe_dual.py.bulleted)
+PYTHONPATH=/simulator env/bin/python /tmp/probe_dual.py 2>&1 | diff <(grep "in excess of 10k10" /tmp/probe_dual.py.text) <(grep "in excess of 10k10" /tmp/probe_dual.py.bulleted)
 ```
 
 Expected: zero diff. Both renderers describe the 10k10-overflow component identically.
@@ -16,13 +16,13 @@ Expected: zero diff. Both renderers describe the 10k10-overflow component identi
 ## 2. Verify feint damage suppression (Issues 2/4/6)
 
 ```bash
-PYTHONPATH=/workspace env/bin/python /tmp/probe.py 2>&1 | grep -A 1 "(feint)" | head -20
+PYTHONPATH=/simulator env/bin/python /tmp/probe.py 2>&1 | grep -A 1 "(feint)" | head -20
 ```
 
 Expected: feint attack lines have NO `damage will be:` segment. The line(s) AFTER a feint attack are school-ability events (TVP gain / floating bonus gain), NOT damage events.
 
 ```bash
-PYTHONPATH=/workspace env/bin/python /tmp/probe.py 2>&1 | grep -B 1 "0 light wounds" | head -10
+PYTHONPATH=/simulator env/bin/python /tmp/probe.py 2>&1 | grep -B 1 "0 light wounds" | head -10
 ```
 
 Expected: zero lines matching `0 light wounds` (the damage line is suppressed entirely for 0-LW feints).
@@ -30,7 +30,7 @@ Expected: zero lines matching `0 light wounds` (the damage line is suppressed en
 ## 3. Verify floating-bonus inline integration (Issue 3)
 
 ```bash
-PYTHONPATH=/workspace env/bin/python /tmp/probe.py 2>&1 | grep "floating bonus" | head -10
+PYTHONPATH=/simulator env/bin/python /tmp/probe.py 2>&1 | grep "floating bonus" | head -10
 ```
 
 Expected: lines containing `+N (source floating bonus)` integrated into attack-outcome lines like `→ 19, +15 (Akodo 3rd Dan floating bonus) = 34 vs TN 30 — HIT!`. Standalone `✨ +N (... floating bonus consumed)` lines are minimal or absent on attack-funded bonuses.
@@ -38,7 +38,7 @@ Expected: lines containing `+N (source floating bonus)` integrated into attack-o
 ## 4. Verify "unsourced" literal absence (Issue 5)
 
 ```bash
-PYTHONPATH=/workspace env/bin/python /tmp/probe.py 2>&1 | grep -E "\bunsourced\b"
+PYTHONPATH=/simulator env/bin/python /tmp/probe.py 2>&1 | grep -E "\bunsourced\b"
 ```
 
 Expected: zero matches. Modifiers either show a real source or use the non-alarming fallback `"(see preceding line)"`.

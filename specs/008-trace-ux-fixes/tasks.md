@@ -14,8 +14,8 @@ description: "Task list for Combat Trace UX Fixes"
 
 ## Phase 2: Foundational — shared helper
 
-- [X] T004 Write `/workspace/web/adapters/_breakdown_format.py`. Implements `format_breakdown_component(rolled: int, kept: int, source: str) -> str` per data-model.md.
-- [X] T005 Write `/workspace/tests/test_breakdown_format.py` covering the helper at 100% (FR-018): standard NkM case, 10k10-overflow case with negative-rolled, 10k10-overflow with negative-kept, both-negative, dropped=1 singular noun, source-mismatch fallback to standard form. ~10 tests.
+- [X] T004 Write `/simulator/web/adapters/_breakdown_format.py`. Implements `format_breakdown_component(rolled: int, kept: int, source: str) -> str` per data-model.md.
+- [X] T005 Write `/simulator/tests/test_breakdown_format.py` covering the helper at 100% (FR-018): standard NkM case, 10k10-overflow case with negative-rolled, 10k10-overflow with negative-kept, both-negative, dropped=1 singular noun, source-mismatch fallback to standard form. ~10 tests.
 
 ## Phase 3: Issue 1 — Cross-renderer consistency
 

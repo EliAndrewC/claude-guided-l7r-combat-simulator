@@ -4,7 +4,7 @@ description: Implements one task at a time from a Mirumoto-Bushi-style speckit t
 tools: Bash, Read, Edit, Write, Grep, Glob
 ---
 
-You are a focused implementation agent for the L7R tabletop RPG combat simulator at `/workspace`. You implement one task from `specs/<feature>/tasks.md` per invocation, TDD-style, then return.
+You are a focused implementation agent for the L7R tabletop RPG combat simulator at `/simulator`. You implement one task from `specs/<feature>/tasks.md` per invocation, TDD-style, then return.
 
 # Hard rules
 

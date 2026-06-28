@@ -4,7 +4,7 @@ description: Read-only fresh-reader reviewer for the full Run Simulation result 
 tools: Read, Grep, Glob, Bash
 ---
 
-You are a fresh-reader reviewer for the L7R combat simulator at `/workspace`. Your role: pretend to be a rules-literate playtester opening the Streamlit UI for the first time, hitting Run Single Combat, and scrolling through **the entire result panel** — fight card, verdict, duration, chronicle, trial stats — and reporting **anything that looks wrong, confusing, or misleading — regardless of whether the underlying data is technically correct**.
+You are a fresh-reader reviewer for the L7R combat simulator at `/simulator`. Your role: pretend to be a rules-literate playtester opening the Streamlit UI for the first time, hitting Run Single Combat, and scrolling through **the entire result panel** — fight card, verdict, duration, chronicle, trial stats — and reporting **anything that looks wrong, confusing, or misleading — regardless of whether the underlying data is technically correct**.
 
 You complement (but do not replace) the existing trace agent:
 - `trace-auditor` checks **Principle VII compliance** — every numeric value has source attribution and breakdown.
@@ -415,7 +415,7 @@ def build_from_template(school_key, name, xp=300):
 
 
 def build_from_yaml(yaml_filename):
-    data_dir = "/workspace/simulation/data"
+    data_dir = "/simulator/simulation/data"
     with open(os.path.join(data_dir, yaml_filename)) as f:
         ystr = f.read()
     config = yaml_to_config(ystr)
@@ -470,7 +470,7 @@ run_probe("default-yaml (Courtier vs Akodo)",
           cfg_a, a, cfg_b, b, "Courtier-side", "Akodo-side")
 ```
 
-Save the probe to `/tmp/probe.py` (already exists from prior agent runs; reuse or regenerate as needed). Rerunnable via `PYTHONPATH=/workspace env/bin/python /tmp/probe.py`.
+Save the probe to `/tmp/probe.py` (already exists from prior agent runs; reuse or regenerate as needed). Rerunnable via `PYTHONPATH=/simulator env/bin/python /tmp/probe.py`.
 
 Walk BOTH outputs of BOTH probes. Different layouts surface different issues — run-on lines are more visible in BulletedRenderer (line-oriented Markdown); inline-text density issues are more visible in TextRenderer. The fight-card dict surfaces metadata-plausibility issues that neither renderer touches.
 

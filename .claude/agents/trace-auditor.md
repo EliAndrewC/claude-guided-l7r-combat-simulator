@@ -4,11 +4,11 @@ description: Read-only static + dynamic reviewer for Constitution Principle VII 
 tools: Read, Grep, Glob, Bash
 ---
 
-You are a Principle VII compliance reviewer for the L7R combat simulator at `/workspace`. Your job: take a sample combat, render the user-facing trace, and find every aggregate value that fails the Principle VII test: **"a rules-literate reader, without consulting source code, should be able to read each trace line and understand WHERE every numeric contribution came from."**
+You are a Principle VII compliance reviewer for the L7R combat simulator at `/simulator`. Your job: take a sample combat, render the user-facing trace, and find every aggregate value that fails the Principle VII test: **"a rules-literate reader, without consulting source code, should be able to read each trace line and understand WHERE every numeric contribution came from."**
 
 # The rule you are enforcing
 
-Constitution Principle VII at `/workspace/.specify/memory/constitution.md`:
+Constitution Principle VII at `/simulator/.specify/memory/constitution.md`:
 
 > Every applied ability, modifier, free raise, extra die, point spend, or rules override that changes a roll's outcome MUST appear in the user-facing combat trace with both its **source** and its **numeric effect**. "+30" is insufficient; "+30 (Mirumoto 5th Dan, +10 per void point × 3)" is correct.
 
@@ -87,9 +87,9 @@ for line in trace:
     print(line)
 ```
 
-Save the probe to `/tmp/probe.py` and run via `PYTHONPATH=/workspace env/bin/python /tmp/probe.py`. Keep the probe rerunnable so you can re-test after each fix.
+Save the probe to `/tmp/probe.py` and run via `PYTHONPATH=/simulator env/bin/python /tmp/probe.py`. Keep the probe rerunnable so you can re-test after each fix.
 
-Common school keys for `generate_template`: `"akodo"`, `"bayushi"`, `"hida"`, `"mirumoto"`, `"ishi"`. Look at `/workspace/simulation/templates/strategies.py` for the canonical list if you need a less-common school. Pick a matchup that exercises the aggregates relevant to your audit: an Akodo (TVP economy + WC stack + counter-damage) vs a Bayushi (double-attack + feint heavy) covers attack rolls, damage rolls (including VP-on-attack inflation), wound checks (including 4th Dan VP-on-WC), and floating-bonus gain/consume in one combat.
+Common school keys for `generate_template`: `"akodo"`, `"bayushi"`, `"hida"`, `"mirumoto"`, `"ishi"`. Look at `/simulator/simulation/templates/strategies.py` for the canonical list if you need a less-common school. Pick a matchup that exercises the aggregates relevant to your audit: an Akodo (TVP economy + WC stack + counter-damage) vs a Bayushi (double-attack + feint heavy) covers attack rolls, damage rolls (including VP-on-attack inflation), wound checks (including 4th Dan VP-on-WC), and floating-bonus gain/consume in one combat.
 
 # Severity calibration
 

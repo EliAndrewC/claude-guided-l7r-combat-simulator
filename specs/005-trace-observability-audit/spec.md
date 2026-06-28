@@ -8,7 +8,7 @@
 
 **Input**: User direction (2026-05-27): "sweep all multi-source rolls" after observing a Principle VII violation in a live combat trace where damage `10k10` rendered with no breakdown of its components.
 
-**Rules Source**: Constitution Principle VII at `/workspace/.specify/memory/constitution.md` — Combat Trace Self-Explanation. The constitution mandates: *"Every applied ability, modifier, free raise, extra die, point spend, or rules override that changes a roll's outcome MUST appear in the user-facing combat trace with both its **source** and its **numeric effect**. '+30' is insufficient; '+30 (Mirumoto 5th Dan, +10 per void point × 3)' is correct."*
+**Rules Source**: Constitution Principle VII at `/simulator/.specify/memory/constitution.md` — Combat Trace Self-Explanation. The constitution mandates: *"Every applied ability, modifier, free raise, extra die, point spend, or rules override that changes a roll's outcome MUST appear in the user-facing combat trace with both its **source** and its **numeric effect**. '+30' is insufficient; '+30 (Mirumoto 5th Dan, +10 per void point × 3)' is correct."*
 
 **Run Mode**: Autonomous. Decisions logged in `OPEN_QUESTIONS.md` for end-of-run user review.
 

@@ -12,7 +12,7 @@ This file documents how to verify the audit landed end-to-end.
 Run a 300-XP 5th-Dan Akodo vs 300-XP 5th-Dan Bayushi combat at `random.seed(1234)` (the dry-run scenario):
 
 ```bash
-PYTHONPATH=/workspace env/bin/python /tmp/probe.py  # uses the recipe in the trace-auditor agent doc
+PYTHONPATH=/simulator env/bin/python /tmp/probe.py  # uses the recipe in the trace-auditor agent doc
 ```
 
 Inspect the trace. The five P1 gaps from the dry-run MUST all be closed:

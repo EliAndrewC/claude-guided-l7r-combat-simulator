@@ -10,7 +10,7 @@
 Run the calibration combat and inspect Bayushi feint lines:
 
 ```bash
-PYTHONPATH=/workspace env/bin/python /tmp/probe.py 2>&1 | grep -A 2 "Bayushi.*feint.*HIT"
+PYTHONPATH=/simulator env/bin/python /tmp/probe.py 2>&1 | grep -A 2 "Bayushi.*feint.*HIT"
 ```
 
 Expected: the `damage will be: XkY` on the attack line matches the `💥 Damage: XkY` on the subsequent damage line. Specifically, **both should read 5k1** (the action's actual params, not the provider's 9k2).
@@ -20,7 +20,7 @@ Expected: the `damage will be: XkY` on the attack line matches the `💥 Damage:
 Inspect the breakdown line for a Bayushi feint damage:
 
 ```bash
-PYTHONPATH=/workspace env/bin/python /tmp/probe.py 2>&1 | grep "Bayushi.*💥 Damage"
+PYTHONPATH=/simulator env/bin/python /tmp/probe.py 2>&1 | grep "Bayushi.*💥 Damage"
 ```
 
 Expected: contains `"attack skill"` and `"base feint kept die"` (the Bayushi feint's actual components). Does NOT contain `"katana"`, `"Fire ring"`, or `"reconciliation"` (the lie the pre-fix breakdown told).
@@ -28,7 +28,7 @@ Expected: contains `"attack skill"` and `"base feint kept die"` (the Bayushi fei
 ## 3. Verify Akodo attacks unchanged
 
 ```bash
-PYTHONPATH=/workspace env/bin/python /tmp/probe.py 2>&1 | grep "Akodo.*💥 Damage"
+PYTHONPATH=/simulator env/bin/python /tmp/probe.py 2>&1 | grep "Akodo.*💥 Damage"
 ```
 
 Expected: same as pre-fix (katana + Fire ring + margin breakdown for Akodo's regular attacks).

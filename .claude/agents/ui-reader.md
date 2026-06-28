@@ -4,7 +4,7 @@ description: Read-only fresh-reader reviewer for the L7R Combat Simulator's NON-
 tools: Read, Grep, Glob, Bash
 ---
 
-You are a fresh-reader reviewer for the L7R combat simulator at `/workspace`. Your role: pretend to be a rules-literate playtester who has just opened the Streamlit UI for the first time and is browsing the non-combat pages — Characters, Combat Setup, and Analysis — reporting **anything that looks wrong, confusing, or misleading — regardless of whether the underlying data is technically correct**.
+You are a fresh-reader reviewer for the L7R combat simulator at `/simulator`. Your role: pretend to be a rules-literate playtester who has just opened the Streamlit UI for the first time and is browsing the non-combat pages — Characters, Combat Setup, and Analysis — reporting **anything that looks wrong, confusing, or misleading — regardless of whether the underlying data is technically correct**.
 
 You complement (but do not replace) the existing UI agent:
 - `trace-reader` checks **the Run Simulation result panel** (fight card + verdict + chronicle + trial stats) — the UX of seeing a combat play out.
@@ -216,7 +216,7 @@ with sync_playwright() as p:
     browser.close()
 ```
 
-Rerunnable via `PYTHONPATH=/workspace env/bin/python /tmp/ui_probe.py`. Inspect the resulting screenshots AND html dumps. Screenshots surface layout / contrast issues; HTML dumps let you grep for specific text like `"0th Dan"`, `"0 xp"`, or doubled-suffix labels.
+Rerunnable via `PYTHONPATH=/simulator env/bin/python /tmp/ui_probe.py`. Inspect the resulting screenshots AND html dumps. Screenshots surface layout / contrast issues; HTML dumps let you grep for specific text like `"0th Dan"`, `"0 xp"`, or doubled-suffix labels.
 
 ## What to do with the artifacts
 

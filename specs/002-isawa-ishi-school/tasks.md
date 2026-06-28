@@ -19,7 +19,7 @@ description: "Task list for Isawa Ishi School implementation (autonomous run)"
 
 ## Phase 1: Setup (Baseline Verification)
 
-- [X] T001 Capture baseline by running `env/bin/ruff check .`, `env/bin/mypy`, `env/bin/pytest tests/ -v`. Confirm the existing skeleton tests pass (the `IshiAllyBoostListener` tests currently lock in the wrong behavior — note explicitly which ones will need updating during the rewrite). Workspace: `/workspace`.
+- [X] T001 Capture baseline by running `env/bin/ruff check .`, `env/bin/mypy`, `env/bin/pytest tests/ -v`. Confirm the existing skeleton tests pass (the `IshiAllyBoostListener` tests currently lock in the wrong behavior — note explicitly which ones will need updating during the rewrite). Workspace: `/simulator`.
 
 ---
 

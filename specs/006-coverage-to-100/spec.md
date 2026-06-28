@@ -8,7 +8,7 @@
 
 **Input**: User direction (2026-05-27): "let's update our spec to require 100% code coverage and then get our code coverage up to 100% for the existing code in the project." Constitution Principle VI was tightened in commit `3c49b3c` (v1.2.2 → v1.3.0) from "90% floor" to "100% with documented pragma skips".
 
-**Rules Source**: Constitution Principle VI v1.3.0 at `/workspace/.specify/memory/constitution.md`.
+**Rules Source**: Constitution Principle VI v1.3.0 at `/simulator/.specify/memory/constitution.md`.
 
 **Run Mode**: Autonomous. Decisions in `OPEN_QUESTIONS.md` for end-of-run review.
 

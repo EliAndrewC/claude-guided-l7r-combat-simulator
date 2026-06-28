@@ -1,5 +1,13 @@
 # Tabletop RPG Combat Simulator Project
 
+<!-- Dev-container config consumed by launch-container.sh (lives in the sibling gm-assistant repo). Format is HOST:CONTAINER. -->
+<!-- Primary = the Streamlit app (container 8501). Secondary (container 8090) is reserved for a future blind-eval webapp; nothing listens there yet. Host ports are unique across the GM's repos so several containers can run at once. -->
+<!-- container-ports: 8501:8501 8093:8090 -->
+<!-- Mount the parent l7r repo at /host-l7r-repo; its rules/ dir holds the canonical L7R rules this simulator implements. -->
+<!-- container-mounts: ..:/host-l7r-repo -->
+<!-- container-workdir: /simulator -->
+<!-- (distinct mount path per repo so Claude memory under ~/.claude/projects/ stays separate across sibling repos) -->
+
 This is a project which was begun years ago and never completely finished.  Its
 goal is to simulate the combat system of this game to facilitate playtesting.
 This will eventually involve:
@@ -14,9 +22,14 @@ At present the codebase only does a fraction of this, though it has a robust
 implementation of the rules engine.  Our goal is to gradually extend its
 capabilities using a TDD philosophy.
 
-The rules are at https://github.com/EliAndrewC/l7r/tree/master/rules
-You should ignore everything outside of the "rules" directory of that git repo,
-as none of it is relevant to this project.
+The rules live in the `rules/` directory of the GM's `l7r` repo, which is
+bind-mounted at `/host-l7r-repo` when this project runs in its dev container -
+so read them locally from `/host-l7r-repo/rules/`, which is faster and more
+reliable than fetching them over the network.  If that mount is not present
+(e.g. someone outside the GM's setup cloned this repo), fall back to the public
+GitHub copy at https://github.com/EliAndrewC/l7r/tree/master/rules.  Either way,
+only the `rules/` directory is relevant to this project; ignore everything else
+in that repo.
 
 ## Tech Stack
 - Language: Python 3.12+
@@ -25,11 +38,12 @@ as none of it is relevant to this project.
 - Style: PEP 8, Type Hints (Strict)
 
 ## Architecture
-1. **Core Engine**: Pure logic, implemented based on the human-readable rules at
-    https://github.com/EliAndrewC/l7r/tree/master/rules (all rules are in that
-    directory, so you can ignore other directories in that Git repo and also
-    ignore the Between Place and Spirit Encounter rules, which will never be
-    covered by this simulator)
+1. **Core Engine**: Pure logic, implemented based on the human-readable rules in
+    `/host-l7r-repo/rules/` (the bind-mounted `l7r` repo; fall back to
+    https://github.com/EliAndrewC/l7r/tree/master/rules if the mount is absent).
+    All rules are in that one directory, so ignore everything else in that repo,
+    and also ignore the Between Place and Spirit Encounter rules, which will
+    never be covered by this simulator.
 2. **API/UI**: Streamlit interface to visualize the dice rolls and outcomes.
 
 ## Project Rules
@@ -74,8 +88,9 @@ and run this workflow:
    (deferred) spell subsystem are excluded per Constitution Principle III.
 
 2. **Specify.** `/speckit-specify` with: (a) the verbatim rules text from
-   `https://github.com/EliAndrewC/l7r/blob/master/rules/04-schools.md` for
-   the chosen school, (b) an audit of the existing skeleton file in
+   `/host-l7r-repo/rules/04-schools.md` (the bind-mounted `l7r` repo; fall back
+   to `https://github.com/EliAndrewC/l7r/blob/master/rules/04-schools.md` if the
+   mount is absent) for the chosen school, (b) an audit of the existing skeleton file in
    `simulation/schools/`, (c) the list of known ambiguities with your
    pre-resolution of each, and (d) the autonomous-run authorization
    (decisions logged to `OPEN_QUESTIONS.md` for end-of-run review).
