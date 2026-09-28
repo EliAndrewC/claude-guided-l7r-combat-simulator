@@ -1098,6 +1098,21 @@ Principle VIII their combat defaults must still be playable. Audit
 will need careful Principle IX analysis (what does "identity engine
 fires" look like for a school whose identity is social maneuvering?).
 
+## Hiruma Scout is stale against the rules
+
+Found 2026-09-28 by the character sheet's NPC generator, which checks every
+school's knacks against the sheet (which tracks the rules). The rules
+swapped counterattack for lunge (l7r commit 48410d9 "swapped counterattack
+for lunge in Hiruma 3rd Dan second half"): the school knacks are now
+**double attack, iaijutsu, lunge**, and the 3rd Dan's second half reads
+"you may immediately lunge as an interrupt action at the cost of one action
+die without suffering the normal lunge penalty". Here the school class
+still has counterattack (`hiruma_school.py`, and its interrupt
+counterattack in `_maybe_interrupt_counterattack`), `HIRUMA_PRIORITIES`
+buys counterattack, and `SCHOOL_KNACK_LOOKUP` says feint. Isawa and Otaku
+already have interrupt-lunge strategies to model it on. Until this is
+fixed the character sheet does not offer Hiruma Scout NPCs.
+
 ## Progression lists that are not monotonic between tiers
 
 Found 2026-09-28 while designing the build-only lists: greedy first-fit
