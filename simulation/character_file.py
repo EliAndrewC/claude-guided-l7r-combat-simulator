@@ -17,7 +17,7 @@ from simulation.character_builder import CharacterBuilder
 from simulation.mechanics.advantages import Advantage
 from simulation.mechanics.disadvantages import Disadvantage
 from simulation.mechanics.skills import Skill
-from simulation.schools.factory import get_school
+from simulation.schools.factory import get_combat_school
 from simulation.strategies.factory import get_strategy
 
 
@@ -83,7 +83,7 @@ class CharacterReader:
         elif "profession" in data.keys():
             builder = builder.with_profession()
         elif "school" in data.keys():
-            school = get_school(data["school"])
+            school = get_combat_school(data["school"])
             builder = builder.with_school(school)
         else:
             builder = builder.generic()

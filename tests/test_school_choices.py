@@ -151,17 +151,18 @@ class TestAdapterPassesChoicesToSchool:
                 super().apply_special_ability(character)
 
         # We inject our subclass into the adapter through a monkey-patch of
-        # the module-level ``get_school`` name.
+        # the module-level ``get_combat_school`` name (the adapter builds
+        # characters that fight, so it uses the combat factory).
         import web.adapters.character_adapter as adapter_mod
 
-        original_get_school = getattr(adapter_mod, "get_school")
+        original_get_school = getattr(adapter_mod, "get_combat_school")
 
         def fake_get_school(name: str) -> object:
             if name == "Isawa Ishi School":
                 return _RecordingIshi()
             return original_get_school(name)
 
-        setattr(adapter_mod, "get_school", fake_get_school)
+        setattr(adapter_mod, "get_combat_school", fake_get_school)
         try:
             config = CharacterConfig(
                 name="EarlyChoiceIshi",
@@ -174,6 +175,6 @@ class TestAdapterPassesChoicesToSchool:
             )
             config_to_character(config)
         finally:
-            setattr(adapter_mod, "get_school", original_get_school)
+            setattr(adapter_mod, "get_combat_school", original_get_school)
 
         assert captured.get("first_dan_extra_rolled") == ["parry", "wound check"]

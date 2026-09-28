@@ -5,15 +5,19 @@ import tempfile
 
 import pytest
 
-from simulation.templates.generator import generate_all_templates, generate_template, write_template_yaml
+from simulation.templates.generator import build_only_school_keys, generate_all_templates, generate_template, write_template_yaml
 from simulation.templates.strategies import SCHOOL_NAMES, XP_TIERS
 from web.adapters.character_adapter import config_to_character, yaml_to_config
+
+# Schools that can FIGHT.  Build-only stubs generate (see
+# test_build_only_schools.py) but config_to_character refuses them.
+COMBAT_SCHOOL_KEYS = [k for k in SCHOOL_NAMES if k not in build_only_school_keys()]
 
 
 class TestGenerateTemplate:
     """Test that each generated template produces a valid character."""
 
-    @pytest.mark.parametrize("school_key", list(SCHOOL_NAMES.keys()))
+    @pytest.mark.parametrize("school_key", COMBAT_SCHOOL_KEYS)
     @pytest.mark.parametrize("xp_tier", XP_TIERS)
     def test_template_builds_successfully(self, school_key: str, xp_tier: int):
         """Each template must build via config_to_character without errors."""

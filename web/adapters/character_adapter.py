@@ -5,7 +5,7 @@ import yaml
 
 from simulation.character import Character
 from simulation.character_builder import CharacterBuilder
-from simulation.schools.factory import get_school
+from simulation.schools.factory import get_combat_school
 from simulation.strategies.factory import get_strategy
 from web.models import CharacterConfig
 
@@ -19,7 +19,7 @@ def config_to_character(config: CharacterConfig) -> Character:
     if config.char_type == "profession":
         builder = builder.with_profession()
     elif config.char_type == "school":
-        school = get_school(config.school)
+        school = get_combat_school(config.school)
         # Apply per-character school choices BEFORE with_school() triggers
         # initialize_school(), which runs apply_special_ability and
         # apply_rank_one_ability.  See specs/003-school-choices/spec.md FR-003.

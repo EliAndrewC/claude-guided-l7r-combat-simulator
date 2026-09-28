@@ -1070,6 +1070,22 @@ adjacent runs share rules-text patterns and review heuristics.
 
 ### Bushi schools (direct combat — closest in shape to Mirumoto)
 
+### Build-only stubs (rules/11-non_pc_schools.md) - generate, cannot fight
+
+Added 2026-09-28 so the L7R character sheet can generate NPCs of them
+(`simulation/schools/build_only_schools.py`). They carry school ring
+(with the rules' ring choice), knacks, 1st Dan extra dice, 2nd Dan free
+raise and the 4th Dan ring raise/discount; Special Ability and 3rd/5th
+Dan are NOT simulated, and `get_combat_school()` refuses them, so
+`config_to_character` and `CharacterReader` cannot put them in a fight.
+Their priority lists (`KITSUNE_WARDEN_PRIORITIES`, `MANTIS_PRIORITIES`,
+`SUZUME_PRIORITIES`) came from `school-progression-designer`. Graduating
+one means the full workflow, then dropping `BuildOnlySchool` as its base.
+
+- **Kitsune Warden School** (default school ring fire; choice any non-Void)
+- **Mantis Wave-Treader School** (default school ring fire; choice any)
+- **Suzume Overseer School** (water)
+
 ### Specialty schools (non-bushi combat)
 
 ### Mystic / monk schools
@@ -1081,6 +1097,20 @@ These schools' identities are largely social, but per Constitution
 Principle VIII their combat defaults must still be playable. Audit
 will need careful Principle IX analysis (what does "identity engine
 fires" look like for a school whose identity is social maneuvering?).
+
+## Progression lists that are not monotonic between tiers
+
+Found 2026-09-28 while designing the build-only lists: greedy first-fit
+over several existing lists (Hida, Akodo, Otaku, Kakita, Daidoji, Shinjo
+at least) produces 4-5 XP values between 100 and 700 where a stat DROPS
+as XP rises (e.g. 160, 180, 200, 227), because an item costing 15-20 XP
+becomes affordable and crowds out a cheaper one later in the list. The
+tier YAMLs (every 50 XP) happen to avoid most of them. The character
+sheet generates NPCs at arbitrary XP and re-generates a returning NPC at
+a higher XP, so this matters there. The fix used for Kitsune and Mantis:
+order the Dan-5 skill bumps (10 XP) before the rank-3/4 ring bumps
+(15/20 XP). `tests/test_build_only_schools.py::test_never_worse_at_higher_xp`
+is the check to extend to every school once they are reordered.
 
 ## Out of scope
 

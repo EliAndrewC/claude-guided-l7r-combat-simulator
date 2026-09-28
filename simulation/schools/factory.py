@@ -10,6 +10,7 @@ from typing import Any
 
 from simulation.schools.akodo_school import AkodoBushiSchool
 from simulation.schools.bayushi_school import BayushiBushiSchool
+from simulation.schools.build_only_schools import KitsuneWardenSchool, MantisWaveTreaderSchool, SuzumeOverseerSchool
 from simulation.schools.courtier_school import CourtierSchool
 from simulation.schools.daidoji_school import DaidojiYojimboSchool
 from simulation.schools.doji_artisan_school import DojiArtisanSchool
@@ -62,6 +63,12 @@ def get_school(name: str) -> Any:
         return IsawaDuelistSchool()
     elif name == "Isawa Ishi School":
         return IsawaIshiSchool()
+    elif name == "Kitsune Warden School":
+        return KitsuneWardenSchool()
+    elif name == "Mantis Wave-Treader School":
+        return MantisWaveTreaderSchool()
+    elif name == "Suzume Overseer School":
+        return SuzumeOverseerSchool()
     elif name == "Kakita Bushi School":
         return KakitaBushiSchool()
     elif name == "Kitsuki Magistrate School":
@@ -90,3 +97,21 @@ def get_school(name: str) -> Any:
         return YogoWardenSchool()
     else:
         raise ValueError(f"Unsupported school: {name}")
+
+
+def is_build_only(name: str) -> bool:
+    """True for a school the generator can build but combat cannot run.
+
+    See simulation/schools/build_only_schools.py.
+    """
+    return bool(getattr(get_school(name), "BUILD_ONLY", False))
+
+
+def get_combat_school(name: str) -> Any:
+    """get_school() for anything that will FIGHT: refuses build-only stubs,
+    whose special abilities and 3rd/5th Dan are not simulated, rather than
+    let them fight as a quietly weaker version of the school."""
+    school = get_school(name)
+    if getattr(school, "BUILD_ONLY", False):
+        raise ValueError(f"{name} is build-only: its combat mechanics are not simulated yet")
+    return school

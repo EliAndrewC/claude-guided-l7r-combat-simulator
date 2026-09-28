@@ -14,7 +14,7 @@ import yaml
 
 from simulation.character_builder import CharacterBuilder
 from simulation.character_config import CharacterConfig
-from simulation.schools.factory import get_school
+from simulation.schools.factory import get_school, is_build_only
 from simulation.templates.strategies import (
     NINJA_ABILITIES,
     SCHOOL_NAMES,
@@ -43,9 +43,11 @@ SCHOOL_KNACK_LOOKUP: dict[str, list[str]] = {
     "Isawa Duelist School": ["double attack", "iaijutsu", "lunge"],
     "Isawa Ishi School": ["absorb void", "kharmic spin", "otherworldliness"],
     "Kakita Bushi School": ["double attack", "iaijutsu", "lunge"],
+    "Kitsune Warden School": ["absorb void", "commune", "iaijutsu"],
     "Kitsuki Magistrate School": ["discern honor", "iaijutsu", "presence"],
     "Kuni Witch Hunter School": ["detect taint", "iaijutsu", "presence"],
     "Matsu Bushi School": ["double attack", "iaijutsu", "lunge"],
+    "Mantis Wave-Treader School": ["athletics", "iaijutsu", "worldliness"],
     "Merchant School": ["discern honor", "oppose knowledge", "worldliness"],
     "Mirumoto Bushi School": ["counterattack", "double attack", "iaijutsu"],
     "Otaku Bushi School": ["double attack", "iaijutsu", "lunge"],
@@ -53,6 +55,7 @@ SCHOOL_KNACK_LOOKUP: dict[str, list[str]] = {
     "Shiba Bushi School": ["counterattack", "double attack", "iaijutsu"],
     "Shinjo Bushi School": ["double attack", "iaijutsu", "lunge"],
     "Shosuro Actor School": ["athletics", "discern honor", "pontificate"],
+    "Suzume Overseer School": ["oppose social", "pontificate", "worldliness"],
     "Togashi Ise Zumi School": ["athletics", "conviction", "dragon tattoo"],
     "Yogo Warden School": ["double attack", "feint", "iaijutsu"],
 }
@@ -71,9 +74,11 @@ SCHOOL_RING_LOOKUP: dict[str, str] = {
     "Isawa Duelist School": "water",
     "Isawa Ishi School": "void",
     "Kakita Bushi School": "fire",
+    "Kitsune Warden School": "fire",
     "Kitsuki Magistrate School": "water",
     "Kuni Witch Hunter School": "earth",
     "Matsu Bushi School": "fire",
+    "Mantis Wave-Treader School": "fire",
     "Merchant School": "water",
     "Mirumoto Bushi School": "void",
     "Otaku Bushi School": "fire",
@@ -81,9 +86,20 @@ SCHOOL_RING_LOOKUP: dict[str, str] = {
     "Shiba Bushi School": "air",
     "Shinjo Bushi School": "air",
     "Shosuro Actor School": "air",
+    "Suzume Overseer School": "water",
     "Togashi Ise Zumi School": "void",
     "Yogo Warden School": "earth",
 }
+
+
+def build_only_school_keys() -> frozenset[str]:
+    """Keys of SCHOOL_NAMES whose school is a build-only stub: generate_template
+    builds them, but they are not written as combat templates (nothing can
+    fight with them - see simulation/schools/build_only_schools.py)."""
+    return frozenset(
+        key for key, name in SCHOOL_NAMES.items()
+        if key not in ("wave_man", "ninja") and is_build_only(name)
+    )
 
 
 def _consolidate_details(
@@ -410,7 +426,10 @@ def generate_all_templates(base_dir: str | None = None) -> list[CharacterConfig]
         )
 
     configs: list[CharacterConfig] = []
+    skip = build_only_school_keys()
     for school_key in SCHOOL_NAMES:
+        if school_key in skip:
+            continue
         for xp_tier in XP_TIERS:
             config, breakdown = generate_template(school_key, xp_tier)
             filename = f"{school_key}_{xp_tier}.yaml"

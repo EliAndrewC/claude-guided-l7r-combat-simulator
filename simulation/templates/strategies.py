@@ -1405,6 +1405,167 @@ ISE_ZUMI_PRIORITIES: list[tuple[str, str, int]] = [
 ]
 
 # Map school names to their priority lists
+# ---------------------------------------------------------------------------
+# BUILD-ONLY schools (rules/11-non_pc_schools.md).  Their combat mechanics are
+# not simulated (simulation/schools/build_only_schools.py) - these lists exist
+# so the character sheet can generate NPCs of them.  Each was proposed by the
+# school-progression-designer agent from the school's rules text (2026-09-28).
+# ---------------------------------------------------------------------------
+
+# Kitsune Warden (school_ring: fire [choice; any non-Void], knacks: absorb void, commune, iaijutsu)
+# Identity: a Fire school ring powers attack + damage + iaijutsu natively (none of which the
+# Special Ability's once-per-target ring swap can reach); the swap patches parry / wound
+# check.  3rd Dan's 2X precepts free raises (attack, wound check, 3 skills) make precepts the
+# cheapest high-value buy once Dan 3 is live.
+KITSUNE_WARDEN_PRIORITIES: list[tuple[str, str, int]] = [
+    # Dan 2 - iaijutsu first: the only combat-rolled school knack (Fire-keyed, swap-excluded).
+    # Absorb void (VP refills) next; commune is non-combat.
+    ("skill", "iaijutsu", 2),
+    ("skill", "absorb void", 2),
+    ("skill", "commune", 2),
+    ("skill", "attack", 2),        # 3rd Dan raises apply to attack
+    ("skill", "parry", 2),
+    # Dan 3 - knacks to 3 turn on the 3rd Dan; precepts right after (X = precepts:
+    # 2X raises/adventure, max X per roll).
+    ("skill", "iaijutsu", 3),
+    ("skill", "absorb void", 3),
+    ("skill", "commune", 3),
+    ("skill", "precepts", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("skill", "precepts", 5),
+    ("ring", "earth", 3),          # never rolled, so the swap cannot cover it; SW threshold
+    # Dan 4 - fire +1 free and the -5 XP school-ring discount.
+    ("skill", "iaijutsu", 4),
+    ("skill", "absorb void", 4),
+    ("skill", "commune", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    # Dan 5 - BEFORE the rank-3 rings: the 10-XP skill bumps must precede the 15/20-XP
+    # ring bumps, or greedy first-fit buys a ring at one XP value and a skill at a
+    # slightly lower one (a stat drops as XP rises; same fix as MANTIS_PRIORITIES).
+    ("skill", "iaijutsu", 5),
+    ("skill", "absorb void", 5),
+    ("skill", "commune", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Rank-3 rings: void first (absorb void refills spent VP), then water (every hit's
+    # wound check), air (parry)
+    ("ring", "void", 3),
+    ("ring", "water", 3),
+    ("ring", "air", 3),
+    # Max rings - cost-ordered (20s then 25s)
+    ("ring", "fire", 5),           # school ring discounted: 20
+    ("ring", "earth", 4),
+    ("ring", "void", 4),
+    ("ring", "water", 4),
+    ("ring", "air", 4),
+    ("ring", "earth", 5),
+    ("ring", "fire", 6),           # school ring discounted: 25
+    ("ring", "void", 5),
+    ("ring", "water", 5),
+    ("ring", "air", 5),
+]
+
+# Mantis Wave-Treader (school_ring: fire [choice; any], knacks: athletics, iaijutsu, worldliness)
+# Identity: posture switching.  Attack skill is X in BOTH 3rd Dan clauses (offense: +X
+# attack/damage; defense: +X wound check/TN), so attack leads every tier; parry at every
+# tier because the defensive posture stacks on the parry-derived TN to be hit; water is
+# the first bought ring (SA / 1st / 3rd / 5th Dan all touch wound checks).  The Dan-5
+# skills deliberately precede the rank-3 rings: in the real generator that ordering has
+# zero XP values (100-700) where a stat drops as XP rises.
+MANTIS_PRIORITIES: list[tuple[str, str, int]] = [
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    ("skill", "athletics", 2),
+    ("skill", "iaijutsu", 2),
+    ("skill", "worldliness", 2),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("skill", "athletics", 3),
+    ("skill", "iaijutsu", 3),
+    ("skill", "worldliness", 3),
+    ("ring", "water", 3),          # defensive half: wound checks
+    # Dan 4 auto-raises fire to 4 with the -5 XP discount; fire 4 is never bought
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("skill", "athletics", 4),
+    ("skill", "iaijutsu", 4),
+    ("skill", "worldliness", 4),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    ("skill", "athletics", 5),
+    ("skill", "iaijutsu", 5),
+    ("skill", "worldliness", 5),
+    # Rank-3 rings: void = action dice the 3rd Dan spends; earth = SW headroom; air last
+    ("ring", "void", 3),
+    ("ring", "earth", 3),
+    ("ring", "air", 3),
+    # Max rings, cheapest first
+    ("ring", "fire", 5),           # school ring discounted: 20
+    ("ring", "water", 4),
+    ("ring", "void", 4),
+    ("ring", "earth", 4),
+    ("ring", "air", 4),
+    ("ring", "fire", 6),           # school ring discounted: 25
+    ("ring", "water", 5),
+    ("ring", "void", 5),
+    ("ring", "earth", 5),
+    ("ring", "air", 5),
+]
+
+# Suzume Overseer (school_ring: water, knacks: oppose social, pontificate, worldliness)
+# Identity: a wound-check survivor that spends void after seeing the roll.  max_vp is
+# min ring + worldliness, so the Special Ability is fed by worldliness and by lifting ALL
+# four non-school rings together (void last in each tier completes the lift).  3rd Dan's
+# 2X precepts free raises (attack, wound checks) make precepts the one non-combat buy.
+SUZUME_PRIORITIES: list[tuple[str, str, int]] = [
+    ("skill", "precepts", 2),
+    ("skill", "precepts", 3),
+    # Dan 2 - worldliness leads (extra VP to spend post-roll); attack before parry
+    ("skill", "worldliness", 2),
+    ("skill", "oppose social", 2),
+    ("skill", "pontificate", 2),
+    ("skill", "attack", 2),
+    ("skill", "parry", 2),
+    ("skill", "precepts", 4),
+    # Dan 3 - unlocks the precepts pool; earth 3 is the one Dan-3 ring
+    ("skill", "worldliness", 3),
+    ("skill", "oppose social", 3),
+    ("skill", "pontificate", 3),
+    ("skill", "attack", 3),
+    ("skill", "parry", 3),
+    ("skill", "precepts", 5),
+    ("ring", "earth", 3),
+    # Dan 4 - water +1 free and the -5 XP discount
+    ("skill", "worldliness", 4),
+    ("skill", "oppose social", 4),
+    ("skill", "pontificate", 4),
+    ("skill", "attack", 4),
+    ("skill", "parry", 4),
+    ("ring", "fire", 3),           # attack ring (3rd Dan raises / 5th Dan TN bonus)
+    ("ring", "air", 3),
+    ("ring", "void", 3),           # completes the min-ring lift to 3
+    # Dan 5
+    ("skill", "worldliness", 5),
+    ("skill", "oppose social", 5),
+    ("skill", "pontificate", 5),
+    ("skill", "attack", 5),
+    ("skill", "parry", 5),
+    # Max rings - cheapest first (20-tier, then 25-tier)
+    ("ring", "water", 5),          # school ring discounted: 20
+    ("ring", "earth", 4),
+    ("ring", "fire", 4),
+    ("ring", "air", 4),
+    ("ring", "void", 4),
+    ("ring", "water", 6),          # school ring discounted: 25
+    ("ring", "earth", 5),
+    ("ring", "fire", 5),
+    ("ring", "air", 5),
+    ("ring", "void", 5),
+]
+
+
 SCHOOL_PRIORITIES: dict[str, list[tuple[str, str, int]]] = {
     "Akodo Bushi School": AKODO_PRIORITIES,
     "Bayushi Bushi School": BAYUSHI_PRIORITIES,
@@ -1433,6 +1594,9 @@ SCHOOL_PRIORITIES: dict[str, list[tuple[str, str, int]]] = {
     "Ninja": NINJA_PRIORITIES,
     "Wave Man": WAVE_MAN_PRIORITIES,
     "Yogo Warden School": YOGO_PRIORITIES,
+    "Kitsune Warden School": KITSUNE_WARDEN_PRIORITIES,
+    "Mantis Wave-Treader School": MANTIS_PRIORITIES,
+    "Suzume Overseer School": SUZUME_PRIORITIES,
 }
 
 # Short name to full school/profession name
@@ -1464,6 +1628,10 @@ SCHOOL_NAMES: dict[str, str] = {
     "ninja": "Ninja",
     "wave_man": "Wave Man",
     "yogo": "Yogo Warden School",
+    # Build-only stubs (generate_template only; refused for combat)
+    "kitsune_warden": "Kitsune Warden School",
+    "mantis": "Mantis Wave-Treader School",
+    "suzume": "Suzume Overseer School",
 }
 
 XP_TIERS: list[int] = [150, 200, 250, 300, 350, 400, 450]
