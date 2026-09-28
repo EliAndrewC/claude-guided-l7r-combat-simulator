@@ -68,9 +68,33 @@ After every code change, run these steps in order:
 
 ## Secrets and credentials
 
-Secrets live in a project-root `.env` file (gitignored — never commit). Currently the only secret is:
+## Git: commit and push
+
+Claude commits to `master` and pushes it to GitHub (GM, 2026-09-28; this
+replaces the earlier "never run `git push` yourself" rule). The repo is
+configured for forward-only pushes, and that is the rule here too:
+
+- **Append-only history.** Never `git push --force` / `--force-with-lease`,
+  never rebase or amend a pushed commit, never delete or reset pushed
+  commits or remote branches. Fix a bad pushed commit with a new one
+  (`git revert` is fine).
+- **Auth:** the `origin` remote is SSH, which a sandbox container usually
+  has no key for. Push over HTTPS with a fine-grained GitHub PAT (contents:
+  read/write on this repo) kept in this repo's gitignored `.env` as
+  `GITHUB_TOKEN`:
+  ```bash
+  set -a && source .env && set +a
+  git -c credential.helper= -c "credential.helper=!f() { echo username=x-access-token; echo password=$GITHUB_TOKEN; }; f" \
+      push https://github.com/EliAndrewC/claude-guided-l7r-combat-simulator.git master:master
+  ```
+  If `.env` has no token that can push here, commit locally and tell the GM
+  the push is pending.
+- **Never commit secrets** (`.env` is gitignored).
+
+Secrets live in a project-root `.env` file (gitignored — never commit). Currently the secrets are:
 
 - `FLY_API_TOKEN` — auth for `flyctl` deploys
+- `GITHUB_TOKEN` — fine-grained PAT for pushing `master` (see "Git: commit and push")
 
 If `.env` is missing in a fresh container, the user has the canonical copy and will paste it back. New secrets we adopt go into the same `.env` and should be documented here.
 
@@ -136,8 +160,8 @@ and run this workflow:
    UI touched, trace observability per Principle VII, identity-driven
    defaults per Principle VIII, playability per Principle IX.
 
-8. **Squash-merge** the feature branch into `master`. User handles
-   `git push` (per durable constraint — never run `git push` yourself).
+8. **Squash-merge** the feature branch into `master`, then push it
+   (see "Git: commit and push" below).
 
 9. **Update BACKLOG.md** — move the school's entry from "Skeleton
    present" to "Validated via speckit workflow" with the merge commit
