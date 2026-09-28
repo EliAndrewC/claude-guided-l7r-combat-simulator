@@ -11,3 +11,7 @@ web/.sessions/
 # coordination files.  Project config (.claude/agents/, .claude/skills/)
 # stays committed.
 .claude/*.lock
+
+# pip build artifacts (the package is installable; see [project] in pyproject.toml)
+build/
+*.egg-info/

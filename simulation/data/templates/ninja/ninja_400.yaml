@@ -26,8 +26,7 @@ abilities:
   damage reduction: 2
   attack penalty: 2
   sincerity bonus: 2
-  stealth (invisibility): 2
-  stealth (memorability): 2
+  stealth (invisibility): 1
 template_tier: '400'
 template_earned_xp: 400
 template_school: Ninja

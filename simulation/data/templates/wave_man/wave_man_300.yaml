@@ -23,8 +23,7 @@ abilities:
   rolled damage bonus: 2
   initiative bonus: 2
   crippled bonus: 2
-  missed attack bonus: 2
-  parry penalty: 2
+  missed attack bonus: 1
 template_tier: '300'
 template_earned_xp: 300
 template_school: Wave Man

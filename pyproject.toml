@@ -1,3 +1,24 @@
+# Packaging: installs the ``simulation`` package alone (never ``web``), so
+# other apps can call the character generator, e.g. the L7R character
+# sheet's NPC generator: ``pip install git+https://github.com/EliAndrewC/claude-guided-l7r-combat-simulator``
+# (or ``pip install -e <this checkout>`` for live local development).
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "l7r-combat-simulator"
+version = "0.1.0"
+description = "L7R combat simulator engine and character-template generator"
+requires-python = ">=3.10"
+dependencies = ["pyyaml"]
+
+[tool.setuptools.packages.find]
+include = ["simulation", "simulation.*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml", "*.txt"]
+
 [tool.ruff]
 line-length = 320
 target-version = "py310"

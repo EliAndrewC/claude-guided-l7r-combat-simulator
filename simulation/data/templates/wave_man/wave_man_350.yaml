@@ -25,8 +25,6 @@ abilities:
   crippled bonus: 2
   missed attack bonus: 2
   parry penalty: 2
-  failed parry damage bonus: 2
-  damage penalty: 1
 template_tier: '350'
 template_earned_xp: 350
 template_school: Wave Man

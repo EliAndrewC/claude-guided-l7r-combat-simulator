@@ -18,8 +18,7 @@ skills:
   attack: 4
   parry: 4
 abilities:
-  wound check bonus: 2
-  weapon damage bonus: 2
+  wound check bonus: 1
 template_tier: '150'
 template_earned_xp: 150
 template_school: Wave Man

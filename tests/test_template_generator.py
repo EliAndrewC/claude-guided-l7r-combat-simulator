@@ -204,3 +204,71 @@ class TestGenerateAllTemplates:
             for config in configs:
                 character = config_to_character(config)
                 assert character.is_alive()
+
+
+class TestCombatXpFraction:
+    """``combat_xp_fraction`` lets a caller (the character sheet's NPC
+    generator) choose how much XP goes on combat instead of the 75% default."""
+
+    def test_default_is_the_module_constant(self):
+        _, breakdown = generate_template("kakita", 300)
+        assert breakdown["combat_xp_fraction"] == 0.75
+        assert breakdown["combat_budget"] == 225
+
+    @pytest.mark.parametrize("fraction", [0.532, 0.6, 0.91])
+    def test_fraction_sets_the_budget(self, fraction: float):
+        _, breakdown = generate_template("kakita", 300, combat_xp_fraction=fraction)
+        assert breakdown["combat_xp_fraction"] == fraction
+        assert breakdown["combat_budget"] == int(300 * fraction)
+        assert breakdown["non_combat_xp"] == 300 - int(300 * fraction)
+        assert breakdown["combat_spent"] <= breakdown["combat_budget"]
+
+    def test_more_combat_share_never_gives_lower_stats(self):
+        low, _ = generate_template("wave_man", 300, combat_xp_fraction=0.55)
+        high, _ = generate_template("wave_man", 300, combat_xp_fraction=0.9)
+        for ring, rank in low.rings.items():
+            assert high.rings[ring] >= rank
+        for skill, rank in low.skills.items():
+            assert high.skills.get(skill, 0) >= rank
+
+    @pytest.mark.parametrize("fraction", [0.0, -0.1, 1.01])
+    def test_fraction_out_of_range_is_rejected(self, fraction: float):
+        with pytest.raises(ValueError):
+            generate_template("kakita", 300, combat_xp_fraction=fraction)
+
+    def test_breakdown_comment_reports_the_fraction_used(self):
+        config, breakdown = generate_template("kakita", 200, combat_xp_fraction=0.6)
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            path = f.name
+        try:
+            write_template_yaml(config, path, breakdown)
+            with open(path) as f:
+                content = f.read()
+            assert "(60%)" in content
+            assert "(40%)" in content
+        finally:
+            os.unlink(path)
+
+
+class TestSimulationPackageIsSelfContained:
+    """The installable package is ``simulation`` alone, so nothing it
+    imports may reach into ``web`` (a top-level name we must not install
+    into another app's environment)."""
+
+    def test_generator_imports_without_web(self):
+        import subprocess
+        import sys
+
+        code = (
+            "import sys; import simulation.templates.generator; "
+            "bad = [m for m in sys.modules if m == 'web' or m.startswith('web.')]; "
+            "print(bad); sys.exit(1 if bad else 0)"
+        )
+        result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+        assert result.returncode == 0, result.stdout + result.stderr
+
+    def test_web_models_still_exports_character_config(self):
+        from simulation.character_config import CharacterConfig as FromSimulation
+        from web.models import CharacterConfig as FromWeb
+
+        assert FromWeb is FromSimulation

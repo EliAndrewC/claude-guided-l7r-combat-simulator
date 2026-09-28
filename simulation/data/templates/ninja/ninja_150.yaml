@@ -18,8 +18,7 @@ skills:
   attack: 4
   parry: 4
 abilities:
-  defense bonus: 2
-  attack bonus: 2
+  defense bonus: 1
 template_tier: '150'
 template_earned_xp: 150
 template_school: Ninja

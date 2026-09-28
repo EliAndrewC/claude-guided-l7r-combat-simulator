@@ -23,8 +23,7 @@ abilities:
   damage keeping bonus: 2
   wound check ninja bonus: 2
   initiative reduction: 2
-  damage reduction: 2
-  attack penalty: 2
+  damage reduction: 1
 template_tier: '300'
 template_earned_xp: 300
 template_school: Ninja

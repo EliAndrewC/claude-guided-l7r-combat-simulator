@@ -3,7 +3,7 @@
 Uses CharacterBuilder to validate each purchase, producing CharacterConfig
 objects that can be serialized to YAML template files.
 
-Reserves 25% of XP for non-combat skills and tracks spending by category
+Reserves 25% of XP (by default) for non-combat skills and tracks spending by category
 to produce XP breakdown comments in the output YAML.
 """
 
@@ -13,6 +13,7 @@ from typing import Any
 import yaml
 
 from simulation.character_builder import CharacterBuilder
+from simulation.character_config import CharacterConfig
 from simulation.schools.factory import get_school
 from simulation.templates.strategies import (
     NINJA_ABILITIES,
@@ -21,7 +22,6 @@ from simulation.templates.strategies import (
     WAVE_MAN_ABILITIES,
     XP_TIERS,
 )
-from web.models import CharacterConfig
 
 # Fraction of earned XP a typical character spends on combat (rings,
 # school knacks, attack/parry). Set to 0.75 on 2026-06-14 from the
@@ -111,7 +111,7 @@ def _format_breakdown_comments(breakdown: dict[str, Any]) -> str:
     non_combat = breakdown["non_combat_xp"]
     spent = breakdown["combat_spent"]
 
-    combat_pct = round(COMBAT_XP_FRACTION * 100)
+    combat_pct = round(breakdown["combat_xp_fraction"] * 100)
     non_combat_pct = 100 - combat_pct
     lines.append(f"# XP Breakdown ({total} XP total):")
     lines.append(
@@ -155,6 +155,7 @@ def generate_template(
     school_key: str,
     total_xp: int,
     priorities: list[tuple[str, str, int]] | None = None,
+    combat_xp_fraction: float = COMBAT_XP_FRACTION,
 ) -> tuple[CharacterConfig, dict[str, Any]]:
     """Generate a CharacterConfig for a school/profession at the given XP tier.
 
@@ -166,16 +167,20 @@ def generate_template(
         total_xp: Total XP budget for the character
         priorities: Optional custom priority list. If None, uses the
             default school priorities from SCHOOL_PRIORITIES.
+        combat_xp_fraction: Share of total XP spent on combat, in (0, 1].
+            Defaults to COMBAT_XP_FRACTION; the rest is left unspent.
 
     Returns:
         Tuple of (CharacterConfig, breakdown dict with XP tracking)
     """
+    if not 0 < combat_xp_fraction <= 1:
+        raise ValueError(f"combat_xp_fraction must be in (0, 1], got {combat_xp_fraction}")
     school_name = SCHOOL_NAMES[school_key]
     if priorities is None:
         priorities = SCHOOL_PRIORITIES[school_name]
     is_profession = school_key in ("wave_man", "ninja")
 
-    combat_budget = int(total_xp * COMBAT_XP_FRACTION)
+    combat_budget = int(total_xp * combat_xp_fraction)
     non_combat_xp = total_xp - combat_budget
 
     name = school_key.replace("_", " ").title()
@@ -336,6 +341,7 @@ def generate_template(
 
     breakdown = {
         "total_xp": total_xp,
+        "combat_xp_fraction": combat_xp_fraction,
         "combat_budget": combat_budget,
         "non_combat_xp": non_combat_xp,
         "ring_xp": ring_xp,

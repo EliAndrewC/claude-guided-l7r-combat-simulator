@@ -21,9 +21,7 @@ abilities:
   wound check bonus: 2
   weapon damage bonus: 2
   rolled damage bonus: 2
-  initiative bonus: 2
-  crippled bonus: 2
-  missed attack bonus: 1
+  initiative bonus: 1
 template_tier: '250'
 template_earned_xp: 250
 template_school: Wave Man

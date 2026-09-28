@@ -819,11 +819,37 @@ class TestCharacterBuilderTakeAbility(unittest.TestCase):
 
     def test_take_ability_too_many_raises(self):
         """Line 212: raises RuntimeError when too many abilities."""
-        # 100 XP allows 1 ability: ((100 - 100) // 15) + 1 = 1
-        builder = CharacterBuilder().with_name("Test").with_xp(100).with_profession()
+        # 150 XP allows 1 ability: the first arrives at 150 total XP.
+        builder = CharacterBuilder().with_name("Test").with_xp(150).with_profession()
         builder.take_ability("crippled bonus")
         with self.assertRaises(RuntimeError):
             builder.take_ability("initiative bonus")
+
+    def _max_abilities(self, xp: int) -> int:
+        builder = CharacterBuilder().with_name("Test").with_xp(xp).with_profession()
+        names = ["crippled bonus", "initiative bonus", "wound check bonus",
+                 "missed attack bonus", "parry penalty", "weapon damage bonus",
+                 "rolled damage bonus", "damage penalty", "failed parry damage bonus",
+                 "wound check penalty"]
+        taken = 0
+        for name in names + names:
+            try:
+                builder.take_ability(name)
+            except RuntimeError:
+                break
+            taken += 1
+        return taken
+
+    def test_ability_allowance_follows_the_rules(self):
+        """One ability at 150 total XP, plus one more every 15 XP beyond it.
+
+        Matches the character sheet's PROFESSION_ABILITY_UNLOCK_BASE/STEP.
+        The old formula counted from 100 XP, giving 4 abilities at 150.
+        """
+        cases = {100: 0, 149: 0, 150: 1, 164: 1, 165: 2, 200: 4, 300: 11, 435: 20}
+        for xp, expected in cases.items():
+            with self.subTest(xp=xp):
+                self.assertEqual(self._max_abilities(xp), expected)
 
     def test_take_ability_success(self):
         builder = CharacterBuilder().with_name("Test").with_xp(200).with_profession()

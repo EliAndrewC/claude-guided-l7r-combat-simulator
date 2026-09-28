@@ -208,7 +208,11 @@ class _ProfessionCharacterBuilder(_BaseCharacterBuilder):
 
         Take a level in the named ability.
         """
-        abilities_available = ((self.xp() - 100) // 15) + 1
+        # One ability at 150 total XP, one more every 15 XP beyond it
+        # (rules/09-professions.md via the character sheet's
+        # PROFESSION_ABILITY_UNLOCK_BASE / _STEP). Counting from 100
+        # instead handed out 3 extra abilities at every XP level.
+        abilities_available = max(0, (self.xp() - 150) // 15 + 1)
         if len(self.profession()) >= abilities_available:
             raise RuntimeError("May not take any more abilities")
         self.profession().take_ability(name)

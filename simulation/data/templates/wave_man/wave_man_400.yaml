@@ -26,8 +26,7 @@ abilities:
   missed attack bonus: 2
   parry penalty: 2
   failed parry damage bonus: 2
-  damage penalty: 2
-  wound check penalty: 2
+  damage penalty: 1
 template_tier: '400'
 template_earned_xp: 400
 template_school: Wave Man

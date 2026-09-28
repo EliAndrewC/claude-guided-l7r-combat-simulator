@@ -20,8 +20,6 @@ skills:
 abilities:
   defense bonus: 2
   attack bonus: 2
-  damage keeping bonus: 2
-  wound check ninja bonus: 1
 template_tier: '200'
 template_earned_xp: 200
 template_school: Ninja
