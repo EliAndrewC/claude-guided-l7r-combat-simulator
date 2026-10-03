@@ -1,6 +1,6 @@
 # Tabletop RPG Combat Simulator Project
 
-<!-- Dev-container config consumed by launch-container.sh (lives in the sibling gm-assistant repo). Format is HOST:CONTAINER. -->
+<!-- Dev-container config consumed by launch-container (lives in the this-laptop repo: ~/this-laptop/host-scripts/launch-container.sh; /host-scripts, read-only, in the container). Format is HOST:CONTAINER. -->
 <!-- Primary = the Streamlit app (container 8501). Secondary (container 8090) is reserved for a future blind-eval webapp; nothing listens there yet. Host ports are unique across the GM's repos so several containers can run at once. -->
 <!-- container-ports: 8501:8501 8093:8090 -->
 <!-- Mount the parent l7r repo at /host-l7r-repo; its rules/ dir holds the canonical L7R rules this simulator implements. -->
