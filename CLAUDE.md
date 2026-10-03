@@ -5,7 +5,6 @@
 <!-- container-ports: 8501:8501 8093:8090 -->
 <!-- Mount the parent l7r repo at /host-l7r-repo; its rules/ dir holds the canonical L7R rules this simulator implements. -->
 <!-- container-mounts: ..:/host-l7r-repo -->
-<!-- container-workdir: /simulator -->
 <!-- (distinct mount path per repo so Claude memory under ~/.claude/projects/ stays separate across sibling repos) -->
 
 This is a project which was begun years ago and never completely finished.  Its
